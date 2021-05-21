@@ -1,0 +1,32 @@
+name: Default Workflow
+on: [push, pull_request]
+jobs:
+  test:
+    name: test
+    strategy:
+      matrix:
+        go-version: [1.15.x, 1.16.x]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+      fail-fast: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+        id: go
+      - uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - run: go test ./... -cover
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: golangci/golangci-lint-action@v2
+        with:
+          version: latest
