@@ -45,6 +45,12 @@ func (m *Metrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddInt("port", m.Port)
+	enc.AddBool("tls", m.TLS)
+
+	if m.TLS {
+		enc.AddString("cert-file", m.CertFile)
+		enc.AddString("key-file", m.KeyFile)
+	}
 
 	return nil
 }
