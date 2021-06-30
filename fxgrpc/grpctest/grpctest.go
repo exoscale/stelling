@@ -1,0 +1,52 @@
+package grpctest
+
+import (
+	"context"
+	"net"
+
+	"github.com/exoscale/stelling/fxgrpc"
+	"go.uber.org/fx"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/test/bufconn"
+)
+
+// Module provides a grpc Server and ClientConn that use a buffer instead of the actual network to communicate
+var Module = fx.Provide(
+	NewGrpc,
+)
+
+func NewGrpc(lc fx.Lifecycle) (*grpc.Server, grpc.ClientConnInterface) {
+	lis := bufconn.Listen(1024 * 1024)
+	s := grpc.NewServer()
+
+	bufDialer := func(context.Context, string) (net.Conn, error) {
+		return lis.Dial()
+	}
+	conn := fxgrpc.NewLazyGrpcClientConn(
+		"buffcon",
+		grpc.WithContextDialer(bufDialer),
+		grpc.WithInsecure(),
+	)
+
+	lc.Append(fx.Hook{
+		OnStart: func(_ context.Context) error {
+			go s.Serve(lis) //nolint: errcheck
+			return nil
+		},
+		OnStop: func(_ context.Context) error {
+			s.Stop()
+			return nil
+		},
+	})
+
+	lc.Append(fx.Hook{
+		OnStart: func(c context.Context) error {
+			return conn.Start(c)
+		},
+		OnStop: func(c context.Context) error {
+			return conn.Stop(c)
+		},
+	})
+
+	return s, conn
+}

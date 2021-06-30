@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
-var Module = fx.Provide(
+var ServerModule = fx.Provide(
 	NewGrpcServer,
 )
 
