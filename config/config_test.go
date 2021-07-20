@@ -1,7 +1,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -66,13 +65,13 @@ func TestConfigFromYAML(t *testing.T) {
 		MyString: "YAMLVariable",
 	}
 
-	confFile, err := ioutil.TempFile("", "config")
-	assert.NoErrorf(t, err, "Failed to create temporary file")
+	confFile, err := os.CreateTemp("", "config")
+	assert.NoError(t, err, "Failed to create temporary file")
 	defer os.Remove(confFile.Name())
 
 	_, err = confFile.WriteString("mystring: YAMLVariable")
-	assert.NoErrorf(t, err, "Failed to write to temporary file")
-	assert.NoErrorf(t, confFile.Close(), "Failed to close temporary file")
+	assert.NoError(t, err, "Failed to write to temporary file")
+	assert.NoError(t, confFile.Close(), "Failed to close temporary file")
 
 	config := Config{}
 	if assert.NoError(t, Load(&config, []string{"conf", "-f", confFile.Name()})) {
@@ -114,15 +113,15 @@ func TestConfigLoadOrder(t *testing.T) {
 		LoadFlag:    "Flag",
 	}
 
-	confFile, err := ioutil.TempFile("", "config")
-	assert.NoErrorf(t, err, "Failed to create temporary file")
+	confFile, err := os.CreateTemp("", "config")
+	assert.NoError(t, err, "Failed to create temporary file")
 	defer os.Remove(confFile.Name())
 
 	_, err = confFile.WriteString(`loadyaml: YAML
 loadenv: YAML
 loadflag: YAML`)
-	assert.NoErrorf(t, err, "Failed to write to temporary file")
-	assert.NoErrorf(t, confFile.Close(), "Failed to close temporary file")
+	assert.NoError(t, err, "Failed to write to temporary file")
+	assert.NoError(t, confFile.Close(), "Failed to close temporary file")
 
 	os.Setenv("CONFIG_LOADENV", "Env")
 	os.Setenv("CONFIG_LOADFLAG", "Env")
@@ -156,13 +155,13 @@ func TestNestedDefaultValues(t *testing.T) {
 		},
 	}
 
-	confFile, err := ioutil.TempFile("", "config")
-	assert.NoErrorf(t, err, "Failed to create temporary file")
+	confFile, err := os.CreateTemp("", "config")
+	assert.NoError(t, err, "Failed to create temporary file")
 	defer os.Remove(confFile.Name())
 
 	_, err = confFile.WriteString(`loadyaml: YAML`)
-	assert.NoErrorf(t, err, "Failed to write to temporary file")
-	assert.NoErrorf(t, confFile.Close(), "Failed to close temporary file")
+	assert.NoError(t, err, "Failed to write to temporary file")
+	assert.NoError(t, confFile.Close(), "Failed to close temporary file")
 
 	args := []string{
 		"conf",
