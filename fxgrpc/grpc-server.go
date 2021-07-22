@@ -2,9 +2,14 @@ package fxgrpc
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
+	"os"
+	"time"
 
+	reloader "github.com/exoscale/stelling/fxcert-reloader"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -16,6 +21,30 @@ import (
 )
 
 var ServerModule = fx.Provide(
+	// ProvideCertReloader should only consume our named config instance
+	// (otherwise all CertReloaders will consume the same config)
+	// Consuming 'dynamic' named entries is extremely uggly
+	// There seem to be some plans to improve this, but for the foreseeable
+	// future we're stuck with this API
+	// https://github.com/uber-go/fx/pull/718#issuecomment-790148469
+	fx.Annotated{
+		Target: func(x struct {
+			fx.In
+			Lc     fx.Lifecycle
+			Conf   *reloader.CertReloaderConfig `optional:"true" name:"grpc_server"`
+			Logger *zap.Logger
+		}) (*reloader.CertReloader, error) {
+			if x.Conf == nil {
+				return nil, nil
+			}
+			return reloader.ProvideCertReloader(x.Lc, x.Conf, x.Logger)
+		},
+		Name: "grpc_server",
+	},
+	fx.Annotated{
+		Target: GetCertReloaderConfig,
+		Name:   "grpc_server",
+	},
 	NewGrpcServer,
 )
 
@@ -30,6 +59,8 @@ type Server struct {
 	CertFile string `validate:"required_if=TLS true,omitempty,file"`
 	// KeyFile is the path to the pem encoded private key of the TLS certificate
 	KeyFile string `validate:"required_if=TLS true,omitempty,file"`
+	// ClientCAFile is the path to a pem encoded CA cert bundle used to validate clients
+	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
 	// Port is the port the gRPC server will bind to
 	Port int `default:"10000" validate:"port"`
 }
@@ -48,9 +79,21 @@ func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if s.TLS {
 		enc.AddString("cert-file", s.CertFile)
 		enc.AddString("key-file", s.KeyFile)
+		enc.AddString("client-ca-file", s.ClientCAFile)
 	}
 
 	return nil
+}
+
+func GetCertReloaderConfig(conf GrpcServerConfig) *reloader.CertReloaderConfig {
+	if !conf.GetServer().TLS {
+		return nil
+	}
+	return &reloader.CertReloaderConfig{
+		CertFile:       conf.GetServer().CertFile,
+		KeyFile:        conf.GetServer().KeyFile,
+		ReloadInterval: 10 * time.Second,
+	}
 }
 
 type GrpcServerParams struct {
@@ -61,6 +104,28 @@ type GrpcServerParams struct {
 	Logger             *zap.Logger
 	UnaryInterceptors  []grpc.UnaryServerInterceptor  `group:"unary_server_interceptor"`
 	StreamInterceptors []grpc.StreamServerInterceptor `group:"stream_server_interceptor"`
+	Reloader           *reloader.CertReloader         `name:"grpc_server" optional:"true"`
+}
+
+func makeServerTLS(r *reloader.CertReloader, clientCAFile string) (credentials.TransportCredentials, error) {
+	tlsConf := &tls.Config{
+		GetCertificate: r.GetCertificate,
+	}
+
+	if clientCAFile != "" {
+		certPool := x509.NewCertPool()
+		ca, err := os.ReadFile(clientCAFile)
+		if err != nil {
+			return nil, err
+		}
+		if ok := certPool.AppendCertsFromPEM(ca); !ok {
+			return nil, fmt.Errorf("Failed to parse ClientCAFile: %s", clientCAFile)
+		}
+		tlsConf.ClientAuth = tls.RequireAndVerifyClientCert
+		tlsConf.ClientCAs = certPool
+	}
+
+	return credentials.NewTLS(tlsConf), nil
 }
 
 func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
@@ -69,7 +134,8 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 
 	// Handle server TLS
 	if serverConf.TLS {
-		creds, err := credentials.NewServerTLSFromFile(serverConf.CertFile, serverConf.KeyFile)
+		// Due to GetCertReloaderConfig we know we have a reloader here
+		creds, err := makeServerTLS(p.Reloader, serverConf.ClientCAFile)
 		if err != nil {
 			return nil, err
 		}

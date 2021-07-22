@@ -2,8 +2,14 @@ package fxgrpc
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
+	"fmt"
+	"os"
+	"time"
 
+	reloader "github.com/exoscale/stelling/fxcert-reloader"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -68,14 +74,16 @@ type GrpcClientConfig interface {
 }
 
 type Client struct {
-	// TLS indicates whether TLS needs to be used to connect to the grpc server
-	TLS bool
+	// InsecureConnection indicates whether TLS needs to be disabled when connecting to the grpc server
+	InsecureConnection bool
 	// CertFile is the path to the pem encoded TLS certificate
-	CertFile string `validate:"required_if=TLS true,omitempty,file"`
+	CertFile string `validate:"omitempty,file"`
 	// KeyFile is the path to the pem encoded private key of the TLS certificate
-	KeyFile string `validate:"required_if=TLS true,omitempty,file"`
+	KeyFile string `validate:"required_with=CertFile,omitempty,file"`
+	// RootCAFile is the  path to a pem encoded CA bundle used to validate server connections
+	RootCAFile string `validate:"omitempty,file"`
 	// Endpoint is IP or hostname of the gRPC server
-	Endpoint string `validate:"required_if=TLS true,omitempty,hostname_port"`
+	Endpoint string `validate:"required,omitempty,hostname_port"`
 }
 
 func (c *Client) GetClient() *Client {
@@ -88,10 +96,11 @@ func (c *Client) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("endpoint", c.Endpoint)
-	enc.AddBool("tls", c.TLS)
-	if c.TLS {
+	enc.AddBool("insecure-connection", c.InsecureConnection)
+	if !c.InsecureConnection {
 		enc.AddString("cert-file", c.CertFile)
 		enc.AddString("key-file", c.KeyFile)
+		enc.AddString("root-ca-file", c.RootCAFile)
 	}
 
 	return nil
@@ -107,18 +116,71 @@ type GrpcClientParams struct {
 	StreamInterceptors []grpc.StreamClientInterceptor `group:"stream_client_interceptor"`
 }
 
+func makeClientTLS(p *GrpcClientParams) (credentials.TransportCredentials, error) {
+	conf := p.Conf.GetClient()
+	if conf.RootCAFile != "" && conf.CertFile == "" {
+		return credentials.NewClientTLSFromFile(conf.RootCAFile, "")
+	}
+
+	if conf.CertFile != "" {
+		// We won't bother using an fx component for the cert reloading.
+		// We may have multiple grpc-clients per application and each one
+		// of them may be using different certs
+		// Expressing that we may have different certs is hard enough for a server
+		// (where there can be only one); it's impossible for a client right now
+		// We'll just create the reloader in line and register the hooks directly
+		r, err := reloader.NewCertReloader(&reloader.CertReloaderConfig{
+			CertFile:       conf.CertFile,
+			KeyFile:        conf.KeyFile,
+			ReloadInterval: 10 * time.Second,
+		}, p.Logger)
+		if err != nil {
+			return nil, err
+		}
+		p.Lc.Append(fx.Hook{
+			OnStart: r.Start,
+			OnStop:  r.Stop,
+		})
+
+		tlsConf := &tls.Config{
+			GetCertificate: r.GetCertificate,
+		}
+
+		if conf.RootCAFile != "" {
+			certPool, err := x509.SystemCertPool()
+			if err != nil {
+				return nil, err
+			}
+			ca, err := os.ReadFile(conf.RootCAFile)
+			if err != nil {
+				return nil, err
+			}
+			if ok := certPool.AppendCertsFromPEM(ca); !ok {
+				return nil, fmt.Errorf("Failed to parse RootCAFile: %s", conf.RootCAFile)
+			}
+			tlsConf.RootCAs = certPool
+		}
+
+		return credentials.NewTLS(tlsConf), nil
+	}
+	return nil, nil
+}
+
 func NewGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
 	clientConf := p.Conf.GetClient()
 	opts := []grpc.DialOption{}
 
-	if !clientConf.TLS {
+	if !clientConf.InsecureConnection {
 		opts = append(opts, grpc.WithInsecure())
 	} else {
-		creds, err := credentials.NewServerTLSFromFile(clientConf.CertFile, clientConf.KeyFile)
+		creds, err := makeClientTLS(&p)
 		if err != nil {
 			return nil, err
 		}
-		opts = append(opts, grpc.WithTransportCredentials(creds))
+		// TLS is default, but we may not need any clients or ca certs
+		if creds != nil {
+			opts = append(opts, grpc.WithTransportCredentials(creds))
+		}
 	}
 
 	// Handle client middleware
@@ -145,12 +207,8 @@ func NewGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
 	conn := NewLazyGrpcClientConn(clientConf.Endpoint, opts...)
 
 	p.Lc.Append(fx.Hook{
-		OnStart: func(c context.Context) error {
-			return conn.Start(c)
-		},
-		OnStop: func(c context.Context) error {
-			return conn.Stop(c)
-		},
+		OnStart: conn.Start,
+		OnStop:  conn.Stop,
 	})
 
 	return conn, nil
