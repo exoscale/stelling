@@ -3,15 +3,16 @@ package fxtracing
 import (
 	"context"
 
+	"github.com/exoscale/stelling/fxgrpc"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpgrpc"
 	"go.opentelemetry.io/otel/exporters/stdout"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 var Module = fx.Provide(
@@ -27,14 +28,16 @@ type TracingConfig interface {
 type Tracing struct {
 	// Enabled allows tracing support to be toggled on and off
 	Enabled bool
-	// Endpoint is the address + port where the collector can be reached
-	Endpoint string `validate:"required_if=TLS true,omitempty,hostname_port"`
-	// TLS indicates whether TLS is used to connect to the traces collector
-	TLS bool
+	// InsecureConnection indicates whether TLS needs to be disabled when connecting to the grpc server
+	InsecureConnection bool
 	// CertFile is the path to the pem encoded TLS certificate
-	CertFile string `validate:"required_if=TLS true,omitempty,file"`
+	CertFile string `validate:"omitempty,file"`
 	// KeyFile is the path to the pem encoded private key of the TLS certificate
-	KeyFile string `validate:"required_if=TLS true,omitempty,file"`
+	KeyFile string `validate:"required_with=CertFile,omitempty,file"`
+	// RootCAFile is the  path to a pem encoded CA bundle used to validate server connections
+	RootCAFile string `validate:"omitempty,file"`
+	// Endpoint is the address + port where the collector can be reached
+	Endpoint string `validate:"required,omitempty,hostname_port"`
 }
 
 func (t *Tracing) GetTracing() *Tracing {
@@ -49,17 +52,18 @@ func (t *Tracing) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddBool("enabled", t.Enabled)
 	if t.Enabled {
 		enc.AddString("endpoint", t.Endpoint)
-		enc.AddBool("tls", t.TLS)
-		if t.TLS {
+		enc.AddBool("insecure-connection", t.InsecureConnection)
+		if t.InsecureConnection {
 			enc.AddString("cert-file", t.CertFile)
 			enc.AddString("key-file", t.KeyFile)
+			enc.AddString("root-ca-file", t.RootCAFile)
 		}
 	}
 
 	return nil
 }
 
-func NewTracerProvider(conf TracingConfig, lc fx.Lifecycle) (*sdktrace.TracerProvider, error) {
+func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) (*sdktrace.TracerProvider, error) {
 	tracingConf := conf.GetTracing()
 
 	if !tracingConf.Enabled {
@@ -89,14 +93,23 @@ func NewTracerProvider(conf TracingConfig, lc fx.Lifecycle) (*sdktrace.TracerPro
 
 	opts := []otlpgrpc.Option{otlpgrpc.WithEndpoint(tracingConf.Endpoint)}
 
-	if tracingConf.TLS {
-		creds, err := credentials.NewServerTLSFromFile(tracingConf.CertFile, tracingConf.KeyFile)
+	if tracingConf.InsecureConnection {
+		opts = append(opts, otlpgrpc.WithInsecure())
+	} else {
+		clientConf := &fxgrpc.Client{
+			CertFile:   tracingConf.CertFile,
+			KeyFile:    tracingConf.KeyFile,
+			RootCAFile: tracingConf.RootCAFile,
+		}
+		creds, err := fxgrpc.MakeClientTLS(
+			lc,
+			clientConf,
+			logger,
+		)
 		if err != nil {
 			return nil, err
 		}
 		opts = append(opts, otlpgrpc.WithTLSCredentials(creds))
-	} else {
-		opts = append(opts, otlpgrpc.WithInsecure())
 	}
 	td := otlpgrpc.NewDriver(opts...)
 

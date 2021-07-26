@@ -1,18 +1,19 @@
 package fxpprof
 
 import (
-	"context"
-	"fmt"
 	"net/http"
 	"net/http/pprof"
 
+	"github.com/exoscale/stelling/fxhttp"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 var Module = fx.Options(
-	fx.Provide(NewPprofProfiler),
+	fx.Provide(
+		NewPprofHttpServer,
+	),
 	fx.Invoke(InitPprofProfiler),
 )
 
@@ -31,6 +32,8 @@ type Pprof struct {
 	CertFile string `validate:"required_if=TLS true,omitempty,file"`
 	// KeyFile is the path to the pem encoded private key of the TLS certificate
 	KeyFile string `validate:"required_if=TLS true,omitempty,file"`
+	// ClientCAFile is the path to a pem encoded CA cert bundle used to validate clients
+	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
 }
 
 func (p *Pprof) GetPprof() *Pprof {
@@ -50,19 +53,45 @@ func (p *Pprof) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		if p.TLS {
 			enc.AddString("cert-file", p.CertFile)
 			enc.AddString("key-file", p.KeyFile)
+			enc.AddString("client-ca-file", p.ClientCAFile)
 		}
 	}
 
 	return nil
 }
 
-type PprofProfiler struct{}
+type PprofHttpServerResult struct {
+	fx.Out
 
-func NewPprofProfiler(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) *PprofProfiler {
-	pConf := conf.GetPprof()
+	Server *http.Server `name:"pprof_server"`
+}
 
-	if !pConf.Enabled {
-		return nil
+func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (PprofHttpServerResult, error) {
+	sconf := &fxhttp.Server{
+		TLS:          conf.GetPprof().TLS,
+		CertFile:     conf.GetPprof().CertFile,
+		KeyFile:      conf.GetPprof().KeyFile,
+		ClientCAFile: conf.GetPprof().ClientCAFile,
+		Port:         conf.GetPprof().Port,
+	}
+	server, err := fxhttp.NewHTTPServer(lc, sconf, logger)
+	if err != nil {
+		return PprofHttpServerResult{}, err
+	}
+	return PprofHttpServerResult{
+		Server: server,
+	}, nil
+}
+
+type InitPprofProfileParams struct {
+	fx.In
+
+	Server *http.Server `name:"pprof_server" optional:"true"`
+}
+
+func InitPprofProfiler(p InitPprofProfileParams) {
+	if p.Server == nil {
+		return
 	}
 
 	mux := http.NewServeMux()
@@ -72,51 +101,5 @@ func NewPprofProfiler(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) *Pp
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
-	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", pConf.Port),
-		Handler: mux,
-	}
-
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			logger.Info("Starting pprof server", zap.Int("port", pConf.Port))
-			if pConf.TLS {
-				go func() {
-					if err := server.ListenAndServeTLS(pConf.CertFile, pConf.KeyFile); err != http.ErrServerClosed {
-						logger.Fatal("Error while serving pprof", zap.Error(err))
-					} else {
-						logger.Info("Done serving pprof")
-					}
-				}()
-			} else {
-				go func() {
-					if err := server.ListenAndServe(); err != http.ErrServerClosed {
-						logger.Fatal("Error while serving pprof", zap.Error(err))
-					} else {
-						logger.Info("Done serving pprof")
-					}
-				}()
-			}
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			logger.Info("Stopping pprof server")
-			return server.Shutdown(ctx)
-		},
-	})
-
-	return &PprofProfiler{}
-}
-
-type InitPprofProfileParams struct {
-	fx.In
-
-	Prof   *PprofProfiler `optional:"true"`
-	Logger *zap.Logger
-}
-
-func InitPprofProfiler(p InitPprofProfileParams) {
-	if p.Prof != nil {
-		p.Logger.Info("Enabling pprof profiling")
-	}
+	p.Server.Handler = mux
 }

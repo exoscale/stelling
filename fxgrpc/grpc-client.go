@@ -116,8 +116,8 @@ type GrpcClientParams struct {
 	StreamInterceptors []grpc.StreamClientInterceptor `group:"stream_client_interceptor"`
 }
 
-func makeClientTLS(p *GrpcClientParams) (credentials.TransportCredentials, error) {
-	conf := p.Conf.GetClient()
+func MakeClientTLS(lc fx.Lifecycle, c GrpcClientConfig, logger *zap.Logger) (credentials.TransportCredentials, error) {
+	conf := c.GetClient()
 	if conf.RootCAFile != "" && conf.CertFile == "" {
 		return credentials.NewClientTLSFromFile(conf.RootCAFile, "")
 	}
@@ -133,11 +133,11 @@ func makeClientTLS(p *GrpcClientParams) (credentials.TransportCredentials, error
 			CertFile:       conf.CertFile,
 			KeyFile:        conf.KeyFile,
 			ReloadInterval: 10 * time.Second,
-		}, p.Logger)
+		}, logger)
 		if err != nil {
 			return nil, err
 		}
-		p.Lc.Append(fx.Hook{
+		lc.Append(fx.Hook{
 			OnStart: r.Start,
 			OnStop:  r.Stop,
 		})
@@ -173,7 +173,7 @@ func NewGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
 	if !clientConf.InsecureConnection {
 		opts = append(opts, grpc.WithInsecure())
 	} else {
-		creds, err := makeClientTLS(&p)
+		creds, err := MakeClientTLS(p.Lc, p.Conf, p.Logger)
 		if err != nil {
 			return nil, err
 		}
