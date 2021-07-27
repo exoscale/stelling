@@ -8,6 +8,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpgrpc"
 	"go.opentelemetry.io/otel/exporters/stdout"
+	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -155,12 +156,19 @@ func NewGrpcServerInterceptors(p GrpcServerInterceptorsParams) (GrpcServerInterc
 		return GrpcServerInterceptorsResult{}, nil
 	}
 
+	propagator := propagation.NewCompositeTextMapPropagator(
+		propagation.Baggage{},
+		propagation.TraceContext{},
+	)
+
 	return GrpcServerInterceptorsResult{
 		UnaryServerInterceptor: otelgrpc.UnaryServerInterceptor(
 			otelgrpc.WithTracerProvider(p.TracerProvider),
+			otelgrpc.WithPropagators(propagator),
 		),
 		StreamServerInterceptor: otelgrpc.StreamServerInterceptor(
 			otelgrpc.WithTracerProvider(p.TracerProvider),
+			otelgrpc.WithPropagators(propagator),
 		),
 	}, nil
 }
@@ -184,12 +192,19 @@ func NewGrpcClientInterceptors(p GrpcClientInterceptorsParams) (GrpcClientInterc
 		return GrpcClientInterceptorsResult{}, nil
 	}
 
+	propagator := propagation.NewCompositeTextMapPropagator(
+		propagation.Baggage{},
+		propagation.TraceContext{},
+	)
+
 	return GrpcClientInterceptorsResult{
 		UnaryClientInterceptor: otelgrpc.UnaryClientInterceptor(
 			otelgrpc.WithTracerProvider(p.TracerProvider),
+			otelgrpc.WithPropagators(propagator),
 		),
 		StreamClientInterceptor: otelgrpc.StreamClientInterceptor(
 			otelgrpc.WithTracerProvider(p.TracerProvider),
+			otelgrpc.WithPropagators(propagator),
 		),
 	}, nil
 }
