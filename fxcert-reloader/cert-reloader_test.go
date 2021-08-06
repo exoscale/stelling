@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 const certFile1 string = `-----BEGIN CERTIFICATE-----
@@ -104,13 +105,8 @@ func TestCertReloader(t *testing.T) {
 	// that it took the right action.
 	// It is a bit brittle, but the best I could come up with for now
 	t.Run("Should reload the cert when it changes", func(t *testing.T) {
-		messages := make([]string, 0)
-		logger, err := zap.NewDevelopment()
-		assert.NoError(t, err)
-		logger = logger.WithOptions(zap.Hooks(func(e zapcore.Entry) error {
-			messages = append(messages, e.Message)
-			return nil
-		}))
+		logobserver, logs := observer.New(zapcore.DebugLevel)
+		logger := zap.New(logobserver)
 
 		certFile, err := os.CreateTemp("", "cert")
 		assert.NoError(t, err, "Failed to create temporary certFile")
@@ -170,18 +166,13 @@ func TestCertReloader(t *testing.T) {
 		assert.Equal(t, "server2.example.net", pCert2.Subject.CommonName)
 
 		// Assert that reload logic triggered by examining logs
-		assert.Contains(t, messages, "Certificate was updated. Scheduling update.")
-		assert.Contains(t, messages, "Reloading certificate")
+		assert.NotEmpty(t, logs.FilterMessage("Certificate was updated. Scheduling update."))
+		assert.NotEmpty(t, logs.FilterMessage("Reloading certificate"))
 	})
 
 	t.Run("Should not reload if another file changes", func(t *testing.T) {
-		messages := make([]string, 0)
-		logger, err := zap.NewDevelopment()
-		assert.NoError(t, err)
-		logger = logger.WithOptions(zap.Hooks(func(e zapcore.Entry) error {
-			messages = append(messages, e.Message)
-			return nil
-		}))
+		logobserver, logs := observer.New(zapcore.DebugLevel)
+		logger := zap.New(logobserver)
 
 		certFile, err := os.CreateTemp("", "cert")
 		assert.NoError(t, err, "Failed to create temporary certFile")
@@ -237,19 +228,14 @@ func TestCertReloader(t *testing.T) {
 		assert.Equal(t, "warp-agent", pCert2.Subject.CommonName)
 
 		// Assert that reload logic triggered by examining logs
-		assert.NotContains(t, messages, "Certificate was updated. Scheduling update.")
-		assert.NotContains(t, messages, "Reloading certificate")
-		assert.Contains(t, messages, "Event for untracked file. Ignoring event.")
+		assert.Empty(t, logs.FilterMessage("Certificate was updated. Scheduling update."))
+		assert.Empty(t, logs.FilterMessage("Reloading certificate"))
+		assert.NotEmpty(t, logs.FilterMessage("Event for untracked file. Ignoring event."))
 	})
 
 	t.Run("Should return the initial cert if reloading fails", func(t *testing.T) {
-		messages := make([]string, 0)
-		logger, err := zap.NewDevelopment()
-		assert.NoError(t, err)
-		logger = logger.WithOptions(zap.Hooks(func(e zapcore.Entry) error {
-			messages = append(messages, e.Message)
-			return nil
-		}))
+		logobserver, logs := observer.New(zapcore.DebugLevel)
+		logger := zap.New(logobserver)
 
 		certFile, err := os.CreateTemp("", "cert")
 		assert.NoError(t, err, "Failed to create temporary certFile")
@@ -304,8 +290,8 @@ func TestCertReloader(t *testing.T) {
 		assert.Equal(t, "warp-agent", pCert2.Subject.CommonName)
 
 		// Assert that reload logic triggered by examining logs
-		assert.Contains(t, messages, "Certificate was updated. Scheduling update.")
-		assert.Contains(t, messages, "Reloading certificate")
-		assert.Contains(t, messages, "Failed to reload certificate")
+		assert.NotEmpty(t, logs.FilterMessage("Certificate was updated. Scheduling update."))
+		assert.NotEmpty(t, logs.FilterMessage("Reloading certificate"))
+		assert.NotEmpty(t, logs.FilterMessage("Failed to reload certificate"))
 	})
 }

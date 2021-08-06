@@ -1,10 +1,9 @@
 package fxmetrics
 
 import (
-	"context"
-	"fmt"
 	"net/http"
 
+	"github.com/exoscale/stelling/fxhttp"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -14,10 +13,16 @@ import (
 	"google.golang.org/grpc"
 )
 
-var Module = fx.Provide(
-	NewRegistry,
-	NewGrpcServerInterceptors,
-	NewGrpcClientInterceptors,
+var Module = fx.Options(
+	fx.Provide(
+		prometheus.NewRegistry,
+		NewGrpcServerInterceptors,
+		NewGrpcClientInterceptors,
+		NewMetricsHttpServer,
+	),
+	fx.Invoke(
+		RegisterMetricsHandlers,
+	),
 )
 
 type MetricsConfig interface {
@@ -33,6 +38,8 @@ type Metrics struct {
 	CertFile string `validate:"required_if=TLS true,omitempty,file"`
 	// KeyFile is the path to the pem encoded private key of the TLS certificate
 	KeyFile string `validate:"required_if=TLS true,omitempty,file"`
+	// ClientCAFile is the path to a pem encoded CA cert bundle used to validate clients
+	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
 }
 
 func (m *Metrics) GetMetrics() *Metrics {
@@ -50,51 +57,46 @@ func (m *Metrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if m.TLS {
 		enc.AddString("cert-file", m.CertFile)
 		enc.AddString("key-file", m.KeyFile)
+		enc.AddString("client-ca-file", m.ClientCAFile)
 	}
 
 	return nil
 }
 
-func NewRegistry(lc fx.Lifecycle, conf MetricsConfig, logger *zap.Logger) *prometheus.Registry {
-	reg := prometheus.NewRegistry()
-	mux := http.NewServeMux()
-	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", conf.GetMetrics().Port),
-		Handler: mux,
+type MetricsHttpServerResult struct {
+	fx.Out
+
+	Server *http.Server `name:"metrics_server"`
+}
+
+func NewMetricsHttpServer(lc fx.Lifecycle, conf MetricsConfig, logger *zap.Logger) (MetricsHttpServerResult, error) {
+	sconf := &fxhttp.Server{
+		TLS:          conf.GetMetrics().TLS,
+		CertFile:     conf.GetMetrics().CertFile,
+		KeyFile:      conf.GetMetrics().KeyFile,
+		ClientCAFile: conf.GetMetrics().ClientCAFile,
+		Port:         conf.GetMetrics().Port,
 	}
+	server, err := fxhttp.NewHTTPServer(lc, sconf, logger)
+	if err != nil {
+		return MetricsHttpServerResult{}, err
+	}
+	return MetricsHttpServerResult{
+		Server: server,
+	}, nil
+}
 
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			// TODO: use the zap logger
-			mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+type RegisterParams struct {
+	fx.In
 
-			logger.Info("Starting metrics server", zap.Int("port", conf.GetMetrics().Port))
-			if conf.GetMetrics().TLS {
-				go func() {
-					if err := server.ListenAndServeTLS(conf.GetMetrics().CertFile, conf.GetMetrics().KeyFile); err != http.ErrServerClosed {
-						logger.Fatal("Error while serving metrics", zap.Error(err))
-					} else {
-						logger.Info("Done serving metrics")
-					}
-				}()
-			} else {
-				go func() {
-					if err := server.ListenAndServe(); err != http.ErrServerClosed {
-						logger.Fatal("Error while serving metrics", zap.Error(err))
-					} else {
-						logger.Info("Done serving metrics")
-					}
-				}()
-			}
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			logger.Info("Stopping metrics server")
-			return server.Shutdown(ctx)
-		},
-	})
+	Reg    *prometheus.Registry
+	Server *http.Server `name:"metrics_server"`
+}
 
-	return reg
+func RegisterMetricsHandlers(p *RegisterParams) {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.HandlerFor(p.Reg, promhttp.HandlerOpts{}))
+	p.Server.Handler = mux
 }
 
 type GrpcServerInterceptorsResult struct {
