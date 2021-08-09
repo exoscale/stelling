@@ -38,7 +38,7 @@ type Tracing struct {
 	// RootCAFile is the  path to a pem encoded CA bundle used to validate server connections
 	RootCAFile string `validate:"omitempty,file"`
 	// Endpoint is the address + port where the collector can be reached
-	Endpoint string `validate:"required,omitempty,hostname_port"`
+	Endpoint string `validate:"required_if=Enabled true,omitempty,hostname_port"`
 }
 
 func (t *Tracing) GetTracing() *Tracing {
@@ -54,7 +54,7 @@ func (t *Tracing) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if t.Enabled {
 		enc.AddString("endpoint", t.Endpoint)
 		enc.AddBool("insecure-connection", t.InsecureConnection)
-		if t.InsecureConnection {
+		if !t.InsecureConnection {
 			enc.AddString("cert-file", t.CertFile)
 			enc.AddString("key-file", t.KeyFile)
 			enc.AddString("root-ca-file", t.RootCAFile)
