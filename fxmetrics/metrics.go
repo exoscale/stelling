@@ -93,7 +93,7 @@ type RegisterParams struct {
 	Server *http.Server `name:"metrics_server"`
 }
 
-func RegisterMetricsHandlers(p *RegisterParams) {
+func RegisterMetricsHandlers(p RegisterParams) {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(p.Reg, promhttp.HandlerOpts{}))
 	p.Server.Handler = mux
