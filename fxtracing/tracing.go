@@ -32,11 +32,11 @@ type Tracing struct {
 	// InsecureConnection indicates whether TLS needs to be disabled when connecting to the grpc server
 	InsecureConnection bool
 	// CertFile is the path to the pem encoded TLS certificate
-	CertFile string `validate:"required_unless=InsecureConnection true,omitempty,file"`
+	CertFile string `validate:"required_if=Enabled true InsecureConnection false,omitempty,file"`
 	// KeyFile is the path to the pem encoded private key of the TLS certificate
-	KeyFile string `validate:"required_unless=InsecureConnection true,omitempty,file"`
+	KeyFile string `validate:"required_if=Enabled true InsecureConnection false,omitempty,file"`
 	// RootCAFile is the  path to a pem encoded CA bundle used to validate server connections
-	RootCAFile string `validate:"required_unless=InsecureConnection true,omitempty,file"`
+	RootCAFile string `validate:"required_if=Enabled true InsecureConnection false,omitempty,file"`
 	// Endpoint is the address + port where the collector can be reached
 	Endpoint string `validate:"required_if=Enabled true InsecureConnection false,omitempty,hostname_port"`
 }
