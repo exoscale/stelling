@@ -40,6 +40,8 @@ type Metrics struct {
 	KeyFile string `validate:"required_if=TLS true,omitempty,file"`
 	// ClientCAFile is the path to a pem encoded CA cert bundle used to validate clients
 	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
+	// indicates whether Prometheus server export Histograms or not
+	Histograms bool `default:"false"`
 }
 
 func (m *Metrics) GetMetrics() *Metrics {
@@ -59,7 +61,7 @@ func (m *Metrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddString("key-file", m.KeyFile)
 		enc.AddString("client-ca-file", m.ClientCAFile)
 	}
-
+	enc.AddBool("histograms", m.Histograms)
 	return nil
 }
 
@@ -107,10 +109,13 @@ type GrpcServerInterceptorsResult struct {
 	*grpc_prometheus.ServerMetrics
 }
 
-func NewGrpcServerInterceptors(reg *prometheus.Registry) (GrpcServerInterceptorsResult, error) {
+func NewGrpcServerInterceptors(reg *prometheus.Registry, conf MetricsConfig) (GrpcServerInterceptorsResult, error) {
 	serverMetrics := grpc_prometheus.NewServerMetrics()
 	if err := reg.Register(serverMetrics); err != nil {
 		return GrpcServerInterceptorsResult{}, err
+	}
+	if conf.GetMetrics().Histograms {
+		serverMetrics.EnableHandlingTimeHistogram()
 	}
 	return GrpcServerInterceptorsResult{
 		UnaryServerInterceptor:  serverMetrics.UnaryServerInterceptor(),
