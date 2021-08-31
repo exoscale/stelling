@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Uber Technologies, Inc.
+// Copyright (c) 2021 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,7 +18,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+// +build aix darwin dragonfly freebsd linux netbsd openbsd solaris
+
 package fx
 
-// Version is exported for runtime compatibility checks.
-const Version = "1.14.2"
+import "golang.org/x/sys/unix"
+
+const _sigINT = unix.SIGINT
+const _sigTERM = unix.SIGTERM

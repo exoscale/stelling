@@ -2,20 +2,23 @@ package fxlogging
 
 import (
 	"context"
-	"fmt"
 
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"go.uber.org/fx"
+	"go.uber.org/fx/fxevent"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
 
-var Module = fx.Provide(
-	NewLogger,
-	NewGrpcServerInterceptors,
-	NewGrpcClientIncterceptors,
+var Module = fx.Options(
+	fx.Provide(
+		NewLogger,
+		NewGrpcServerInterceptors,
+		NewGrpcClientIncterceptors,
+	),
+	fx.WithLogger(NewFxLogger),
 )
 
 type LoggingConfig interface {
@@ -102,23 +105,10 @@ func NewGrpcClientIncterceptors(logger *zap.Logger) GrpcClientInterceptorsResult
 	}
 }
 
-// LogAdapter implements fx.Printer on a zap.Logger
-type LogAdapter struct {
-	*zap.Logger
-}
-
-func (a *LogAdapter) Printf(format string, args ...interface{}) {
-	a.Debug(fmt.Sprintf(format, args...))
-}
-
-func NewFxPrinter(conf LoggingConfig) *LogAdapter {
-	var logger *zap.Logger
-	if conf.GetLogging().Mode == "production" {
-		logger, _ = zap.NewProduction()
-	} else {
-		logger, _ = zap.NewDevelopment()
-	}
-	return &LogAdapter{Logger: logger}
+// NewFxLogger emits an fxevent.Logger that uses the passed in zap logger
+// The fxevent.Logger is used to write out the log messages produces by the fx framework
+func NewFxLogger(logger *zap.Logger) fxevent.Logger {
+	return &fxevent.ZapLogger{Logger: logger}
 }
 
 // codeToLevel maps the grpc response code to a logging level

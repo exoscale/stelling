@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.14.2] - 2021-08-16
+### Changed
+-  For `fxevent` console implementation: no longer log non-error case for `fxevent.Invoke`
+   event, while for zap implementation, start logging `fx.Invoking` case without stack.
+
+## [1.14.1] - 2021-08-16
+### Changed
+- `fxevent.Invoked` was being logged at `Error` level even upon successful `Invoke`.
+   This was changed to log at `Info` level when `Invoke` succeeded.
+
+## [1.14.0] - 2021-08-12
+### Added
+- Introduce the new `fx.WithLogger` option. Provide a constructor for
+  `fxevent.Logger` objects with it to customize how Fx logs events.
+- Add new `fxevent` package that exposes events from Fx in a structured way.
+  Use this to write custom logger implementations for use with the
+  `fx.WithLogger` option.
+- Expose and log additional information when lifecycle hooks time out.
+
+### Changed
+- Fx now emits structured JSON logs by default. These may be parsed and
+  processed by log ingestion systems.
+- `fxtest.Lifecycle` now logs to the provided `testing.TB` instead of stderr.
+- `fx.In` and `fx.Out` are now type aliases instead of structs.
+
 ## [1.13.1] - 2020-08-19
 ### Fixed
 - Fix minimum version constraint for dig. `fx.ValidateGraph` requires at least
@@ -208,6 +233,10 @@ promising API compatibility between beta releases and the final 1.0.0 release.
 In fact, we expect our beta user feedback to require some changes to the way
 things work. Once we reach 1.0, we will provider proper version compatibility.
 
+[1.14.2]: https://github.com/uber-go/fx/compare/v1.14.1...v1.14.2
+[1.14.1]: https://github.com/uber-go/fx/compare/v1.14.0...v1.14.1
+[1.14.0]: https://github.com/uber-go/fx/compare/v1.13.1...v1.14.0
+[1.13.1]: https://github.com/uber-go/fx/compare/v1.13.0...v1.13.1
 [1.13.1]: https://github.com/uber-go/fx/compare/v1.13.0...v1.13.1
 [1.13.0]: https://github.com/uber-go/fx/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/uber-go/fx/compare/v1.11.0...v1.12.0

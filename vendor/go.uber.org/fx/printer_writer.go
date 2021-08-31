@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Uber Technologies, Inc.
+// Copyright (c) 2020-2021 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,5 +20,17 @@
 
 package fx
 
-// Version is exported for runtime compatibility checks.
-const Version = "1.14.2"
+import "io"
+
+type printerWriter struct{ p Printer }
+
+// writerFromPrinter returns an implementation of io.Writer used to support
+// Logger option which implements Printer interface.
+func writerFromPrinter(p Printer) io.Writer {
+	return &printerWriter{p: p}
+}
+
+func (w *printerWriter) Write(b []byte) (n int, err error) {
+	w.p.Printf(string(b))
+	return len(b), nil
+}

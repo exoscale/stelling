@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Uber Technologies, Inc.
+// Copyright (c) 2021 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,7 +18,15 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package fx
+package fxlog
 
-// Version is exported for runtime compatibility checks.
-const Version = "1.14.2"
+import (
+	"io"
+
+	"go.uber.org/fx/fxevent"
+)
+
+// DefaultLogger constructs a Logger out of io.Writer.
+func DefaultLogger(w io.Writer) fxevent.Logger {
+	return &fxevent.ConsoleLogger{W: w}
+}
