@@ -20,7 +20,7 @@ import (
 )
 
 var ClientModule = fx.Provide(
-	NewGrpcClient,
+	ProvideGrpcClient,
 )
 
 // LazyGrpcClientConn is GrpcClientConn that defers initialization of the connection until Start is called
@@ -116,10 +116,11 @@ type GrpcClientParams struct {
 	StreamInterceptors []grpc.StreamClientInterceptor `group:"stream_client_interceptor"`
 }
 
-func MakeClientTLS(lc fx.Lifecycle, c GrpcClientConfig, logger *zap.Logger) (credentials.TransportCredentials, error) {
+func MakeClientTLS(c GrpcClientConfig, logger *zap.Logger) (credentials.TransportCredentials, *reloader.CertReloader, error) {
 	conf := c.GetClient()
 	if conf.RootCAFile != "" && conf.CertFile == "" {
-		return credentials.NewClientTLSFromFile(conf.RootCAFile, "")
+		creds, err := credentials.NewClientTLSFromFile(conf.RootCAFile, "")
+		return creds, nil, err
 	}
 
 	if conf.CertFile != "" {
@@ -135,12 +136,8 @@ func MakeClientTLS(lc fx.Lifecycle, c GrpcClientConfig, logger *zap.Logger) (cre
 			ReloadInterval: 10 * time.Second,
 		}, logger)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		lc.Append(fx.Hook{
-			OnStart: r.Start,
-			OnStop:  r.Stop,
-		})
 
 		tlsConf := &tls.Config{
 			GetCertificate: r.GetCertificate,
@@ -149,51 +146,55 @@ func MakeClientTLS(lc fx.Lifecycle, c GrpcClientConfig, logger *zap.Logger) (cre
 		if conf.RootCAFile != "" {
 			certPool, err := x509.SystemCertPool()
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			ca, err := os.ReadFile(conf.RootCAFile)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			if ok := certPool.AppendCertsFromPEM(ca); !ok {
-				return nil, fmt.Errorf("Failed to parse RootCAFile: %s", conf.RootCAFile)
+				return nil, nil, fmt.Errorf("Failed to parse RootCAFile: %s", conf.RootCAFile)
 			}
 			tlsConf.RootCAs = certPool
 		}
 
-		return credentials.NewTLS(tlsConf), nil
+		return credentials.NewTLS(tlsConf), r, nil
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
-func NewGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
-	clientConf := p.Conf.GetClient()
+func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientInterceptor, si []grpc.StreamClientInterceptor) ([]grpc.DialOption, *reloader.CertReloader, error) {
 	opts := []grpc.DialOption{}
+	var creloader *reloader.CertReloader
 
-	if !clientConf.InsecureConnection {
+	if !conf.InsecureConnection {
 		opts = append(opts, grpc.WithInsecure())
 	} else {
-		creds, err := MakeClientTLS(p.Lc, p.Conf, p.Logger)
+		// We're assuming this is called for a short-lived grpc client
+		// The reloader eagerly loads the cert, which is all we want
+		// We can ignore it for the remainer
+		creds, r, err := MakeClientTLS(conf, logger)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		// TLS is default, but we may not need any clients or ca certs
 		if creds != nil {
 			opts = append(opts, grpc.WithTransportCredentials(creds))
 		}
+		creloader = r
 	}
 
 	// Handle client middleware
 	unary := []grpc.UnaryClientInterceptor{}
-	for i := range p.UnaryInterceptors {
-		if p.UnaryInterceptors[i] != nil {
-			unary = append(unary, p.UnaryInterceptors[i])
+	for i := range ui {
+		if ui[i] != nil {
+			unary = append(unary, ui[i])
 		}
 	}
 	stream := []grpc.StreamClientInterceptor{}
-	for i := range p.StreamInterceptors {
-		if p.StreamInterceptors[i] != nil {
-			stream = append(stream, p.StreamInterceptors[i])
+	for i := range si {
+		if si[i] != nil {
+			stream = append(stream, si[i])
 		}
 	}
 	opts = append(
@@ -202,7 +203,37 @@ func NewGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
 		grpc.WithChainStreamInterceptor(stream...),
 	)
 
-	grpclog.SetLoggerV2(zapgrpc.NewLogger(p.Logger))
+	// TODO: move this side effect out into the calling functions?
+	grpclog.SetLoggerV2(zapgrpc.NewLogger(logger))
+
+	return opts, creloader, nil
+}
+
+// NewGrpcClient returns a grpc client connection that is configured with the same conventions as the fx module
+// It is intended to be used for dynamically created, short lived, clients where using fx causes more troubles than benefits
+// Because the client is assumed to be short lived, it will not reload TLS certificates
+func NewGrpcClient(conf GrpcClientConfig, logger *zap.Logger, ui []grpc.UnaryClientInterceptor, si []grpc.StreamClientInterceptor) (*grpc.ClientConn, error) {
+	clientConf := conf.GetClient()
+
+	opts, _, err := getDialOpts(clientConf, logger, ui, si)
+	if err != nil {
+		return nil, err
+	}
+
+	return grpc.Dial(clientConf.Endpoint, opts...)
+}
+
+func ProvideGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
+	clientConf := p.Conf.GetClient()
+
+	opts, r, err := getDialOpts(clientConf, p.Logger, p.UnaryInterceptors, p.StreamInterceptors)
+	if err != nil {
+		return nil, err
+	}
+
+	if r != nil {
+		p.Lc.Append(fx.Hook{OnStart: r.Start, OnStop: r.Stop})
+	}
 
 	conn := NewLazyGrpcClientConn(clientConf.Endpoint, opts...)
 

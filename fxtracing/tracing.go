@@ -102,13 +102,15 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 			KeyFile:    tracingConf.KeyFile,
 			RootCAFile: tracingConf.RootCAFile,
 		}
-		creds, err := fxgrpc.MakeClientTLS(
-			lc,
+		creds, r, err := fxgrpc.MakeClientTLS(
 			clientConf,
 			logger,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if r != nil {
+			lc.Append(fx.Hook{OnStart: r.Start, OnStop: r.Stop})
 		}
 		opts = append(opts, otlpgrpc.WithTLSCredentials(creds))
 	}
