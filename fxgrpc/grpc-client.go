@@ -167,7 +167,7 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 	opts := []grpc.DialOption{}
 	var creloader *reloader.CertReloader
 
-	if !conf.InsecureConnection {
+	if conf.InsecureConnection {
 		opts = append(opts, grpc.WithInsecure())
 	} else {
 		// We're assuming this is called for a short-lived grpc client
