@@ -5,9 +5,8 @@ import (
 
 	"github.com/exoscale/stelling/fxgrpc"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"go.opentelemetry.io/otel/exporters/otlp"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpgrpc"
-	"go.opentelemetry.io/otel/exporters/stdout"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.uber.org/fx"
@@ -74,7 +73,7 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 	// If tracing is enabled without an endpoint print traces to stdout
 	// This is useful to debug tracing locally, but shouldn't be used in prod
 	if tracingConf.Endpoint == "" {
-		exporter, err := stdout.NewExporter()
+		exporter, err := stdouttrace.New()
 		if err != nil {
 			return nil, err
 		}
@@ -92,10 +91,10 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 		return tp, nil
 	}
 
-	opts := []otlpgrpc.Option{otlpgrpc.WithEndpoint(tracingConf.Endpoint)}
+	opts := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(tracingConf.Endpoint)}
 
 	if tracingConf.InsecureConnection {
-		opts = append(opts, otlpgrpc.WithInsecure())
+		opts = append(opts, otlptracegrpc.WithInsecure())
 	} else {
 		clientConf := &fxgrpc.Client{
 			CertFile:   tracingConf.CertFile,
@@ -112,11 +111,9 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 		if r != nil {
 			lc.Append(fx.Hook{OnStart: r.Start, OnStop: r.Stop})
 		}
-		opts = append(opts, otlpgrpc.WithTLSCredentials(creds))
+		opts = append(opts, otlptracegrpc.WithTLSCredentials(creds))
 	}
-	td := otlpgrpc.NewDriver(opts...)
-
-	exporter := otlp.NewUnstartedExporter(td)
+	exporter := otlptracegrpc.NewUnstarted(opts...)
 
 	// TODO: configure sampling here
 	// TODO: configure the resource
