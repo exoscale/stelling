@@ -6,5 +6,5 @@ The various packages in this module can be used standalone, but are optimised to
 
 Documentation for each package is included in the package README.
 
-## TODO
-* Add a package that handles config, logging, metrics and tracing
+## Basic Usage
+Apart from the config package all modules are meant to be used with the [fx package](https://pkg.go.dev/go.uber.org/fx).
