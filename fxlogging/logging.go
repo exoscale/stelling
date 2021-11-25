@@ -115,23 +115,23 @@ func NewFxLogger(logger *zap.Logger) fxevent.Logger {
 func codeToLevel(code codes.Code) zapcore.Level {
 	switch code {
 	case codes.OK:
-		return zap.DebugLevel
+		return zap.InfoLevel
 	case codes.Canceled:
-		return zap.DebugLevel
+		return zap.InfoLevel
 	case codes.Unknown:
 		return zap.ErrorLevel
 	case codes.InvalidArgument:
-		return zap.DebugLevel
+		return zap.InfoLevel
 	case codes.DeadlineExceeded:
 		return zap.WarnLevel
 	case codes.NotFound:
-		return zap.DebugLevel
+		return zap.InfoLevel
 	case codes.AlreadyExists:
 		return zap.DebugLevel
 	case codes.PermissionDenied:
 		return zap.WarnLevel
 	case codes.Unauthenticated:
-		return zap.DebugLevel // unauthenticated requests can happen
+		return zap.InfoLevel // unauthenticated requests can happen
 	case codes.ResourceExhausted:
 		return zap.WarnLevel
 	case codes.FailedPrecondition:
