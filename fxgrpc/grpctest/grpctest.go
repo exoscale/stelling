@@ -7,6 +7,7 @@ import (
 	"github.com/exoscale/stelling/fxgrpc"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 )
 
@@ -25,7 +26,7 @@ func NewGrpc(lc fx.Lifecycle) (*grpc.Server, grpc.ClientConnInterface) {
 	conn := fxgrpc.NewLazyGrpcClientConn(
 		"buffcon",
 		grpc.WithContextDialer(bufDialer),
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 
 	lc.Append(fx.Hook{
