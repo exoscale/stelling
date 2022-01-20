@@ -35,6 +35,7 @@ import (
 
 	"go.uber.org/dig"
 	"go.uber.org/fx/fxevent"
+	"go.uber.org/fx/internal/fxclock"
 	"go.uber.org/fx/internal/fxlog"
 	"go.uber.org/fx/internal/fxreflect"
 	"go.uber.org/fx/internal/lifecycle"
@@ -272,7 +273,7 @@ func (t stopTimeoutOption) String() string {
 // For example,
 //
 //   WithLogger(func(logger *zap.Logger) fxevent.Logger {
-//     return &fxevent.ZapLogger{Log: logger}
+//     return &fxevent.ZapLogger{Logger: logger}
 //   })
 //
 func WithLogger(constructor interface{}) Option {
@@ -364,6 +365,7 @@ var NopLogger = WithLogger(func() fxevent.Logger { return fxevent.NopLogger })
 // configurable deadline (again, 15 seconds by default).
 type App struct {
 	err       error
+	clock     fxclock.Clock
 	container *dig.Container
 	lifecycle *lifecycleWrapper
 	// Constructors and its dependencies.
@@ -379,8 +381,11 @@ type App struct {
 	errorHooks []ErrorHandler
 	validate   bool
 	// Used to signal shutdowns.
-	donesMu sync.RWMutex
-	dones   []chan os.Signal
+	donesMu     sync.Mutex // guards dones and shutdownSig
+	dones       []chan os.Signal
+	shutdownSig os.Signal
+
+	osExit func(code int) // os.Exit override; used for testing only
 }
 
 // provide is a single constructor provided to Fx.
@@ -512,6 +517,7 @@ func New(opts ...Option) *App {
 		// back to what was provided to fx.Logger if fx.WithLogger
 		// fails.
 		log:          logger,
+		clock:        fxclock.System,
 		startTimeout: DefaultTimeout,
 		stopTimeout:  DefaultTimeout,
 	}
@@ -530,7 +536,7 @@ func New(opts ...Option) *App {
 	// - appLogger ensures that the lifecycle always logs events to the
 	//   "current" logger associated with the fx.App.
 	app.lifecycle = &lifecycleWrapper{
-		lifecycle.New(appLogger{app}),
+		lifecycle.New(appLogger{app}, app.clock),
 	}
 
 	var (
@@ -640,6 +646,15 @@ func VisualizeError(err error) (string, error) {
 	return "", errors.New("unable to visualize error")
 }
 
+// Exits the application with the given exit code.
+func (app *App) exit(code int) {
+	osExit := os.Exit
+	if app.osExit != nil {
+		osExit = app.osExit
+	}
+	osExit(code)
+}
+
 // Run starts the application, blocks on the signals channel, and then
 // gracefully shuts the application down. It uses DefaultTimeout to set a
 // deadline for application startup and shutdown, unless the user has
@@ -654,8 +669,29 @@ func (app *App) Run() {
 	// cede control to Fx with they call app.Run. To avoid a breaking
 	// change, never os.Exit for success.
 	if code := app.run(app.Done()); code != 0 {
-		os.Exit(code)
+		app.exit(code)
 	}
+}
+
+func (app *App) run(done <-chan os.Signal) (exitCode int) {
+	startCtx, cancel := app.clock.WithTimeout(context.Background(), app.StartTimeout())
+	defer cancel()
+
+	if err := app.Start(startCtx); err != nil {
+		return 1
+	}
+
+	sig := <-done
+	app.log.LogEvent(&fxevent.Stopping{Signal: sig})
+
+	stopCtx, cancel := app.clock.WithTimeout(context.Background(), app.StopTimeout())
+	defer cancel()
+
+	if err := app.Stop(stopCtx); err != nil {
+		return 1
+	}
+
+	return 0
 }
 
 // Err returns any error encountered during New's initialization. See the
@@ -691,13 +727,39 @@ var (
 //
 // Note that Start short-circuits immediately if the New constructor
 // encountered any errors in application initialization.
-func (app *App) Start(ctx context.Context) error {
+func (app *App) Start(ctx context.Context) (err error) {
+	defer func() {
+		app.log.LogEvent(&fxevent.Started{Err: err})
+	}()
+
+	if app.err != nil {
+		// Some provides failed, short-circuit immediately.
+		return app.err
+	}
+
 	return withTimeout(ctx, &withTimeoutParams{
 		hook:      _onStartHook,
 		callback:  app.start,
 		lifecycle: app.lifecycle,
 		log:       app.log,
 	})
+}
+
+func (app *App) start(ctx context.Context) error {
+	if err := app.lifecycle.Start(ctx); err != nil {
+		// Start failed, rolling back.
+		app.log.LogEvent(&fxevent.RollingBack{StartErr: err})
+
+		stopErr := app.lifecycle.Stop(ctx)
+		app.log.LogEvent(&fxevent.RolledBack{Err: stopErr})
+
+		if stopErr != nil {
+			return multierr.Append(err, stopErr)
+		}
+
+		return err
+	}
+	return nil
 }
 
 // Stop gracefully stops the application. It executes any registered OnStop
@@ -707,7 +769,11 @@ func (app *App) Start(ctx context.Context) error {
 // If the application didn't start cleanly, only hooks whose OnStart phase was
 // called are executed. However, all those hooks are executed, even if some
 // fail.
-func (app *App) Stop(ctx context.Context) error {
+func (app *App) Stop(ctx context.Context) (err error) {
+	defer func() {
+		app.log.LogEvent(&fxevent.Stopped{Err: err})
+	}()
+
 	return withTimeout(ctx, &withTimeoutParams{
 		hook:      _onStopHook,
 		callback:  app.lifecycle.Stop,
@@ -725,11 +791,19 @@ func (app *App) Stop(ctx context.Context) error {
 // using the Shutdown functionality (see the Shutdowner documentation for details).
 func (app *App) Done() <-chan os.Signal {
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, _sigINT, _sigTERM)
 
 	app.donesMu.Lock()
+	defer app.donesMu.Unlock()
+	// If shutdown signal has been received already
+	// send it and return. If not, wait for user to send a termination
+	// signal.
+	if app.shutdownSig != nil {
+		c <- app.shutdownSig
+		return c
+	}
+
+	signal.Notify(c, os.Interrupt, _sigINT, _sigTERM)
 	app.dones = append(app.dones, c)
-	app.donesMu.Unlock()
 	return c
 }
 
@@ -796,7 +870,27 @@ func (app *App) provide(p provide) {
 		app.log.LogEvent(ev)
 	}()
 
-	if ann, ok := constructor.(Annotated); ok {
+	switch constructor := constructor.(type) {
+	case annotationError:
+		// fx.Annotate failed. Turn it into an Fx error.
+		app.err = fmt.Errorf(
+			"encountered error while applying annotation using fx.Annotate to %s: %+v",
+			fxreflect.FuncName(constructor.target), constructor.err)
+		return
+
+	case annotated:
+		c, err := constructor.Build()
+		if err != nil {
+			app.err = fmt.Errorf("fx.Provide(%v) from:\n%+vFailed: %v", constructor, p.Stack, err)
+			return
+		}
+
+		if err := app.container.Provide(c, opts...); err != nil {
+			app.err = fmt.Errorf("fx.Provide(%v) from:\n%+vFailed: %v", constructor, p.Stack, err)
+		}
+
+	case Annotated:
+		ann := constructor
 		switch {
 		case len(ann.Group) > 0 && len(ann.Name) > 0:
 			app.err = fmt.Errorf(
@@ -812,29 +906,30 @@ func (app *App) provide(p provide) {
 		if err := app.container.Provide(ann.Target, opts...); err != nil {
 			app.err = fmt.Errorf("fx.Provide(%v) from:\n%+vFailed: %v", ann, p.Stack, err)
 		}
-		return
-	}
 
-	if reflect.TypeOf(constructor).Kind() == reflect.Func {
-		ft := reflect.ValueOf(constructor).Type()
+	default:
+		if reflect.TypeOf(constructor).Kind() == reflect.Func {
+			ft := reflect.ValueOf(constructor).Type()
 
-		for i := 0; i < ft.NumOut(); i++ {
-			t := ft.Out(i)
+			for i := 0; i < ft.NumOut(); i++ {
+				t := ft.Out(i)
 
-			if t == reflect.TypeOf(Annotated{}) {
-				app.err = fmt.Errorf(
-					"fx.Annotated should be passed to fx.Provide directly, "+
-						"it should not be returned by the constructor: "+
-						"fx.Provide received %v from:\n%+v",
-					fxreflect.FuncName(constructor), p.Stack)
-				return
+				if t == reflect.TypeOf(Annotated{}) {
+					app.err = fmt.Errorf(
+						"fx.Annotated should be passed to fx.Provide directly, "+
+							"it should not be returned by the constructor: "+
+							"fx.Provide received %v from:\n%+v",
+						fxreflect.FuncName(constructor), p.Stack)
+					return
+				}
 			}
+		}
+
+		if err := app.container.Provide(constructor, opts...); err != nil {
+			app.err = fmt.Errorf("fx.Provide(%v) from:\n%+vFailed: %v", fxreflect.FuncName(constructor), p.Stack, err)
 		}
 	}
 
-	if err := app.container.Provide(constructor, opts...); err != nil {
-		app.err = fmt.Errorf("fx.Provide(%v) from:\n%+vFailed: %v", fxreflect.FuncName(constructor), p.Stack, err)
-	}
 }
 
 // Execute invokes in order supplied to New, returning the first error
@@ -864,63 +959,22 @@ func (app *App) executeInvoke(i invoke) (err error) {
 		})
 	}()
 
-	if _, ok := fn.(Option); ok {
+	switch fn := fn.(type) {
+	case Option:
 		return fmt.Errorf("fx.Option should be passed to fx.New directly, "+
 			"not to fx.Invoke: fx.Invoke received %v from:\n%+v",
 			fn, i.Stack)
-	}
 
-	return app.container.Invoke(fn)
-}
-
-func (app *App) run(done <-chan os.Signal) (exitCode int) {
-	startCtx, cancel := context.WithTimeout(context.Background(), app.StartTimeout())
-	defer cancel()
-
-	if err := app.Start(startCtx); err != nil {
-		return 1
-	}
-	sig := <-done
-	app.log.LogEvent(&fxevent.Stopping{Signal: sig})
-
-	stopCtx, cancel := context.WithTimeout(context.Background(), app.StopTimeout())
-	defer cancel()
-
-	err := app.Stop(stopCtx)
-	app.log.LogEvent(&fxevent.Stopped{Err: err})
-
-	if err != nil {
-		return 1
-	}
-	return 0
-}
-
-func (app *App) start(ctx context.Context) (err error) {
-	defer func() {
-		app.log.LogEvent(&fxevent.Started{Err: err})
-	}()
-
-	if app.err != nil {
-		// Some provides failed, short-circuit immediately.
-		return app.err
-	}
-
-	// Attempt to start cleanly.
-	if err := app.lifecycle.Start(ctx); err != nil {
-		// Start failed, rolling back.
-		app.log.LogEvent(&fxevent.RollingBack{StartErr: err})
-
-		stopErr := app.lifecycle.Stop(ctx)
-		app.log.LogEvent(&fxevent.RolledBack{Err: stopErr})
-
-		if stopErr != nil {
-			return multierr.Append(err, stopErr)
+	case annotated:
+		c, err := fn.Build()
+		if err != nil {
+			return err
 		}
 
-		return err
+		return app.container.Invoke(c)
+	default:
+		return app.container.Invoke(fn)
 	}
-
-	return nil
 }
 
 type withTimeoutParams struct {
@@ -940,6 +994,12 @@ func withTimeout(ctx context.Context, param *withTimeoutParams) error {
 	case <-ctx.Done():
 		err = ctx.Err()
 	case err = <-c:
+		// If the context finished at the same time as the callback
+		// prefer the context error.
+		// This eliminates non-determinism in select-case selection.
+		if ctx.Err() != nil {
+			err = ctx.Err()
+		}
 	}
 	if err != context.DeadlineExceeded {
 		return err

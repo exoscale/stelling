@@ -6,6 +6,7 @@ import (
 	"github.com/exoscale/stelling/fxhttp"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -15,7 +16,7 @@ import (
 
 var Module = fx.Options(
 	fx.Provide(
-		prometheus.NewRegistry,
+		NewPrometheusRegistry,
 		NewGrpcServerInterceptors,
 		NewGrpcClientInterceptors,
 		NewMetricsHttpServer,
@@ -42,6 +43,8 @@ type Metrics struct {
 	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
 	// indicates whether Prometheus server export Histograms or not
 	Histograms bool `default:"false"`
+	// ProcessName is used as a prefix for certain metrics that can clash
+	ProcessName string
 }
 
 func (m *Metrics) GetMetrics() *Metrics {
@@ -144,4 +147,22 @@ func NewGrpcClientInterceptors(reg *prometheus.Registry) (GrpcClientInterceptors
 		UnaryClientInterceptor:  clientMetrics.UnaryClientInterceptor(),
 		StreamClientInterceptor: clientMetrics.StreamClientInterceptor(),
 	}, nil
+}
+
+func NewPrometheusRegistry(conf MetricsConfig) (*prometheus.Registry, error) {
+	reg := prometheus.NewRegistry()
+
+	if err := reg.Register(collectors.NewGoCollector()); err != nil {
+		return nil, err
+	}
+	opts := collectors.ProcessCollectorOpts{
+		Namespace: conf.GetMetrics().ProcessName,
+	}
+	if err := reg.Register(collectors.NewProcessCollector(opts)); err != nil {
+		return nil, err
+	}
+
+	// TODO: once we are on go 1.18 the buildinfo exporter will become useful too
+
+	return reg, nil
 }
