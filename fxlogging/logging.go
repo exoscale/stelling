@@ -28,7 +28,7 @@ type LoggingConfig interface {
 // Logging contains the configuration options for the logging module
 type Logging struct {
 	// LogMode is the preset logging configuration
-	Mode string `default:"development" validate:"oneof=production development"`
+	Mode string `default:"development" validate:"oneof=production development preproduction"`
 }
 
 func (l *Logging) MarshalLogObject(enc zapcore.ObjectEncoder) error {
@@ -48,9 +48,14 @@ func (l *Logging) GetLogging() *Logging {
 func NewLogger(conf LoggingConfig, lc fx.Lifecycle) (*zap.Logger, error) {
 	var logger *zap.Logger
 	var err error
-	if conf.GetLogging().Mode == "production" {
+	switch conf.GetLogging().Mode {
+	case "production":
 		logger, err = zap.NewProduction()
-	} else {
+	case "preproduction":
+		config := zap.NewProductionConfig()
+		config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+		logger, err = config.Build()
+	default:
 		logger, err = zap.NewDevelopment()
 	}
 	if err != nil {
