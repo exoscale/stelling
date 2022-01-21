@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Uber Technologies, Inc.
+// Copyright (c) 2021 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,9 +18,41 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-// See #682 for more information.
-// +build !go1.12
+package fxclock
 
-package zap
+import (
+	"context"
+	"time"
+)
 
-const _stdLogDefaultDepth = 2
+// Clock defines how Fx accesses time.
+// The interface is pretty minimal but it matches github.com/benbjohnson/clock.
+// We intentionally don't use that interface directly;
+// this keeps it a test dependency for us.
+type Clock interface {
+	Now() time.Time
+	Since(time.Time) time.Duration
+	Sleep(time.Duration)
+	WithTimeout(context.Context, time.Duration) (context.Context, context.CancelFunc)
+}
+
+// System is the default implementation of Clock based on real time.
+var System Clock = systemClock{}
+
+type systemClock struct{}
+
+func (systemClock) Now() time.Time {
+	return time.Now()
+}
+
+func (systemClock) Since(t time.Time) time.Duration {
+	return time.Since(t)
+}
+
+func (systemClock) Sleep(d time.Duration) {
+	time.Sleep(d)
+}
+
+func (systemClock) WithTimeout(ctx context.Context, d time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, d)
+}

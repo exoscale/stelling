@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap/zapgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/grpclog"
 )
 
@@ -168,7 +169,7 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 	var creloader *reloader.CertReloader
 
 	if conf.InsecureConnection {
-		opts = append(opts, grpc.WithInsecure())
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		// We're assuming this is called for a short-lived grpc client
 		// The reloader eagerly loads the cert, which is all we want
