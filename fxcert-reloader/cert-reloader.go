@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -41,6 +42,7 @@ type CertReloader struct {
 	logger  *zap.Logger
 	watcher *fsnotify.Watcher
 	ticker  *time.Ticker
+	wg      sync.WaitGroup
 }
 
 // GetCertificate returns the currently loaded keypair
@@ -83,7 +85,9 @@ func (c *CertReloader) Start(ctx context.Context) error {
 	// we will use a 'dirty' flag to track changes and then use a timer to reload
 	// periodically if the certs are 'dirty'
 	c.ticker = time.NewTicker(c.conf.ReloadInterval)
+	c.wg.Add(1)
 	go func() {
+		defer c.wg.Done()
 		reload := false
 		_, certFileName := filepath.Split(c.conf.CertFile)
 		_, keyFileName := filepath.Split(c.conf.KeyFile)
@@ -151,7 +155,11 @@ func (c *CertReloader) Start(ctx context.Context) error {
 func (c *CertReloader) Stop(ctx context.Context) error {
 	c.logger.Info("Stopping watcher")
 	c.ticker.Stop()
-	return c.watcher.Close()
+	if err := c.watcher.Close(); err != nil {
+		return err
+	}
+	c.wg.Wait()
+	return nil
 }
 
 // NewCertReloader returns a CertReloader for a KeyPair
