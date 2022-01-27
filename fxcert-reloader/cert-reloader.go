@@ -48,7 +48,7 @@ type CertReloader struct {
 // GetCertificate returns the currently loaded keypair
 // It is meant to be passed into a tls.Config
 // If reloading fails, this method will return the last valid keypair
-func (c *CertReloader) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+func (c *CertReloader) GetCertificate() (*tls.Certificate, error) {
 	// Naively return our cert
 	// Maybe we can try to load if cert is nil
 	return c.cert, nil

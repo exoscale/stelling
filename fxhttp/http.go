@@ -73,7 +73,7 @@ func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
 // TODO: refactor the grpc server version in terms of this one
 func makeTLS(r *reloader.CertReloader, clientCAFile string) (*tls.Config, error) {
 	tlsConf := &tls.Config{
-		GetCertificate: r.GetCertificate,
+		GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) { return r.GetCertificate() },
 	}
 
 	if clientCAFile != "" {

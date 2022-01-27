@@ -141,7 +141,7 @@ func MakeClientTLS(c GrpcClientConfig, logger *zap.Logger) (credentials.Transpor
 		}
 
 		tlsConf := &tls.Config{
-			GetCertificate: r.GetCertificate,
+			GetClientCertificate: func(cri *tls.CertificateRequestInfo) (*tls.Certificate, error) { return r.GetCertificate() },
 		}
 
 		if conf.RootCAFile != "" {
