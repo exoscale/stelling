@@ -12,9 +12,17 @@ import (
 
 var Module = fx.Options(
 	fx.Provide(
-		NewPprofHttpServer,
+		fx.Annotate(
+			NewPprofHttpServer,
+			fx.ResultTags(`name:"pprof_server"`),
+		),
 	),
-	fx.Invoke(InitPprofProfiler),
+	fx.Invoke(
+		fx.Annotate(
+			InitPprofProfiler,
+			fx.ParamTags(`name:"pprof_server",optional:"true"`),
+		),
+	),
 )
 
 type PprofConfig interface {
@@ -60,13 +68,11 @@ func (p *Pprof) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-type PprofHttpServerResult struct {
-	fx.Out
+func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (*http.Server, error) {
+	if !conf.GetPprof().Enabled {
+		return nil, nil
+	}
 
-	Server *http.Server `name:"pprof_server"`
-}
-
-func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (PprofHttpServerResult, error) {
 	sconf := &fxhttp.Server{
 		TLS:          conf.GetPprof().TLS,
 		CertFile:     conf.GetPprof().CertFile,
@@ -76,30 +82,22 @@ func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (
 	}
 	server, err := fxhttp.NewHTTPServer(lc, sconf, logger)
 	if err != nil {
-		return PprofHttpServerResult{}, err
+		return nil, err
 	}
-	return PprofHttpServerResult{
-		Server: server,
-	}, nil
+	return server, nil
 }
 
-type InitPprofProfileParams struct {
-	fx.In
-
-	Server *http.Server `name:"pprof_server" optional:"true"`
-}
-
-func InitPprofProfiler(p InitPprofProfileParams) {
-	if p.Server == nil {
+func InitPprofProfiler(server *http.Server) {
+	if server == nil {
 		return
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/debug/pprof", pprof.Index)
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
-	p.Server.Handler = mux
+	server.Handler = mux
 }
