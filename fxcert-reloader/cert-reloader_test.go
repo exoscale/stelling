@@ -2,7 +2,6 @@ package fxcert_reloader
 
 import (
 	"context"
-	"crypto/tls"
 	"crypto/x509"
 	"os"
 	"testing"
@@ -87,7 +86,7 @@ func TestNewCertReloader(t *testing.T) {
 		reloader, err := NewCertReloader(conf, zap.NewNop())
 		assert.NoError(t, err)
 		if assert.NotNil(t, reloader) {
-			cert, err := reloader.GetCertificate(&tls.ClientHelloInfo{})
+			cert, err := reloader.GetCertificate()
 			assert.NoError(t, err)
 			if assert.NotNil(t, cert) {
 				pCert, err := x509.ParseCertificate(cert.Certificate[0])
@@ -137,7 +136,7 @@ func TestCertReloader(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Assert that we emit the initial cert first
-		cert, err := reloader.GetCertificate(&tls.ClientHelloInfo{})
+		cert, err := reloader.GetCertificate()
 		assert.NoError(t, err)
 		pCert, err := x509.ParseCertificate(cert.Certificate[0])
 		assert.NoError(t, err)
@@ -159,7 +158,7 @@ func TestCertReloader(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 
 		// Assert that we emit the second cert
-		cert2, err := reloader.GetCertificate(&tls.ClientHelloInfo{})
+		cert2, err := reloader.GetCertificate()
 		assert.NoError(t, err)
 		pCert2, err := x509.ParseCertificate(cert2.Certificate[0])
 		assert.NoError(t, err)
@@ -203,7 +202,7 @@ func TestCertReloader(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Assert that we emit the initial cert first
-		cert, err := reloader.GetCertificate(&tls.ClientHelloInfo{})
+		cert, err := reloader.GetCertificate()
 		assert.NoError(t, err)
 		pCert, err := x509.ParseCertificate(cert.Certificate[0])
 		assert.NoError(t, err)
@@ -221,7 +220,7 @@ func TestCertReloader(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 
 		// Assert that we still emit the initial cert
-		cert2, err := reloader.GetCertificate(&tls.ClientHelloInfo{})
+		cert2, err := reloader.GetCertificate()
 		assert.NoError(t, err)
 		pCert2, err := x509.ParseCertificate(cert2.Certificate[0])
 		assert.NoError(t, err)
@@ -266,7 +265,7 @@ func TestCertReloader(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Assert that we emit the initial cert first
-		cert, err := reloader.GetCertificate(&tls.ClientHelloInfo{})
+		cert, err := reloader.GetCertificate()
 		assert.NoError(t, err)
 		pCert, err := x509.ParseCertificate(cert.Certificate[0])
 		assert.NoError(t, err)
@@ -283,7 +282,7 @@ func TestCertReloader(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 
 		// Assert that we still emit the initial cert
-		cert2, err := reloader.GetCertificate(&tls.ClientHelloInfo{})
+		cert2, err := reloader.GetCertificate()
 		assert.NoError(t, err)
 		pCert2, err := x509.ParseCertificate(cert2.Certificate[0])
 		assert.NoError(t, err)

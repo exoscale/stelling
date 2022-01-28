@@ -109,7 +109,7 @@ type GrpcServerParams struct {
 
 func makeServerTLS(r *reloader.CertReloader, clientCAFile string) (credentials.TransportCredentials, error) {
 	tlsConf := &tls.Config{
-		GetCertificate: r.GetCertificate,
+		GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) { return r.GetCertificate() },
 	}
 
 	if clientCAFile != "" {

@@ -25,7 +25,7 @@ func ExampleNewCertReloader() {
 	}
 	defer reloader.Stop(context.Background()) //nolint:errcheck
 
-	cfg := &tls.Config{GetCertificate: reloader.GetCertificate}
+	cfg := &tls.Config{GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) { return reloader.GetCertificate() }}
 
 	listener, err := tls.Listen("tcp", ":2000", cfg)
 	if err != nil {
