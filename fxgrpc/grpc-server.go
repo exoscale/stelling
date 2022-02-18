@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
+//Provides a grpc server
 var ServerModule = fx.Provide(
 	// ProvideCertReloader should only consume our named config instance
 	// (otherwise all CertReloaders will consume the same config)

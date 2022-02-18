@@ -1,3 +1,4 @@
+//package fxmetrics provides a convenient way to expose prometheus metrics.
 package fxmetrics
 
 import (
@@ -14,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+//Exposes prometheus metrics.
 var Module = fx.Options(
 	fx.Provide(
 		NewPrometheusRegistry,

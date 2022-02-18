@@ -1,3 +1,4 @@
+//Package fxcert-reloader provides a way to automatically reload certificates when changed on disk.
 package fxcert_reloader
 
 import (
@@ -33,7 +34,7 @@ func (c *CertReloaderConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-// CertReloader watches and reloads a TLS keypair on disk
+// CertReloader watches and reloads a TLS keypair on disk.
 // Watching for changes must be explicitly started and stopped
 // The GetCertificate() method can be used in a tls.Config
 type CertReloader struct {

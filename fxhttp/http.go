@@ -1,3 +1,4 @@
+//package fxhttp provides a convenient way to create well behaved http servers
 package fxhttp
 
 import (

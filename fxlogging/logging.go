@@ -1,3 +1,4 @@
+//Package fxlogging provides a convenient way to create loggers.
 package fxlogging
 
 import (
@@ -12,6 +13,7 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
+//Provides a logger
 var Module = fx.Options(
 	fx.Provide(
 		NewLogger,

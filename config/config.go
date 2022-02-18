@@ -1,3 +1,4 @@
+//Package config provides a way to load a configuration from a mix of  file, env variables and cli flags and to validate it.
 package config
 
 import (
@@ -18,7 +19,7 @@ import (
 //     3. Environment variables
 //     4. CLI flags
 // After loading, Load will validate the values with the functions passed into the `validate` struct tag
-// If any value does pass validation, a user readable error will be returned
+// If any value doesn't pass validation, a user readable error will be returned.
 func Load(s interface{}, args []string) error {
 	// Before loading any config, we want to check if the user has provided
 	// a config file path through a CLI flag
