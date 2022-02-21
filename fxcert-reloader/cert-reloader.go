@@ -37,6 +37,7 @@ func (c *CertReloaderConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 // Watching for changes must be explicitly started and stopped
 // The GetCertificate() method can be used in a tls.Config
 type CertReloader struct {
+	sync.RWMutex
 	cert    *tls.Certificate
 	conf    *CertReloaderConfig
 	logger  *zap.Logger
@@ -51,6 +52,8 @@ type CertReloader struct {
 func (c *CertReloader) GetCertificate() (*tls.Certificate, error) {
 	// Naively return our cert
 	// Maybe we can try to load if cert is nil
+	c.RLock()
+	defer c.RUnlock()
 	return c.cert, nil
 }
 
@@ -140,7 +143,9 @@ func (c *CertReloader) Start(ctx context.Context) error {
 						// TODO: expose a count of this as metric?
 						c.logger.Error("Failed to reload certificate", zap.Error(err))
 					} else {
+						c.Lock()
 						c.cert = &cert
+						c.Unlock()
 						reload = false
 					}
 				}
