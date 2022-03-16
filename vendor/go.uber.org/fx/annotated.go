@@ -26,6 +26,7 @@ import (
 	"reflect"
 	"strings"
 
+	"go.uber.org/dig"
 	"go.uber.org/fx/internal/fxreflect"
 )
 
@@ -263,6 +264,7 @@ type annotated struct {
 	ParamTags  []string
 	ResultTags []string
 	As         [][]reflect.Type
+	FuncPtr    uintptr
 }
 
 func (ann annotated) String() string {
@@ -289,6 +291,10 @@ func (ann *annotated) Build() (interface{}, error) {
 		return nil, fmt.Errorf("must provide constructor function, got %v (%T)", ann.Target, ann.Target)
 	}
 
+	if err := ann.typeCheckOrigFn(); err != nil {
+		return nil, fmt.Errorf("invalid annotation function %T: %w", ann.Target, err)
+	}
+
 	paramTypes, remapParams := ann.parameters()
 	resultTypes, remapResults, err := ann.results()
 	if err != nil {
@@ -297,6 +303,7 @@ func (ann *annotated) Build() (interface{}, error) {
 
 	newFnType := reflect.FuncOf(paramTypes, resultTypes, false)
 	origFn := reflect.ValueOf(ann.Target)
+	ann.FuncPtr = origFn.Pointer()
 	newFn := reflect.MakeFunc(newFnType, func(args []reflect.Value) []reflect.Value {
 		args = remapParams(args)
 		var results []reflect.Value
@@ -310,6 +317,33 @@ func (ann *annotated) Build() (interface{}, error) {
 	})
 
 	return newFn.Interface(), nil
+}
+
+// checks whether the target function is either
+// returning an fx.Out struct or an taking in a
+// fx.In struct as a parameter.
+func (ann *annotated) typeCheckOrigFn() error {
+	ft := reflect.TypeOf(ann.Target)
+	for i := 0; i < ft.NumOut(); i++ {
+		ot := ft.Out(i)
+		if ot.Kind() != reflect.Struct {
+			continue
+		}
+		if dig.IsOut(reflect.New(ft.Out(i)).Elem().Interface()) {
+			return errors.New("fx.Out structs cannot be annotated")
+		}
+	}
+
+	for i := 0; i < ft.NumIn(); i++ {
+		it := ft.In(i)
+		if it.Kind() != reflect.Struct {
+			continue
+		}
+		if dig.IsIn(reflect.New(ft.In(i)).Elem().Interface()) {
+			return errors.New("fx.In structs cannot be annotated")
+		}
+	}
+	return nil
 }
 
 // parameters returns the type for the parameters of the annotated function,
@@ -328,7 +362,7 @@ func (ann *annotated) parameters() (
 
 	// No parameter annotations. Return the original types
 	// and an identity function.
-	if len(ann.ParamTags) == 0 {
+	if len(ann.ParamTags) == 0 && !ft.IsVariadic() {
 		return types, func(args []reflect.Value) []reflect.Value {
 			return args
 		}
@@ -351,6 +385,11 @@ func (ann *annotated) parameters() (
 
 		if i < len(ann.ParamTags) {
 			field.Tag = reflect.StructTag(ann.ParamTags[i])
+		} else if i == ft.NumIn()-1 && ft.IsVariadic() {
+			// If a variadic argument is unannotated, mark it optional,
+			// so that just wrapping a function in fx.Annotate does not
+			// suddenly introduce a required []arg dependency.
+			field.Tag = reflect.StructTag(`optional:"true"`)
 		}
 
 		inFields = append(inFields, field)

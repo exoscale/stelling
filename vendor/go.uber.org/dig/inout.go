@@ -23,6 +23,7 @@ package dig
 import (
 	"container/list"
 	"reflect"
+	"strconv"
 )
 
 var (
@@ -34,12 +35,10 @@ var (
 	_outType    = reflect.TypeOf(Out{})
 )
 
-// Special interface embedded inside dig sentinel values (dig.In, dig.Out) to
-// make their special nature obvious in the godocs. Otherwise they will appear
-// as plain empty structs.
-type digSentinel interface {
-	digSentinel()
-}
+// Placeholder type placed in dig.In/dig.out to make their special nature
+// obvious in godocs.
+// Otherwise they will appear as plain empty structs.
+type digSentinel struct{}
 
 // In may be embedded into structs to request dig to treat them as special
 // parameter structs. When a constructor accepts such a struct, instead of the
@@ -57,7 +56,7 @@ type digSentinel interface {
 //   group       Name of the Value Group from which this field will be filled.
 //               The field must be a slice type. See Value Groups in the
 //               package documentation for more information.
-type In struct{ digSentinel }
+type In struct{ _ digSentinel }
 
 // Out is an embeddable type that signals to dig that the returned
 // struct should be treated differently. Instead of the struct itself
@@ -78,7 +77,7 @@ type In struct{ digSentinel }
 //   group       Name of the Value Group to which this field's value is being
 //               sent. See Value Groups in the package documentation for more
 //               information.
-type Out struct{ digSentinel }
+type Out struct{ _ digSentinel }
 
 func isError(t reflect.Type) bool {
 	return t.Implements(_errType)
@@ -117,7 +116,7 @@ func embedsType(i interface{}, e reflect.Type) bool {
 	// TODO: this function doesn't consider e being a pointer.
 	// given `type A foo { *In }`, this function would return false for
 	// embedding dig.In, which makes for some extra error checking in places
-	// that call this funciton. Might be worthwhile to consider reflect.Indirect
+	// that call this function. Might be worthwhile to consider reflect.Indirect
 	// usage to clean up the callers.
 
 	if i == nil {
@@ -156,4 +155,21 @@ func embedsType(i interface{}, e reflect.Type) bool {
 	// If perf is an issue, we can cache known In objects and Out objects in a
 	// map[reflect.Type]struct{}.
 	return false
+}
+
+// Checks if a field of an In struct is optional.
+func isFieldOptional(f reflect.StructField) (bool, error) {
+	tag := f.Tag.Get(_optionalTag)
+	if tag == "" {
+		return false, nil
+	}
+
+	optional, err := strconv.ParseBool(tag)
+	if err != nil {
+		err = errf(
+			"invalid value %q for %q tag on field %v",
+			tag, _optionalTag, f.Name, err)
+	}
+
+	return optional, err
 }
