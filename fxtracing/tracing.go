@@ -38,8 +38,6 @@ type Tracing struct {
 	RootCAFile string `validate:"required_if=Enabled true InsecureConnection false,omitempty,file"`
 	// Endpoint is the address + port where the collector can be reached
 	Endpoint string `validate:"required_if=Enabled true InsecureConnection false,omitempty,hostname_port"`
-	// SpanLimits allows overwriting the default span limits of the tracing provider
-	SpanLimits sdktrace.SpanLimits
 }
 
 func (t *Tracing) GetTracing() *Tracing {
@@ -59,12 +57,6 @@ func (t *Tracing) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 			enc.AddString("cert-file", t.CertFile)
 			enc.AddString("key-file", t.KeyFile)
 			enc.AddString("root-ca-file", t.RootCAFile)
-		}
-	}
-	empty := sdktrace.SpanLimits{}
-	if t.SpanLimits != empty {
-		if err := enc.AddReflected("span-limits", t.SpanLimits); err != nil {
-			return err
 		}
 	}
 
@@ -127,7 +119,6 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 	// TODO: configure the resource
 	tracerProvider := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
-		sdktrace.WithSpanLimits(conf.GetTracing().SpanLimits),
 	)
 
 	lc.Append(fx.Hook{
