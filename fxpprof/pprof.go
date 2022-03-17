@@ -11,8 +11,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-//Exposes pprof endpoint
-var Module = fx.Options(
+// Exposes pprof endpoint
+var Module = fx.Module(
+	"pprof",
 	fx.Provide(
 		fx.Annotate(
 			NewPprofHttpServer,

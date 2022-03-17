@@ -15,10 +15,13 @@ import (
 	"google.golang.org/grpc"
 )
 
-var Module = fx.Provide(
-	NewTracerProvider,
-	NewGrpcServerInterceptors,
-	NewGrpcClientInterceptors,
+var Module = fx.Module(
+	"tracing",
+	fx.Provide(
+		NewTracerProvider,
+		NewGrpcServerInterceptors,
+		NewGrpcClientInterceptors,
+	),
 )
 
 type TracingConfig interface {

@@ -15,8 +15,9 @@ import (
 	"google.golang.org/grpc"
 )
 
-//Exposes prometheus metrics.
-var Module = fx.Options(
+// Exposes prometheus metrics.
+var Module = fx.Module(
+	"metrics",
 	fx.Provide(
 		NewPrometheusRegistry,
 		NewGrpcServerInterceptors,

@@ -13,8 +13,9 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-//Provides a logger
-var Module = fx.Options(
+// Provides a logger
+var Module = fx.Module(
+	"logging",
 	fx.Provide(
 		NewLogger,
 		NewGrpcServerInterceptors,
