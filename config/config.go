@@ -1,4 +1,4 @@
-//Package config provides a way to load a configuration from a mix of file, env variables and cli flags and to validate it.
+//Package config provides a way to load a configuration from a mix of files, env variables and cli flags and to validate it.
 package config
 
 import (
