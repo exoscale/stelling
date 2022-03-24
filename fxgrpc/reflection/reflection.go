@@ -1,3 +1,4 @@
+//Package reflection provides reflection capabilities for grpc servers.
 package reflection
 
 import (
@@ -6,6 +7,7 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
+//Add a service that exposes the grpc server proto definition
 var Module = fx.Options(
 	fx.Invoke(Register),
 )

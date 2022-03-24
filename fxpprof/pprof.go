@@ -1,3 +1,4 @@
+//package fxpprof provides a convenient way to expose pprof endpoint.
 package fxpprof
 
 import (
@@ -10,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+//Exposes pprof endpoint
 var Module = fx.Options(
 	fx.Provide(
 		fx.Annotate(

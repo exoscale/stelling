@@ -1,3 +1,4 @@
+//Package health provides client-side health check capabilities for grpc servers.
 package health
 
 import (
@@ -7,6 +8,7 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
+//Add a service that exposes the grpc server's heath
 var Module = fx.Options(
 	fx.Provide(health.NewServer),
 	fx.Invoke(RegisterHealthService),

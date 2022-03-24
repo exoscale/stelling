@@ -1,3 +1,4 @@
+//Package fxgrpc provides a convenient way to create well behaved grpc servers and clients.
 package fxgrpc
 
 import (
@@ -20,6 +21,7 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
+//Provides a grpc client
 var ClientModule = fx.Provide(
 	ProvideGrpcClient,
 )
