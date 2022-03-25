@@ -29,13 +29,9 @@ var ServerModule = fx.Module(
 			fx.ResultTags(`name:"grpc_server"`),
 		),
 		fx.Annotate(
-			func(lc fx.Lifecycle, conf *reloader.CertReloaderConfig, logger *zap.Logger) (*reloader.CertReloader, error) {
-				if conf == nil {
-					return nil, nil
-				}
-				return reloader.ProvideCertReloader(lc, conf, logger)
-			},
-			fx.ParamTags("", `name:"grpc_server" optional:"true"`, ""),
+			reloader.ProvideCertReloader,
+			fx.ParamTags(``, `name:"grpc_server" optional:"true"`, ``),
+			fx.ResultTags(`name:"grpc_server"`),
 		),
 		NewGrpcServer,
 	),

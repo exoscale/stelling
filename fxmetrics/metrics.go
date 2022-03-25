@@ -63,11 +63,14 @@ func (m *Metrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddBool("tls", m.TLS)
 
 	if m.TLS {
-		enc.AddString("cert-file", m.CertFile)
-		enc.AddString("key-file", m.KeyFile)
-		enc.AddString("client-ca-file", m.ClientCAFile)
+		enc.AddString("certfile", m.CertFile)
+		enc.AddString("keyfile", m.KeyFile)
+		enc.AddString("clientcafile", m.ClientCAFile)
 	}
 	enc.AddBool("histograms", m.Histograms)
+	if m.ProcessName != "" {
+		enc.AddString("processname", m.ProcessName)
+	}
 	return nil
 }
 

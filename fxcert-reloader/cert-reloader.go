@@ -20,7 +20,7 @@ type CertReloaderConfig struct {
 	// KeyFile is the path to a pem encoded private key
 	KeyFile string
 	// The time in which events are buffered up before a reload is attempted
-	ReloadInterval time.Duration
+	ReloadInterval time.Duration `default:"10s"`
 }
 
 func (c *CertReloaderConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error {
@@ -182,6 +182,9 @@ func NewCertReloader(conf *CertReloaderConfig, logger *zap.Logger) (*CertReloade
 }
 
 func ProvideCertReloader(lc fx.Lifecycle, conf *CertReloaderConfig, logger *zap.Logger) (*CertReloader, error) {
+	if conf == nil {
+		return nil, nil
+	}
 	reloader, err := NewCertReloader(conf, logger)
 	if err != nil {
 		return nil, err

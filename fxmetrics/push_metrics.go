@@ -1,0 +1,197 @@
+package fxmetrics
+
+import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"net/http"
+	"os"
+	"time"
+
+	reloader "github.com/exoscale/stelling/fxcert-reloader"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/push"
+	"go.uber.org/fx"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+)
+
+var PushModule = fx.Module(
+	"metrics",
+	fx.Provide(
+		NewPrometheusRegistry,
+		NewGrpcServerInterceptors,
+		NewGrpcClientInterceptors,
+		fx.Annotate(
+			GetCertReloaderConfig,
+			fx.ResultTags(`name:"metrics_pusher"`),
+		),
+		fx.Annotate(
+			reloader.ProvideCertReloader,
+			fx.ParamTags(``, `name:"metrics_pusher" optional:"true"`, ``),
+			fx.ResultTags(`name:"metrics_pusher"`),
+		),
+		fx.Annotate(
+			ProvideMetricsPusher,
+			fx.ParamTags(``, ``, `name:"metrics_pusher" optional:"true"`),
+		),
+	),
+	fx.Invoke(
+		fx.Annotate(
+			RegisterPushMetrics,
+			fx.ParamTags(``, `optional:"true"`),
+		),
+	),
+)
+
+type PushMetricsConfig interface {
+	GetPushMetrics() *PushMetrics
+}
+
+type PushMetrics struct {
+	// InsecureConnection indicates whether TLS needs to be disabled when connecting to PushGateway
+	InsecureConnection bool
+	// CertFile is the path to the pem encoded TLS certificate
+	CertFile string `validate:"omitempty,file"`
+	// KeyFile is the path to the pem encoded private key of the TLS certificate
+	KeyFile string `validate:"required_with=CertFile,omitempty,file"`
+	// RootCAFile is the path to a pem encoded CA cert bundle used to validate server connections
+	RootCAFile string `validate:"excluded_without=TLS,omitempty,file"`
+	// indicates whether Prometheus server export Histograms or not
+	Histograms bool `default:"false"`
+	// ProcessName is used as a prefix for certain metrics that can clash
+	ProcessName string
+	// Endpoint is the URL on which the prometheus pushgateway can be reached
+	Endpoint string `validate:"url"`
+	// JobName is the name of the job in PushGateway
+	JobName string `validate:"required"`
+	// GroupingLabelKey is the label on which PushGateway groups metrics
+	// (ie: you can keep a copy of each metric for each value of the GroupingLabelKey)
+	GroupingLabelKey string ``
+	// The value for this instance of the GroupingLabel (see GroupingLabelKey)
+	GroupingLabelValue string `validate:"required_with=GroupingLabelKey"`
+	// PushInterval is the frequency with which metrics are pushed
+	PushInterval time.Duration `default:"15s" validate:"required"`
+}
+
+func (m *PushMetrics) GetPushMetrics() *PushMetrics {
+	return m
+}
+
+func (m *PushMetrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if m == nil {
+		return nil
+	}
+
+	enc.AddString("endpoint", m.Endpoint)
+	enc.AddBool("insecureconnection", m.InsecureConnection)
+	if !m.InsecureConnection {
+		enc.AddString("certfile", m.CertFile)
+		enc.AddString("keyfile", m.KeyFile)
+		enc.AddString("rootcafile", m.RootCAFile)
+	}
+
+	enc.AddBool("histograms", m.Histograms)
+	if m.ProcessName != "" {
+		enc.AddString("processname", m.ProcessName)
+	}
+	enc.AddString("jobname", m.JobName)
+	if m.GroupingLabelKey != "" {
+		enc.AddString("groupinglabel", m.GroupingLabelKey)
+	}
+	return nil
+}
+
+func GetCertReloaderConfig(conf PushMetricsConfig) *reloader.CertReloaderConfig {
+	if conf.GetPushMetrics().CertFile == "" {
+		return nil
+	}
+	return &reloader.CertReloaderConfig{
+		CertFile:       conf.GetPushMetrics().CertFile,
+		KeyFile:        conf.GetPushMetrics().KeyFile,
+		ReloadInterval: 10 * time.Second,
+	}
+}
+
+func httpClient(conf *PushMetrics, reloader *reloader.CertReloader) (*http.Client, error) {
+	tlsConf := &tls.Config{
+		InsecureSkipVerify: conf.InsecureConnection,
+	}
+	if reloader != nil {
+		tlsConf.GetClientCertificate = func(cri *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return reloader.GetCertificate()
+		}
+	}
+	if conf.RootCAFile != "" {
+		certPool, err := x509.SystemCertPool()
+		if err != nil {
+			return nil, err
+		}
+		ca, err := os.ReadFile(conf.RootCAFile)
+		if err != nil {
+			return nil, err
+		}
+		if ok := certPool.AppendCertsFromPEM(ca); !ok {
+			return nil, fmt.Errorf("Failed to parse RootCAFile: %s", conf.RootCAFile)
+		}
+		tlsConf.RootCAs = certPool
+	}
+	return &http.Client{Transport: &http.Transport{TLSClientConfig: tlsConf}}, nil
+}
+
+func ProvideMetricsPusher(lc fx.Lifecycle, conf PushMetricsConfig, reloader *reloader.CertReloader, logger *zap.Logger) (*push.Pusher, error) {
+	pConf := conf.GetPushMetrics()
+	endpoint := pConf.Endpoint
+	if endpoint == "" {
+		return nil, nil
+	}
+	logger = logger.Named("metrics-pusher")
+
+	client, err := httpClient(pConf, reloader)
+	if err != nil {
+		return nil, err
+	}
+	pusher := push.New(endpoint, pConf.JobName).Client(client)
+
+	if pConf.GroupingLabelKey != "" {
+		pusher = pusher.Grouping(pConf.GroupingLabelKey, pConf.GroupingLabelValue)
+	}
+
+	done := make(chan chan struct{})
+
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			go func() {
+				logger.Debug("Starting metrics reporting to pushgateway")
+				ticker := time.NewTicker(pConf.PushInterval)
+				for {
+					select {
+					case <-done:
+						logger.Debug("Stopping metrics reporting to pushgateway")
+						ticker.Stop()
+						return
+					case <-ticker.C:
+						if err := pusher.Add(); err != nil {
+							logger.Error("Failed to push metrics", zap.Error(err))
+						}
+					}
+				}
+			}()
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			close(done)
+			logger.Debug("Pushing final metrics")
+			return pusher.Add()
+		},
+	})
+
+	return pusher, nil
+}
+
+func RegisterPushMetrics(reg *prometheus.Registry, pusher *push.Pusher) {
+	if pusher != nil {
+		pusher.Gatherer(reg)
+	}
+}
