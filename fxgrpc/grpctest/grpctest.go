@@ -12,8 +12,11 @@ import (
 )
 
 // Module provides a grpc Server and ClientConn that use a buffer instead of the actual network to communicate
-var Module = fx.Provide(
-	NewGrpc,
+var Module = fx.Module(
+	"grpc-test",
+	fx.Provide(
+		NewGrpc,
+	),
 )
 
 func NewGrpc(lc fx.Lifecycle) (*grpc.Server, grpc.ClientConnInterface) {

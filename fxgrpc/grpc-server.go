@@ -20,33 +20,25 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
-//Provides a grpc server
-var ServerModule = fx.Provide(
-	// ProvideCertReloader should only consume our named config instance
-	// (otherwise all CertReloaders will consume the same config)
-	// Consuming 'dynamic' named entries is extremely uggly
-	// There seem to be some plans to improve this, but for the foreseeable
-	// future we're stuck with this API
-	// https://github.com/uber-go/fx/pull/718#issuecomment-790148469
-	fx.Annotated{
-		Target: func(x struct {
-			fx.In
-			Lc     fx.Lifecycle
-			Conf   *reloader.CertReloaderConfig `optional:"true" name:"grpc_server"`
-			Logger *zap.Logger
-		}) (*reloader.CertReloader, error) {
-			if x.Conf == nil {
-				return nil, nil
-			}
-			return reloader.ProvideCertReloader(x.Lc, x.Conf, x.Logger)
-		},
-		Name: "grpc_server",
-	},
-	fx.Annotated{
-		Target: GetCertReloaderConfig,
-		Name:   "grpc_server",
-	},
-	NewGrpcServer,
+// Provides a grpc server
+var ServerModule = fx.Module(
+	"grpc-server",
+	fx.Provide(
+		fx.Annotate(
+			GetCertReloaderConfig,
+			fx.ResultTags(`name:"grpc_server"`),
+		),
+		fx.Annotate(
+			func(lc fx.Lifecycle, conf *reloader.CertReloaderConfig, logger *zap.Logger) (*reloader.CertReloader, error) {
+				if conf == nil {
+					return nil, nil
+				}
+				return reloader.ProvideCertReloader(lc, conf, logger)
+			},
+			fx.ParamTags("", `name:"grpc_server" optional:"true"`, ""),
+		),
+		NewGrpcServer,
+	),
 )
 
 type GrpcServerConfig interface {

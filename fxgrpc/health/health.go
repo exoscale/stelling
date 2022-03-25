@@ -8,8 +8,9 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
-//Add a service that exposes the grpc server's heath
-var Module = fx.Options(
+// Add a service that exposes the grpc server's heath
+var Module = fx.Module(
+	"grpc-healthcheck",
 	fx.Provide(health.NewServer),
 	fx.Invoke(RegisterHealthService),
 )

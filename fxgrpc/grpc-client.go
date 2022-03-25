@@ -21,9 +21,12 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
-//Provides a grpc client
-var ClientModule = fx.Provide(
-	ProvideGrpcClient,
+// Provides a grpc client
+var ClientModule = fx.Module(
+	"grpc-client",
+	fx.Provide(
+		ProvideGrpcClient,
+	),
 )
 
 // LazyGrpcClientConn is GrpcClientConn that defers initialization of the connection until Start is called

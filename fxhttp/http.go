@@ -16,8 +16,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var Module = fx.Provide(
-	NewHTTPServer,
+var Module = fx.Module(
+	"http",
+	fx.Provide(
+		NewHTTPServer,
+	),
 )
 
 type ServerConfig interface {
