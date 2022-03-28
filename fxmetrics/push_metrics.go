@@ -72,6 +72,7 @@ type PushMetrics struct {
 	// The value for this instance of the GroupingLabel (see GroupingLabelKey)
 	GroupingLabelValue string `validate:"required_with=GroupingLabelKey"`
 	// PushInterval is the frequency with which metrics are pushed
+	// If the PushInterval is set to 0, metrics will only be pushed when the system stops
 	PushInterval time.Duration `default:"15s" validate:"required"`
 }
 
@@ -158,34 +159,43 @@ func ProvideMetricsPusher(lc fx.Lifecycle, conf PushMetricsConfig, reloader *rel
 		pusher = pusher.Grouping(pConf.GroupingLabelKey, pConf.GroupingLabelValue)
 	}
 
-	done := make(chan chan struct{})
+	if pConf.PushInterval == 0 {
+		lc.Append(fx.Hook{
+			OnStop: func(ctx context.Context) error {
+				logger.Debug("Pushing final metrics")
+				return pusher.Add()
+			},
+		})
+	} else {
+		done := make(chan chan struct{})
 
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			go func() {
-				logger.Debug("Starting metrics reporting to pushgateway")
-				ticker := time.NewTicker(pConf.PushInterval)
-				for {
-					select {
-					case <-done:
-						logger.Debug("Stopping metrics reporting to pushgateway")
-						ticker.Stop()
-						return
-					case <-ticker.C:
-						if err := pusher.Add(); err != nil {
-							logger.Error("Failed to push metrics", zap.Error(err))
+		lc.Append(fx.Hook{
+			OnStart: func(ctx context.Context) error {
+				go func() {
+					logger.Debug("Starting metrics reporting to pushgateway")
+					ticker := time.NewTicker(pConf.PushInterval)
+					for {
+						select {
+						case <-done:
+							logger.Debug("Stopping metrics reporting to pushgateway")
+							ticker.Stop()
+							return
+						case <-ticker.C:
+							if err := pusher.Add(); err != nil {
+								logger.Error("Failed to push metrics", zap.Error(err))
+							}
 						}
 					}
-				}
-			}()
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			close(done)
-			logger.Debug("Pushing final metrics")
-			return pusher.Add()
-		},
-	})
+				}()
+				return nil
+			},
+			OnStop: func(ctx context.Context) error {
+				close(done)
+				logger.Debug("Pushing final metrics")
+				return pusher.Add()
+			},
+		})
+	}
 
 	return pusher, nil
 }
