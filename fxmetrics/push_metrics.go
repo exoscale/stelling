@@ -63,9 +63,9 @@ type PushMetrics struct {
 	// ProcessName is used as a prefix for certain metrics that can clash
 	ProcessName string
 	// Endpoint is the URL on which the prometheus pushgateway can be reached
-	Endpoint string `validate:"url"`
+	Endpoint string `validate:"omitempty,url"`
 	// JobName is the name of the job in PushGateway
-	JobName string `validate:"required"`
+	JobName string `validate:"required_with=Endpoint"`
 	// GroupingLabelKey is the label on which PushGateway groups metrics
 	// (ie: you can keep a copy of each metric for each value of the GroupingLabelKey)
 	GroupingLabelKey string ``
