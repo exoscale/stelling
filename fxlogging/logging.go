@@ -14,14 +14,16 @@ import (
 )
 
 // Provides a logger
-var Module = fx.Module(
-	"logging",
-	fx.Provide(
-		NewLogger,
-		NewGrpcServerInterceptors,
-		NewGrpcClientIncterceptors,
-	),
+var Module = fx.Options(
 	fx.WithLogger(NewFxLogger),
+	fx.Module(
+		"logging",
+		fx.Provide(
+			NewLogger,
+			NewGrpcServerInterceptors,
+			NewGrpcClientInterceptors,
+		),
+	),
 )
 
 type LoggingConfig interface {
@@ -102,7 +104,7 @@ type GrpcClientInterceptorsResult struct {
 	grpc.StreamClientInterceptor `group:"stream_client_interceptor"`
 }
 
-func NewGrpcClientIncterceptors(logger *zap.Logger) GrpcClientInterceptorsResult {
+func NewGrpcClientInterceptors(logger *zap.Logger) GrpcClientInterceptorsResult {
 	logOpts := []grpc_zap.Option{
 		grpc_zap.WithLevels(codeToLevel),
 	}
