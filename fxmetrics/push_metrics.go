@@ -75,7 +75,7 @@ type PushMetrics struct {
 	GroupingLabelValue string `validate:"required_with=GroupingLabelKey"`
 	// PushInterval is the frequency with which metrics are pushed
 	// If the PushInterval is set to 0, metrics will only be pushed when the system stops
-	PushInterval time.Duration `default:"15s" validate:"required"`
+	PushInterval time.Duration `default:"15s"`
 }
 
 func (m *PushMetrics) GetPushMetrics() *PushMetrics {
@@ -177,7 +177,7 @@ func ProvideMetricsPusher(lc fx.Lifecycle, conf PushMetricsConfig, reloader *rel
 			},
 		})
 	} else {
-		done := make(chan chan struct{})
+		done := make(chan struct{})
 
 		lc.Append(fx.Hook{
 			OnStart: func(ctx context.Context) error {
