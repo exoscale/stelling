@@ -95,6 +95,7 @@ func (m *PushMetrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("endpoint", m.Endpoint)
+	enc.AddDuration("pushinterval", m.PushInterval)
 	enc.AddBool("insecureconnection", m.InsecureConnection)
 	if !m.InsecureConnection {
 		enc.AddString("certfile", m.CertFile)
