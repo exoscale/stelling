@@ -59,7 +59,7 @@ type PushMetrics struct {
 	// KeyFile is the path to the pem encoded private key of the TLS certificate
 	KeyFile string `validate:"required_with=CertFile,omitempty,file"`
 	// RootCAFile is the path to a pem encoded CA cert bundle used to validate server connections
-	RootCAFile string `validate:"excluded_without=omitempty,file"`
+	RootCAFile string `validate:"omitempty,file"`
 	// indicates whether Prometheus server export Histograms or not
 	Histograms bool `default:"false"`
 	// ProcessName is used as a prefix for certain metrics that can clash
