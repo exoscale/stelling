@@ -59,7 +59,7 @@ type PushMetrics struct {
 	// KeyFile is the path to the pem encoded private key of the TLS certificate
 	KeyFile string `validate:"required_with=CertFile,omitempty,file"`
 	// RootCAFile is the path to a pem encoded CA cert bundle used to validate server connections
-	RootCAFile string `validate:"excluded_without=omitempty,file"`
+	RootCAFile string `validate:"omitempty,file"`
 	// indicates whether Prometheus server export Histograms or not
 	Histograms bool `default:"false"`
 	// ProcessName is used as a prefix for certain metrics that can clash
@@ -75,7 +75,7 @@ type PushMetrics struct {
 	GroupingLabelValue string `validate:"required_with=GroupingLabelKey"`
 	// PushInterval is the frequency with which metrics are pushed
 	// If the PushInterval is set to 0, metrics will only be pushed when the system stops
-	PushInterval time.Duration `default:"15s" validate:"required"`
+	PushInterval time.Duration `default:"15s"`
 }
 
 func (m *PushMetrics) GetPushMetrics() *PushMetrics {
@@ -95,6 +95,7 @@ func (m *PushMetrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("endpoint", m.Endpoint)
+	enc.AddDuration("pushinterval", m.PushInterval)
 	enc.AddBool("insecureconnection", m.InsecureConnection)
 	if !m.InsecureConnection {
 		enc.AddString("certfile", m.CertFile)
@@ -176,7 +177,7 @@ func ProvideMetricsPusher(lc fx.Lifecycle, conf PushMetricsConfig, reloader *rel
 			},
 		})
 	} else {
-		done := make(chan chan struct{})
+		done := make(chan struct{})
 
 		lc.Append(fx.Hook{
 			OnStart: func(ctx context.Context) error {
