@@ -49,7 +49,7 @@ type param interface {
 	// Container.
 	//
 	// This MAY panic if the param does not produce a single value.
-	Build(store containerStore, decorating bool) (reflect.Value, error)
+	Build(store containerStore) (reflect.Value, error)
 
 	// DotParam returns a slice of dot.Param(s).
 	DotParam() []*dot.Param
@@ -137,18 +137,18 @@ func newParamList(ctype reflect.Type, c containerStore) (paramList, error) {
 	return pl, nil
 }
 
-func (pl paramList) Build(containerStore, bool) (reflect.Value, error) {
+func (pl paramList) Build(containerStore) (reflect.Value, error) {
 	digerror.BugPanicf("paramList.Build() must never be called")
 	panic("") // Unreachable, as BugPanicf above will panic.
 }
 
 // BuildList returns an ordered list of values which may be passed directly
 // to the underlying constructor.
-func (pl paramList) BuildList(c containerStore, decorating bool) ([]reflect.Value, error) {
+func (pl paramList) BuildList(c containerStore) ([]reflect.Value, error) {
 	args := make([]reflect.Value, len(pl.Params))
 	for i, p := range pl.Params {
 		var err error
-		args[i], err = p.Build(c, decorating)
+		args[i], err = p.Build(c)
 		if err != nil {
 			return nil, err
 		}
@@ -221,36 +221,30 @@ func (ps paramSingle) getValue(c containerStore) (reflect.Value, bool) {
 // current scope, if there are any. If there are multiple Scopes that decorates
 // this parameter, the closest one to the Scope that invoked this will be used.
 // If there are no decorators associated with this parameter, _noValue is returned.
-func (ps paramSingle) buildWithDecorators(c containerStore, decorating bool) (v reflect.Value, found bool, err error) {
+func (ps paramSingle) buildWithDecorators(c containerStore) (v reflect.Value, found bool, err error) {
 	var (
-		decorators      []decorator
+		d               decorator
 		decoratingScope containerStore
 	)
 	stores := c.storesToRoot()
-	// If we are already in a decorating stack,
-	// skip the current Scope to avoid infinite
-	// recursion.
-	if decorating {
-		stores = stores[1:]
-	}
+
 	for _, s := range stores {
-		if decorators = s.getValueDecorators(ps.Name, ps.Type); len(decorators) > 0 {
-			decoratingScope = s
-			break
+		if d, found = s.getValueDecorator(ps.Name, ps.Type); !found {
+			continue
 		}
+		if d.State() == decoratorOnStack {
+			// This decorator is already being run.
+			// Avoid a cycle and look further.
+			d = nil
+			continue
+		}
+		decoratingScope = s
+		break
 	}
-	if len(decorators) == 0 {
+	if !found || d == nil {
 		return _noValue, false, nil
 	}
-	found = true
-	for _, d := range decorators {
-		err := d.Call(decoratingScope)
-		if err == nil {
-			continue
-		}
-		if _, ok := err.(errMissingDependencies); ok && ps.Optional {
-			continue
-		}
+	if err = d.Call(decoratingScope); err != nil {
 		v, err = _noValue, errParamSingleFailed{
 			CtorID: 1,
 			Key:    key{t: ps.Type, name: ps.Name},
@@ -262,8 +256,8 @@ func (ps paramSingle) buildWithDecorators(c containerStore, decorating bool) (v 
 	return
 }
 
-func (ps paramSingle) Build(c containerStore, decorating bool) (reflect.Value, error) {
-	v, found, err := ps.buildWithDecorators(c, decorating)
+func (ps paramSingle) Build(c containerStore) (reflect.Value, error) {
+	v, found, err := ps.buildWithDecorators(c)
 	if found {
 		return v, err
 	}
@@ -407,10 +401,10 @@ func newParamObject(t reflect.Type, c containerStore) (paramObject, error) {
 	return po, nil
 }
 
-func (po paramObject) Build(c containerStore, decorating bool) (reflect.Value, error) {
+func (po paramObject) Build(c containerStore) (reflect.Value, error) {
 	dest := reflect.New(po.Type).Elem()
 	for _, f := range po.Fields {
-		v, err := f.Build(c, decorating)
+		v, err := f.Build(c)
 		if err != nil {
 			return dest, err
 		}
@@ -482,8 +476,8 @@ func newParamObjectField(idx int, f reflect.StructField, c containerStore) (para
 	return pof, nil
 }
 
-func (pof paramObjectField) Build(c containerStore, decorating bool) (reflect.Value, error) {
-	v, err := pof.Param.Build(c, decorating)
+func (pof paramObjectField) Build(c containerStore) (reflect.Value, error) {
+	v, err := pof.Param.Build(c)
 	if err != nil {
 		return v, err
 	}
@@ -573,7 +567,12 @@ func (pt paramGroupedSlice) callGroupDecorators(c containerStore) error {
 	stores := c.storesToRoot()
 	for i := len(stores) - 1; i >= 0; i-- {
 		c := stores[i]
-		for _, d := range c.getGroupDecorators(pt.Group, pt.Type.Elem()) {
+		if d, found := c.getGroupDecorator(pt.Group, pt.Type.Elem()); found {
+			if d.State() == decoratorOnStack {
+				// This decorator is already being run. Avoid cycle
+				// and look further.
+				continue
+			}
 			if err := d.Call(c); err != nil {
 				return errParamGroupFailed{
 					CtorID: d.ID(),
@@ -607,14 +606,12 @@ func (pt paramGroupedSlice) callGroupProviders(c containerStore) (int, error) {
 	return itemCount, nil
 }
 
-func (pt paramGroupedSlice) Build(c containerStore, decorating bool) (reflect.Value, error) {
+func (pt paramGroupedSlice) Build(c containerStore) (reflect.Value, error) {
 	// do not call this if we are already inside a decorator since
 	// it will result in an infinite recursion. (i.e. decorate -> params.BuildList() -> Decorate -> params.BuildList...)
 	// this is safe since a value can be decorated at most once in a given scope.
-	if !decorating {
-		if err := pt.callGroupDecorators(c); err != nil {
-			return _noValue, err
-		}
+	if err := pt.callGroupDecorators(c); err != nil {
+		return _noValue, err
 	}
 
 	// Check if we have decorated values

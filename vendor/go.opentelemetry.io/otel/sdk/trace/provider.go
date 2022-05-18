@@ -31,7 +31,7 @@ const (
 	defaultTracerName = "go.opentelemetry.io/otel/sdk/tracer"
 )
 
-// tracerProviderConfig
+// tracerProviderConfig.
 type tracerProviderConfig struct {
 	// processors contains collection of SpanProcessors that are processing pipeline
 	// for spans in the trace signal.
@@ -99,6 +99,7 @@ func NewTracerProvider(opts ...TracerProviderOption) *TracerProvider {
 	o := tracerProviderConfig{
 		spanLimits: NewSpanLimits(),
 	}
+	o = applyTracerProviderEnvConfigs(o)
 
 	for _, opt := range opts {
 		o = opt.apply(o)
@@ -155,7 +156,7 @@ func (p *TracerProvider) Tracer(name string, opts ...trace.TracerOption) trace.T
 	return t
 }
 
-// RegisterSpanProcessor adds the given SpanProcessor to the list of SpanProcessors
+// RegisterSpanProcessor adds the given SpanProcessor to the list of SpanProcessors.
 func (p *TracerProvider) RegisterSpanProcessor(s SpanProcessor) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -171,7 +172,7 @@ func (p *TracerProvider) RegisterSpanProcessor(s SpanProcessor) {
 	p.spanProcessors.Store(new)
 }
 
-// UnregisterSpanProcessor removes the given SpanProcessor from the list of SpanProcessors
+// UnregisterSpanProcessor removes the given SpanProcessor from the list of SpanProcessors.
 func (p *TracerProvider) UnregisterSpanProcessor(s SpanProcessor) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -335,7 +336,10 @@ func WithIDGenerator(g IDGenerator) TracerProviderOption {
 // Tracers the TracerProvider creates to make their sampling decisions for the
 // Spans they create.
 //
-// If this option is not used, the TracerProvider will use a
+// This option overrides the Sampler configured through the OTEL_TRACES_SAMPLER
+// and OTEL_TRACES_SAMPLER_ARG environment variables. If this option is not used
+// and the sampler is not configured through environment variables or the environment
+// contains invalid/unsupported configuration, the TracerProvider will use a
 // ParentBased(AlwaysSample) Sampler by default.
 func WithSampler(s Sampler) TracerProviderOption {
 	return traceProviderOptionFunc(func(cfg tracerProviderConfig) tracerProviderConfig {
@@ -406,6 +410,29 @@ func WithRawSpanLimits(limits SpanLimits) TracerProviderOption {
 		cfg.spanLimits = limits
 		return cfg
 	})
+}
+
+func applyTracerProviderEnvConfigs(cfg tracerProviderConfig) tracerProviderConfig {
+	for _, opt := range tracerProviderOptionsFromEnv() {
+		cfg = opt.apply(cfg)
+	}
+
+	return cfg
+}
+
+func tracerProviderOptionsFromEnv() []TracerProviderOption {
+	var opts []TracerProviderOption
+
+	sampler, err := samplerFromEnv()
+	if err != nil {
+		otel.Handle(err)
+	}
+
+	if sampler != nil {
+		opts = append(opts, WithSampler(sampler))
+	}
+
+	return opts
 }
 
 // ensureValidTracerProviderConfig ensures that given TracerProviderConfig is valid.
