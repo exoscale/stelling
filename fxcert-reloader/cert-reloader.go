@@ -44,12 +44,15 @@ type CertReloader struct {
 	watcher *fsnotify.Watcher
 	ticker  *time.Ticker
 	wg      sync.WaitGroup
+	sync.RWMutex
 }
 
 // GetCertificate returns the currently loaded keypair
 // It is meant to be passed into a tls.Config
 // If reloading fails, this method will return the last valid keypair
 func (c *CertReloader) GetCertificate() (*tls.Certificate, error) {
+	c.RLock()
+	defer c.RUnlock()
 	// Naively return our cert
 	// Maybe we can try to load if cert is nil
 	return c.cert, nil
@@ -141,7 +144,9 @@ func (c *CertReloader) Start(ctx context.Context) error {
 						// TODO: expose a count of this as metric?
 						c.logger.Error("Failed to reload certificate", zap.Error(err))
 					} else {
+						c.Lock()
 						c.cert = &cert
+						c.Unlock()
 						reload = false
 					}
 				}
