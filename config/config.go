@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -21,6 +22,16 @@ import (
 // After loading, Load will validate the values with the functions passed into the `validate` struct tag
 // If any value doesn't pass validation, a user readable error will be returned.
 func Load(s interface{}, args []string) error {
+	// Check if --version or -v flag are passed
+	if versionRequested(args[1:]) {
+		if info, ok := debug.ReadBuildInfo(); ok {
+			fmt.Fprintln(flag.CommandLine.Output(), formatVersion(info))
+			// Asking for a version should not return an error result code
+			os.Exit(0)
+		}
+		// If we have no support for BuildInfo, just continue as usual
+	}
+
 	// Before loading any config, we want to check if the user has provided
 	// a config file path through a CLI flag
 	configPath, newArgs, err := getConfigPath(args)
@@ -190,4 +201,54 @@ func getConfigPath(args []string) (string, []string, error) {
 	}
 
 	return configPath, newArgs, nil
+}
+
+// versionRequested will return true if the args contain the special --version or -v flags
+func versionRequested(args []string) bool {
+	for _, arg := range args {
+		if arg == "--version" || arg == "-v" {
+			return true
+		}
+	}
+	return false
+}
+
+func formatVersion(info *debug.BuildInfo) string {
+	main := info.Path
+	version := info.Main.Version
+	goVersion := info.GoVersion
+
+	revision := "unknown"
+	revisionTimestamp := "unknown"
+	dirty := ""
+	buildFlags := []string{}
+
+	for _, item := range info.Settings {
+		switch item.Key {
+		case "vcs.revision":
+			revision = item.Value
+		case "vcs.time":
+			revisionTimestamp = item.Value
+		case "vcs.modified":
+			if item.Value == "true" {
+				dirty = " (dirty)"
+			}
+		case "CGO_ENABLED",
+			"CGO_FLAGS",
+			"CGO_CFLAGS",
+			"CGO_CPPFLAGS",
+			"CGO_CXXFLAGS",
+			"CGO_LDFLAGS":
+			buildFlags = append(buildFlags, fmt.Sprintf("%s: \"%s\"", item.Key, item.Value))
+		}
+	}
+
+	// TODO: maybe use the template engine?
+	format := `%s %s on %s
+  Revision %s%s
+  Committed at %s
+
+Build Flags:
+  %s`
+	return fmt.Sprintf(format, main, version, goVersion, revision, dirty, revisionTimestamp, strings.Join(buildFlags, "\n  "))
 }

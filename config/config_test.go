@@ -331,3 +331,38 @@ func TestGetConfigPath(t *testing.T) {
 		})
 	}
 }
+
+func TestVersionRequested(t *testing.T) {
+	cases := []struct {
+		name     string
+		input    []string
+		expected bool
+	}{
+		{
+			name:     "Should return false if no version is requested",
+			input:    []string{"--enabled", "-h"},
+			expected: false,
+		},
+		{
+			name:     "Should return false if args is empty",
+			input:    []string{},
+			expected: false,
+		},
+		{
+			name:     "Should return true if -v is in the arguments",
+			input:    []string{"--help", "-v"},
+			expected: true,
+		},
+		{
+			name:     "Should return true if --version in the arguments",
+			input:    []string{"--version"},
+			expected: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, versionRequested(tc.input))
+		})
+	}
+}
