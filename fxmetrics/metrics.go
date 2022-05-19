@@ -168,7 +168,11 @@ func NewPrometheusRegistry(conf MetricsConfig) (*prometheus.Registry, error) {
 		return nil, err
 	}
 
-	// TODO: once we are on go 1.18 the buildinfo exporter will become useful too
+	// TODO: I expect prometheus to add this to the BuildInfo collector, we can swap
+	// over to that one once it happens
+	if err := reg.Register(NewVersionCollector()); err != nil {
+		return nil, err
+	}
 
 	return reg, nil
 }
