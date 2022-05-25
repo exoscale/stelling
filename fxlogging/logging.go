@@ -105,6 +105,7 @@ type GrpcClientInterceptorsResult struct {
 }
 
 func NewGrpcClientInterceptors(logger *zap.Logger) GrpcClientInterceptorsResult {
+	logger = logger.WithOptions(zap.WithCaller(false))
 	logOpts := []grpc_zap.Option{
 		grpc_zap.WithLevels(codeToLevel),
 	}
