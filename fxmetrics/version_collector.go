@@ -11,7 +11,7 @@ import (
 // and "revision_timestamp". Their labels will contain the values of
 // "vcs.revision" and "vcs.time" from the BuildInfo.Settings map or "unknown"
 // if the vcs information is not available.
-func NewVersionCollector() prometheus.Collector {
+func NewVersionCollector() prometheus.GaugeFunc {
 	revision, revisionTimestamp := "unknown", "unknown"
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, item := range info.Settings {
