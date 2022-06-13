@@ -2,11 +2,8 @@ package fxgrpc
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"net"
-	"os"
 	"time"
 
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
@@ -96,27 +93,6 @@ type GrpcServerParams struct {
 	Reloader           *reloader.CertReloader         `name:"grpc_server" optional:"true"`
 }
 
-func makeServerTLS(r *reloader.CertReloader, clientCAFile string) (credentials.TransportCredentials, error) {
-	tlsConf := &tls.Config{
-		GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) { return r.GetCertificate() },
-	}
-
-	if clientCAFile != "" {
-		certPool := x509.NewCertPool()
-		ca, err := os.ReadFile(clientCAFile)
-		if err != nil {
-			return nil, err
-		}
-		if ok := certPool.AppendCertsFromPEM(ca); !ok {
-			return nil, fmt.Errorf("Failed to parse ClientCAFile: %s", clientCAFile)
-		}
-		tlsConf.ClientAuth = tls.RequireAndVerifyClientCert
-		tlsConf.ClientCAs = certPool
-	}
-
-	return credentials.NewTLS(tlsConf), nil
-}
-
 func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	opts := make([]grpc.ServerOption, 0, 3)
 	serverConf := p.Conf.GetServer()
@@ -124,11 +100,11 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	// Handle server TLS
 	if serverConf.TLS {
 		// Due to GetCertReloaderConfig we know we have a reloader here
-		creds, err := makeServerTLS(p.Reloader, serverConf.ClientCAFile)
+		creds, err := reloader.MakeServerTLS(p.Reloader, serverConf.ClientCAFile)
 		if err != nil {
 			return nil, err
 		}
-		opts = append(opts, grpc.Creds(creds))
+		opts = append(opts, grpc.Creds(credentials.NewTLS(creds)))
 	}
 
 	// Handle server middleware
