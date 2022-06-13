@@ -4,6 +4,9 @@ package fxcert_reloader
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -201,4 +204,27 @@ func ProvideCertReloader(lc fx.Lifecycle, conf *CertReloaderConfig, logger *zap.
 	})
 
 	return reloader, nil
+}
+
+// MakeServerTLS produces a *tls.Config using a cert reloader and additional config
+// TODO: expose more TLS options?
+func MakeServerTLS(r *CertReloader, clientCAFile string) (*tls.Config, error) {
+	tlsConf := &tls.Config{
+		GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) { return r.GetCertificate() },
+	}
+
+	if clientCAFile != "" {
+		certPool := x509.NewCertPool()
+		ca, err := os.ReadFile(clientCAFile)
+		if err != nil {
+			return nil, err
+		}
+		if ok := certPool.AppendCertsFromPEM(ca); !ok {
+			return nil, fmt.Errorf("Failed to parse ClientCAFile: %s", clientCAFile)
+		}
+		tlsConf.ClientAuth = tls.RequireAndVerifyClientCert
+		tlsConf.ClientCAs = certPool
+	}
+
+	return tlsConf, nil
 }

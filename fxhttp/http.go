@@ -3,11 +3,8 @@ package fxhttp
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
@@ -72,30 +69,6 @@ func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
 	}
 }
 
-// makeTLS produces a *tls.Config using a cert reloader and additional config
-// TODO: expose more TLS options?
-// TODO: refactor the grpc server version in terms of this one
-func makeTLS(r *reloader.CertReloader, clientCAFile string) (*tls.Config, error) {
-	tlsConf := &tls.Config{
-		GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) { return r.GetCertificate() },
-	}
-
-	if clientCAFile != "" {
-		certPool := x509.NewCertPool()
-		ca, err := os.ReadFile(clientCAFile)
-		if err != nil {
-			return nil, err
-		}
-		if ok := certPool.AppendCertsFromPEM(ca); !ok {
-			return nil, fmt.Errorf("Failed to parse ClientCAFile: %s", clientCAFile)
-		}
-		tlsConf.ClientAuth = tls.RequireAndVerifyClientCert
-		tlsConf.ClientCAs = certPool
-	}
-
-	return tlsConf, nil
-}
-
 func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, logger *zap.Logger) (*http.Server, error) {
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%d", conf.GetServer().Port),
@@ -123,7 +96,7 @@ func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, logger *zap.Logger) (*htt
 			OnStop:  r.Stop,
 		})
 
-		tlsConf, err := makeTLS(r, conf.GetServer().ClientCAFile)
+		tlsConf, err := reloader.MakeServerTLS(r, conf.GetServer().ClientCAFile)
 		if err != nil {
 			return nil, err
 		}
