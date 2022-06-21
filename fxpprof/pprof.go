@@ -108,6 +108,7 @@ func InvokeRuntimePprof(lc fx.Lifecycle, conf PprofConfig) error {
 	}
 	mem, err := os.Create(conf.GetPprof().GenerateFiles + ".pprof.mem")
 	if err != nil {
+		cpu.Close()
 		return err
 	}
 
