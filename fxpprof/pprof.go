@@ -84,10 +84,6 @@ func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (
 		return nil, nil
 	}
 
-	if conf.GetPprof().GenerateFiles != "" {
-		return nil, nil
-	}
-
 	sconf := &fxhttp.Server{
 		TLS:          conf.GetPprof().TLS,
 		CertFile:     conf.GetPprof().CertFile,
@@ -106,29 +102,28 @@ func InvokeRuntimePprof(lc fx.Lifecycle, conf PprofConfig) error {
 	if conf.GetPprof().GenerateFiles == "" {
 		return nil
 	}
-		cpu, err := os.Create(conf.GetPprof().GenerateFiles + ".pprof.cpu")
-		if err != nil {
-			return err
-		}
-		mem, err := os.Create(conf.GetPprof().GenerateFiles + ".pprof.mem")
-		if err != nil {
-			return err
-		}
-
-		lc.Append(fx.Hook{
-			OnStart: func(c context.Context) error {
-				return runtimepprof.StartCPUProfile(cpu)
-			},
-			OnStop: func(c context.Context) error {
-				defer mem.Close()
-				defer cpu.Close()
-
-				runtimepprof.StopCPUProfile()
-				runtime.GC() // get up-to-date statistics
-				return runtimepprof.WriteHeapProfile(mem)
-			},
-		})
+	cpu, err := os.Create(conf.GetPprof().GenerateFiles + ".pprof.cpu")
+	if err != nil {
+		return err
 	}
+	mem, err := os.Create(conf.GetPprof().GenerateFiles + ".pprof.mem")
+	if err != nil {
+		return err
+	}
+
+	lc.Append(fx.Hook{
+		OnStart: func(c context.Context) error {
+			return runtimepprof.StartCPUProfile(cpu)
+		},
+		OnStop: func(c context.Context) error {
+			defer mem.Close()
+			defer cpu.Close()
+
+			runtimepprof.StopCPUProfile()
+			runtime.GC() // get up-to-date statistics
+			return runtimepprof.WriteHeapProfile(mem)
+		},
+	})
 
 	return nil
 }
