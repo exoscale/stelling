@@ -103,7 +103,9 @@ func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (
 }
 
 func InvokeRuntimePprof(lc fx.Lifecycle, conf PprofConfig) error {
-	if conf.GetPprof().GenerateFiles != "" {
+	if conf.GetPprof().GenerateFiles == "" {
+		return nil
+	}
 		cpu, err := os.Create(conf.GetPprof().GenerateFiles + ".pprof.cpu")
 		if err != nil {
 			return err
