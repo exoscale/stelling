@@ -115,7 +115,7 @@ func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (
 	return server, nil
 }
 
-func InitPprofProfiler(conf PprofConfig, server *http.Server) {
+func InitPprofProfiler(server *http.Server) {
 	if server == nil {
 		return
 	}
