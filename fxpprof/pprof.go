@@ -2,8 +2,11 @@
 package fxpprof
 
 import (
+	"context"
 	"net/http"
 	"net/http/pprof"
+	"os"
+	runtimepprof "runtime/pprof"
 
 	"github.com/exoscale/stelling/fxhttp"
 	"go.uber.org/fx"
@@ -33,6 +36,8 @@ type PprofConfig interface {
 }
 
 type Pprof struct {
+	// GenerateFile generates a pprof file for non deamon process
+	GenerateFile string
 	// Enabled controls the embedded pprof server
 	Enabled bool
 	// Port is the port the Pprof endpoint will bind to
@@ -56,6 +61,7 @@ func (p *Pprof) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
+	enc.AddString("generatefile", p.GenerateFile)
 	enc.AddBool("enabled", p.Enabled)
 
 	if p.Enabled {
@@ -73,6 +79,25 @@ func (p *Pprof) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (*http.Server, error) {
 	if !conf.GetPprof().Enabled {
+		return nil, nil
+	}
+
+	if conf.GetPprof().GenerateFile != "" {
+		f, err := os.Create(conf.GetPprof().GenerateFile)
+		if err != nil {
+			return nil, err
+		}
+
+		lc.Append(fx.Hook{
+			OnStart: func(c context.Context) error {
+				return runtimepprof.StartCPUProfile(f)
+			},
+			OnStop: func(c context.Context) error {
+				runtimepprof.StopCPUProfile()
+				return f.Close()
+			},
+		})
+
 		return nil, nil
 	}
 
