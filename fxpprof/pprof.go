@@ -29,6 +29,7 @@ var Module = fx.Module(
 			InitPprofProfiler,
 			fx.ParamTags(`name:"pprof_server",optional:"true"`),
 		),
+		InvokeRuntimePprof,
 	),
 )
 
@@ -37,10 +38,8 @@ type PprofConfig interface {
 }
 
 type Pprof struct {
-	// GenerateCpuProfile generates a CPU pprof file for non deamon process
-	GenerateCpuProfile string
-	// GenerateMemProfile generates a Memory pprof file for non deamon process
-	GenerateMemProfile string
+	// GenerateFiles generates CPU/Mem pprof file for non deamon process
+	GenerateFiles string `validate:"excluded_with=Enabled,omitempty,dir"`
 	// Enabled controls the embedded pprof server
 	Enabled bool
 	// Port is the port the Pprof endpoint will bind to
@@ -64,8 +63,7 @@ func (p *Pprof) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
-	enc.AddString("Generatecpuprofile", p.GenerateCpuProfile)
-	enc.AddString("Generatememprofile", p.GenerateMemProfile)
+	enc.AddString("Generatefiles", p.GenerateFiles)
 	enc.AddBool("enabled", p.Enabled)
 
 	if p.Enabled {
@@ -86,42 +84,6 @@ func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (
 		return nil, nil
 	}
 
-	if conf.GetPprof().GenerateCpuProfile != "" {
-		f, err := os.Create(conf.GetPprof().GenerateCpuProfile)
-		if err != nil {
-			return nil, err
-		}
-
-		lc.Append(fx.Hook{
-			OnStart: func(c context.Context) error {
-				return runtimepprof.StartCPUProfile(f)
-			},
-			OnStop: func(c context.Context) error {
-				runtimepprof.StopCPUProfile()
-				return f.Close()
-			},
-		})
-	}
-
-	if conf.GetPprof().GenerateMemProfile != "" {
-		f, err := os.Create(conf.GetPprof().GenerateMemProfile)
-		if err != nil {
-			return nil, err
-		}
-
-		lc.Append(fx.Hook{
-			OnStop: func(c context.Context) error {
-				defer f.Close()
-				runtime.GC() // get up-to-date statistics
-				return runtimepprof.WriteHeapProfile(f)
-			},
-		})
-	}
-
-	if conf.GetPprof().GenerateCpuProfile != "" || conf.GetPprof().GenerateMemProfile != "" {
-		return nil, nil
-	}
-
 	sconf := &fxhttp.Server{
 		TLS:          conf.GetPprof().TLS,
 		CertFile:     conf.GetPprof().CertFile,
@@ -134,6 +96,37 @@ func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (
 		return nil, err
 	}
 	return server, nil
+}
+
+func InvokeRuntimePprof(lc fx.Lifecycle, conf PprofConfig) error {
+	if conf.GetPprof().GenerateFiles == "" {
+		return nil
+	}
+	cpu, err := os.Create(conf.GetPprof().GenerateFiles + ".pprof.cpu")
+	if err != nil {
+		return err
+	}
+	mem, err := os.Create(conf.GetPprof().GenerateFiles + ".pprof.mem")
+	if err != nil {
+		cpu.Close()
+		return err
+	}
+
+	lc.Append(fx.Hook{
+		OnStart: func(c context.Context) error {
+			return runtimepprof.StartCPUProfile(cpu)
+		},
+		OnStop: func(c context.Context) error {
+			defer mem.Close()
+			defer cpu.Close()
+
+			runtimepprof.StopCPUProfile()
+			runtime.GC() // get up-to-date statistics
+			return runtimepprof.WriteHeapProfile(mem)
+		},
+	})
+
+	return nil
 }
 
 func InitPprofProfiler(server *http.Server) {
