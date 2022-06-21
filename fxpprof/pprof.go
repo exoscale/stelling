@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"runtime"
 	runtimepprof "runtime/pprof"
 
 	"github.com/exoscale/stelling/fxhttp"
@@ -36,8 +37,10 @@ type PprofConfig interface {
 }
 
 type Pprof struct {
-	// GenerateFile generates a pprof file for non deamon process
-	GenerateFile string
+	// GenerateCpuProfile generates a CPU pprof file for non deamon process
+	GenerateCpuProfile string
+	// GenerateMemProfile generates a Memory pprof file for non deamon process
+	GenerateMemProfile string
 	// Enabled controls the embedded pprof server
 	Enabled bool
 	// Port is the port the Pprof endpoint will bind to
@@ -61,7 +64,8 @@ func (p *Pprof) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
-	enc.AddString("generatefile", p.GenerateFile)
+	enc.AddString("Generatecpuprofile", p.GenerateCpuProfile)
+	enc.AddString("Generatememprofile", p.GenerateMemProfile)
 	enc.AddBool("enabled", p.Enabled)
 
 	if p.Enabled {
@@ -82,8 +86,8 @@ func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (
 		return nil, nil
 	}
 
-	if conf.GetPprof().GenerateFile != "" {
-		f, err := os.Create(conf.GetPprof().GenerateFile)
+	if conf.GetPprof().GenerateCpuProfile != "" {
+		f, err := os.Create(conf.GetPprof().GenerateCpuProfile)
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +101,24 @@ func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (
 				return f.Close()
 			},
 		})
+	}
 
+	if conf.GetPprof().GenerateMemProfile != "" {
+		f, err := os.Create(conf.GetPprof().GenerateMemProfile)
+		if err != nil {
+			return nil, err
+		}
+
+		lc.Append(fx.Hook{
+			OnStop: func(c context.Context) error {
+				defer f.Close()
+				runtime.GC() // get up-to-date statistics
+				return runtimepprof.WriteHeapProfile(f)
+			},
+		})
+	}
+
+	if conf.GetPprof().GenerateCpuProfile != "" || conf.GetPprof().GenerateMemProfile != "" {
 		return nil, nil
 	}
 
