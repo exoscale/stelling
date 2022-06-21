@@ -101,8 +101,6 @@ func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (
 				return f.Close()
 			},
 		})
-
-		return nil, nil
 	}
 
 	if conf.GetPprof().GenerateMemProfile != "" {
@@ -120,7 +118,9 @@ func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (
 				return f.Close()
 			},
 		})
+	}
 
+	if conf.GetPprof().GenerateCpuProfile != "" || conf.GetPprof().GenerateMemProfile != "" {
 		return nil, nil
 	}
 
