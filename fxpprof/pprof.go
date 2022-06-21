@@ -113,10 +113,7 @@ func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (
 			OnStop: func(c context.Context) error {
 				defer f.Close()
 				runtime.GC() // get up-to-date statistics
-				if err := runtimepprof.WriteHeapProfile(f); err != nil {
-					return err
-				}
-				return nil
+				return runtimepprof.WriteHeapProfile(f)
 			},
 		})
 	}
