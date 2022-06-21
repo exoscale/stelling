@@ -39,7 +39,7 @@ type PprofConfig interface {
 
 type Pprof struct {
 	// GenerateFiles generates CPU/Mem pprof file for non deamon process
-	GenerateFiles string
+	GenerateFiles string `validate:"excluded_with=Enabled,omitempty,dir"`
 	// Enabled controls the embedded pprof server
 	Enabled bool
 	// Port is the port the Pprof endpoint will bind to
