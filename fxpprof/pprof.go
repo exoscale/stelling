@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"path/filepath"
 	"runtime"
 	runtimepprof "runtime/pprof"
 
@@ -102,11 +103,11 @@ func InvokeRuntimePprof(lc fx.Lifecycle, conf PprofConfig) error {
 	if conf.GetPprof().GenerateFiles == "" {
 		return nil
 	}
-	cpu, err := os.Create(conf.GetPprof().GenerateFiles + ".pprof.cpu")
+	cpu, err := os.Create(filepath.Join(conf.GetPprof().GenerateFiles, "pprof.cpu"))
 	if err != nil {
 		return err
 	}
-	mem, err := os.Create(conf.GetPprof().GenerateFiles + ".pprof.mem")
+	mem, err := os.Create(filepath.Join(conf.GetPprof().GenerateFiles, "pprof.mem"))
 	if err != nil {
 		cpu.Close()
 		return err
