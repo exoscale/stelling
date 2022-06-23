@@ -64,7 +64,7 @@ func (p *Pprof) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
-	enc.AddString("Generatefiles", p.GenerateFiles)
+	enc.AddString("generatefiles", p.GenerateFiles)
 	enc.AddBool("enabled", p.Enabled)
 
 	if p.Enabled {
