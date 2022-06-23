@@ -11,10 +11,10 @@ import (
 	"time"
 
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
+	zapgrpc "github.com/exoscale/stelling/fxlogging/grpc"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zapgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
