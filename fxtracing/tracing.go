@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -66,11 +67,11 @@ func (t *Tracing) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) (*sdktrace.TracerProvider, error) {
+func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) (trace.TracerProvider, error) {
 	tracingConf := conf.GetTracing()
 
 	if !tracingConf.Enabled {
-		return nil, nil
+		return trace.NewNoopTracerProvider(), nil
 	}
 
 	// If tracing is enabled without an endpoint print traces to stdout
@@ -142,7 +143,7 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 type GrpcServerInterceptorsParams struct {
 	fx.In
 
-	*sdktrace.TracerProvider `optional:"true"`
+	TracerProvider trace.TracerProvider
 }
 
 type GrpcServerInterceptorsResult struct {
@@ -154,9 +155,6 @@ type GrpcServerInterceptorsResult struct {
 
 // NewGrpcClientInterceptors returns OpenTelemetry tracing interceptors that can be used as middleware in a gRPC server
 func NewGrpcServerInterceptors(p GrpcServerInterceptorsParams) (GrpcServerInterceptorsResult, error) {
-	if p.TracerProvider == nil {
-		return GrpcServerInterceptorsResult{}, nil
-	}
 
 	propagator := propagation.NewCompositeTextMapPropagator(
 		propagation.Baggage{},
@@ -178,7 +176,7 @@ func NewGrpcServerInterceptors(p GrpcServerInterceptorsParams) (GrpcServerInterc
 type GrpcClientInterceptorsParams struct {
 	fx.In
 
-	*sdktrace.TracerProvider `optional:"true"`
+	TracerProvider trace.TracerProvider
 }
 
 type GrpcClientInterceptorsResult struct {
@@ -190,10 +188,6 @@ type GrpcClientInterceptorsResult struct {
 
 // NewGrpcClientInterceptors returns OpenTelemetry tracing interceptors that can be used as middleware in a gRPC client
 func NewGrpcClientInterceptors(p GrpcClientInterceptorsParams) (GrpcClientInterceptorsResult, error) {
-	if p.TracerProvider == nil {
-		return GrpcClientInterceptorsResult{}, nil
-	}
-
 	propagator := propagation.NewCompositeTextMapPropagator(
 		propagation.Baggage{},
 		propagation.TraceContext{},
