@@ -140,12 +140,6 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 	return tracerProvider, nil
 }
 
-type GrpcServerInterceptorsParams struct {
-	fx.In
-
-	TracerProvider trace.TracerProvider
-}
-
 type GrpcServerInterceptorsResult struct {
 	fx.Out
 
@@ -154,7 +148,7 @@ type GrpcServerInterceptorsResult struct {
 }
 
 // NewGrpcClientInterceptors returns OpenTelemetry tracing interceptors that can be used as middleware in a gRPC server
-func NewGrpcServerInterceptors(p GrpcServerInterceptorsParams) (GrpcServerInterceptorsResult, error) {
+func NewGrpcServerInterceptors(tracerProvider trace.TracerProvider) (GrpcServerInterceptorsResult, error) {
 
 	propagator := propagation.NewCompositeTextMapPropagator(
 		propagation.Baggage{},
@@ -163,20 +157,14 @@ func NewGrpcServerInterceptors(p GrpcServerInterceptorsParams) (GrpcServerInterc
 
 	return GrpcServerInterceptorsResult{
 		UnaryServerInterceptor: otelgrpc.UnaryServerInterceptor(
-			otelgrpc.WithTracerProvider(p.TracerProvider),
+			otelgrpc.WithTracerProvider(tracerProvider),
 			otelgrpc.WithPropagators(propagator),
 		),
 		StreamServerInterceptor: otelgrpc.StreamServerInterceptor(
-			otelgrpc.WithTracerProvider(p.TracerProvider),
+			otelgrpc.WithTracerProvider(tracerProvider),
 			otelgrpc.WithPropagators(propagator),
 		),
 	}, nil
-}
-
-type GrpcClientInterceptorsParams struct {
-	fx.In
-
-	TracerProvider trace.TracerProvider
 }
 
 type GrpcClientInterceptorsResult struct {
@@ -187,7 +175,7 @@ type GrpcClientInterceptorsResult struct {
 }
 
 // NewGrpcClientInterceptors returns OpenTelemetry tracing interceptors that can be used as middleware in a gRPC client
-func NewGrpcClientInterceptors(p GrpcClientInterceptorsParams) (GrpcClientInterceptorsResult, error) {
+func NewGrpcClientInterceptors(tracerProvider trace.TracerProvider) (GrpcClientInterceptorsResult, error) {
 	propagator := propagation.NewCompositeTextMapPropagator(
 		propagation.Baggage{},
 		propagation.TraceContext{},
@@ -195,11 +183,11 @@ func NewGrpcClientInterceptors(p GrpcClientInterceptorsParams) (GrpcClientInterc
 
 	return GrpcClientInterceptorsResult{
 		UnaryClientInterceptor: otelgrpc.UnaryClientInterceptor(
-			otelgrpc.WithTracerProvider(p.TracerProvider),
+			otelgrpc.WithTracerProvider(tracerProvider),
 			otelgrpc.WithPropagators(propagator),
 		),
 		StreamClientInterceptor: otelgrpc.StreamClientInterceptor(
-			otelgrpc.WithTracerProvider(p.TracerProvider),
+			otelgrpc.WithTracerProvider(tracerProvider),
 			otelgrpc.WithPropagators(propagator),
 		),
 	}, nil
