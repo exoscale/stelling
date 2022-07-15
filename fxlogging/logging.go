@@ -51,18 +51,19 @@ func (l *Logging) GetLogging() *Logging {
 }
 
 func NewLogger(conf LoggingConfig, lc fx.Lifecycle) (*zap.Logger, error) {
-	var logger *zap.Logger
-	var err error
+	var config zap.Config
 	switch conf.GetLogging().Mode {
 	case "production":
-		logger, err = zap.NewProduction()
+		config = zap.NewProductionConfig()
 	case "preproduction":
-		config := zap.NewProductionConfig()
+		config = zap.NewProductionConfig()
 		config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-		logger, err = config.Build()
 	default:
-		logger, err = zap.NewDevelopment()
+		config = zap.NewDevelopmentConfig()
 	}
+	config.OutputPaths = []string{"stdout"}
+	config.ErrorOutputPaths = []string{"stdout"}
+	logger, err := config.Build()
 	if err != nil {
 		return nil, err
 	}

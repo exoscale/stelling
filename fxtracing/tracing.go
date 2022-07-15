@@ -4,7 +4,9 @@ import (
 	"context"
 
 	"github.com/exoscale/stelling/fxgrpc"
+	"github.com/go-logr/zapr"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
@@ -69,6 +71,7 @@ func (t *Tracing) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) (trace.TracerProvider, error) {
 	tracingConf := conf.GetTracing()
+	otel.SetLogger(zapr.NewLogger(logger))
 
 	if !tracingConf.Enabled {
 		return trace.NewNoopTracerProvider(), nil
