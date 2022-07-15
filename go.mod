@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/fsnotify/fsnotify v1.5.4
+	github.com/go-logr/zapr v1.2.3
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
@@ -15,6 +16,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.7.0
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.7.0
 	go.opentelemetry.io/otel/sdk v1.7.0
+	go.opentelemetry.io/otel/trace v1.7.0
 	go.uber.org/fx v1.17.1
 	go.uber.org/zap v1.21.0
 	google.golang.org/grpc v1.46.2
@@ -42,7 +44,6 @@ require (
 	github.com/prometheus/procfs v0.7.3 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.7.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.7.0 // indirect
-	go.opentelemetry.io/otel/trace v1.7.0 // indirect
 	go.opentelemetry.io/proto/otlp v0.16.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/dig v1.14.1 // indirect
