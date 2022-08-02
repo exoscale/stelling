@@ -55,8 +55,10 @@ func NewLogger(conf LoggingConfig, lc fx.Lifecycle) (*zap.Logger, error) {
 	switch conf.GetLogging().Mode {
 	case "production":
 		config = zap.NewProductionConfig()
+		config.Sampling = nil
 	case "preproduction":
 		config = zap.NewProductionConfig()
+		config.Sampling = nil
 		config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
 	default:
 		config = zap.NewDevelopmentConfig()
