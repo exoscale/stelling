@@ -135,7 +135,10 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 			}
 			p.Logger.Info("Starting gRPC server", zap.Int("port", serverConf.Port))
 			go func() {
-				if err := grpcServer.Serve(lis); err != nil {
+				if err := grpcServer.Serve(lis); err != nil && err != grpc.ErrServerStopped {
+					// If err is grpc.ErrServerStopped, it mean that
+					// the grpc module was stopped very quickly before
+					// this goroutine was scheduled
 					p.Logger.Fatal("Error while serving grpc", zap.Error(err))
 				} else {
 					p.Logger.Info("Done serving grpc")
