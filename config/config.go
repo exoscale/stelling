@@ -1,4 +1,4 @@
-//Package config provides a way to load a configuration from a mix of files, env variables and cli flags and to validate it.
+// Package config provides a way to load a configuration from a mix of files, env variables and cli flags and to validate it.
 package config
 
 import (
@@ -13,15 +13,33 @@ import (
 	"github.com/koding/multiconfig"
 )
 
+// Option applies options to the validation and loading logic
+type Option func(*loaderConfig)
+
+type loaderConfig struct {
+	tagLoader  *multiconfig.TagLoader
+	envLoader  *multiconfig.EnvironmentLoader
+	flagLoader *multiconfig.FlagLoader
+	validate   *validator.Validate
+}
+
+// WithValidator replaces the built-in validator with a user supplied one
+func WithValidator(validate *validator.Validate) Option {
+	return func(conf *loaderConfig) {
+		conf.validate = validate
+	}
+}
+
 // Load will populate s with configuration and validate it
 // It will load from the following sources in order:
-//     1. The `default` struct tag
-//     2. The configuration file at configPath (if it is not the empty string)
-//     3. Environment variables
-//     4. CLI flags
+//  1. The `default` struct tag
+//  2. The configuration file at configPath (if it is not the empty string)
+//  3. Environment variables
+//  4. CLI flags
+//
 // After loading, Load will validate the values with the functions passed into the `validate` struct tag
 // If any value doesn't pass validation, a user readable error will be returned.
-func Load(s interface{}, args []string) error {
+func Load(s interface{}, args []string, opts ...Option) error {
 	// Check if --version or -v flag are passed
 	if versionRequested(args[1:]) {
 		if info, ok := debug.ReadBuildInfo(); ok {
@@ -39,22 +57,32 @@ func Load(s interface{}, args []string) error {
 		return err
 	}
 
-	// Load default configuration from struct tags
-	tags := &multiconfig.TagLoader{}
-	// Load configuration from environment variables
-	env := &multiconfig.EnvironmentLoader{}
-	// Load configuration from CLI flags
-	flags := &multiconfig.FlagLoader{
-		Args: newArgs[1:],
+	conf := &loaderConfig{
+		// Load default configuration from struct tags
+		tagLoader: &multiconfig.TagLoader{},
+		// Load configuration from environment variables
+		envLoader: &multiconfig.EnvironmentLoader{},
+		// Load configuration from CLI flags
+		flagLoader: &multiconfig.FlagLoader{Args: newArgs[1:]},
+	}
+
+	// Apply all the options
+	for _, opt := range opts {
+		opt(conf)
+	}
+
+	// If we didn't receive an external validator, provision one now
+	if conf.validate == nil {
+		conf.validate = validator.New()
 	}
 
 	var loader multiconfig.Loader
 	// If a path to a configuration file is provided, add it to the chain
 	if configPath != "" {
 		yaml := &multiconfig.YAMLLoader{Path: configPath}
-		loader = multiconfig.MultiLoader(tags, yaml, env, flags)
+		loader = multiconfig.MultiLoader(conf.tagLoader, yaml, conf.envLoader, conf.flagLoader)
 	} else {
-		loader = multiconfig.MultiLoader(tags, env, flags)
+		loader = multiconfig.MultiLoader(conf.tagLoader, conf.envLoader, conf.flagLoader)
 	}
 
 	if err := loader.Load(s); err == flag.ErrHelp {
@@ -64,12 +92,11 @@ func Load(s interface{}, args []string) error {
 		return err
 	}
 
-	validate := validator.New()
-	if err := registerValidators(validate); err != nil {
+	if err := registerValidators(conf.validate); err != nil {
 		return err
 	}
 
-	if err := validate.Struct(s); err != nil {
+	if err := conf.validate.Struct(s); err != nil {
 		// Print better error messages
 		validationErrors := err.(validator.ValidationErrors)
 

@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -364,5 +365,32 @@ func TestVersionRequested(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, tc.expected, versionRequested(tc.input))
 		})
+	}
+}
+
+func TestWithValidator(t *testing.T) {
+	conf := &loaderConfig{}
+	validate := validator.New()
+	opt := WithValidator(validate)
+	opt(conf)
+	assert.Equal(t, validate, conf.validate)
+}
+
+func TestLoadWithOptions(t *testing.T) {
+	validate := validator.New()
+	validate.RegisterAlias("my-alias", "ipv4")
+	opt := WithValidator(validate)
+
+	type Config struct {
+		MyIP string `default:"0.0.0.0" validate:"my-alias"`
+	}
+
+	expected := Config{
+		MyIP: "0.0.0.0",
+	}
+
+	config := Config{}
+	if assert.NoError(t, Load(&config, mockArgs, opt)) {
+		assert.Equal(t, expected, config)
 	}
 }
