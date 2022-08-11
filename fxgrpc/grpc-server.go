@@ -133,7 +133,7 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 			if err != nil {
 				return err
 			}
-			p.Logger.Info("Starting gRPC server", zap.Int("port", serverConf.Port))
+			p.Logger.Info("Starting gRPC server", zap.Int("port", lis.Addr().(*net.TCPAddr).Port))
 			go func() {
 				if err := grpcServer.Serve(lis); err != nil && err != grpc.ErrServerStopped {
 					// If err is grpc.ErrServerStopped, it means that
