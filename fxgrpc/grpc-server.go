@@ -48,7 +48,7 @@ type Server struct {
 	// ClientCAFile is the path to a pem encoded CA cert bundle used to validate clients
 	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
 	// Port is the port the gRPC server will bind to
-	Port int `default:"10000" validate:"port"`
+	Port int `default:"0" validate:"port"`
 }
 
 func (s *Server) GetServer() *Server {
