@@ -9,28 +9,26 @@ jobs:
     name: test
     strategy:
       matrix:
-        go-version: [1.18.x]
         os: [ubuntu-latest, macos-latest, windows-latest]
       fail-fast: true
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
         with:
-          go-version: ${{ matrix.go-version }}
-        id: go
-      - uses: actions/cache@v2
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - run: go test ./... -cover
+          go-version-file: 'go.mod'
+          check-latest: true
+      - run: go test ./... -cover -race
   lint:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: golangci/golangci-lint-action@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version-file: 'go.mod'
+          check-latest: true
+      - uses: golangci/golangci-lint-action@v3
         with:
           version: latest
+          args: --timeout 2m
