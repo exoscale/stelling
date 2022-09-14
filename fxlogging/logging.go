@@ -1,4 +1,4 @@
-//Package fxlogging provides a convenient way to create loggers.
+// Package fxlogging provides a convenient way to create loggers.
 package fxlogging
 
 import (
@@ -23,6 +23,7 @@ var Module = fx.Options(
 			NewGrpcServerInterceptors,
 			NewGrpcClientInterceptors,
 		),
+		fx.Supply(defaultCodeToLevel),
 	),
 )
 
@@ -88,7 +89,7 @@ type GrpcServerInterceptorsResult struct {
 	grpc.StreamServerInterceptor `group:"stream_server_interceptor"`
 }
 
-func NewGrpcServerInterceptors(logger *zap.Logger) GrpcServerInterceptorsResult {
+func NewGrpcServerInterceptors(logger *zap.Logger, codeToLevel func(codes.Code) zapcore.Level) GrpcServerInterceptorsResult {
 	logOpts := []grpc_zap.Option{
 		grpc_zap.WithLevels(codeToLevel),
 	}
@@ -106,7 +107,7 @@ type GrpcClientInterceptorsResult struct {
 	grpc.StreamClientInterceptor `group:"stream_client_interceptor"`
 }
 
-func NewGrpcClientInterceptors(logger *zap.Logger) GrpcClientInterceptorsResult {
+func NewGrpcClientInterceptors(logger *zap.Logger, codeToLevel func(codes.Code) zapcore.Level) GrpcClientInterceptorsResult {
 	logger = logger.WithOptions(zap.WithCaller(false))
 	logOpts := []grpc_zap.Option{
 		grpc_zap.WithLevels(codeToLevel),
@@ -124,8 +125,8 @@ func NewFxLogger(logger *zap.Logger) fxevent.Logger {
 	return &fxevent.ZapLogger{Logger: logger}
 }
 
-// codeToLevel maps the grpc response code to a logging level
-func codeToLevel(code codes.Code) zapcore.Level {
+// defaultCodeToLevel maps the grpc response code to a logging level
+func defaultCodeToLevel(code codes.Code) zapcore.Level {
 	switch code {
 	case codes.OK:
 		return zap.InfoLevel
