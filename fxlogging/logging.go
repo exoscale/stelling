@@ -23,7 +23,7 @@ var Module = fx.Options(
 			NewGrpcServerInterceptors,
 			NewGrpcClientInterceptors,
 		),
-		fx.Supply(defaultCodeToLevel),
+		fx.Supply(DefaultCodeToLevel),
 	),
 )
 
@@ -125,8 +125,8 @@ func NewFxLogger(logger *zap.Logger) fxevent.Logger {
 	return &fxevent.ZapLogger{Logger: logger}
 }
 
-// defaultCodeToLevel maps the grpc response code to a logging level
-func defaultCodeToLevel(code codes.Code) zapcore.Level {
+// DefaultCodeToLevel maps the grpc response code to a logging level
+func DefaultCodeToLevel(code codes.Code) zapcore.Level {
 	switch code {
 	case codes.OK:
 		return zap.InfoLevel
