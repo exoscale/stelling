@@ -84,7 +84,7 @@ func NewLogger(conf LoggingConfig, lc fx.Lifecycle) (*zap.Logger, error) {
 	return logger, nil
 }
 
-// ISO8601UTCTimeEncoder is like zapcore.ISO8601TimeEncoder but the
+// ISO8601UTCTimeEncoder is like zapcore.ISO8601TimeEncoder but sets
 // the timezone to utc first
 func ISO8601UTCTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	t = t.UTC()
