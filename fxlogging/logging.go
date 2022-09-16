@@ -88,16 +88,7 @@ func NewLogger(conf LoggingConfig, lc fx.Lifecycle) (*zap.Logger, error) {
 // the timezone to utc first
 func ISO8601UTCTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	t = t.UTC()
-	type appendTimeEncoder interface {
-		AppendTimeLayout(time.Time, string)
-	}
-
-	if enc, ok := enc.(appendTimeEncoder); ok {
-		enc.AppendTimeLayout(t, "2006-01-02T15:04:05.000Z0700")
-		return
-	}
-
-	enc.AppendString(t.Format("2006-01-02T15:04:05.000Z0700"))
+	zapcore.ISO8601TimeEncoder(t, enc)
 }
 
 type GrpcServerInterceptorsResult struct {
