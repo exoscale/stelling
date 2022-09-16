@@ -3,6 +3,7 @@ package fxlogging
 
 import (
 	"context"
+	"time"
 
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"go.uber.org/fx"
@@ -60,6 +61,7 @@ func NewLogger(conf LoggingConfig, lc fx.Lifecycle) (*zap.Logger, error) {
 		config = zap.NewProductionConfig()
 		config.Sampling = nil
 		config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+		config.EncoderConfig.EncodeTime = ISO8601UTCTimeEncoder
 	default:
 		config = zap.NewDevelopmentConfig()
 	}
@@ -80,6 +82,13 @@ func NewLogger(conf LoggingConfig, lc fx.Lifecycle) (*zap.Logger, error) {
 	logger.Info("Using configuration", zap.Any("conf", conf))
 
 	return logger, nil
+}
+
+// ISO8601UTCTimeEncoder is like zapcore.ISO8601TimeEncoder but sets
+// the timezone to utc first
+func ISO8601UTCTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	t = t.UTC()
+	zapcore.ISO8601TimeEncoder(t, enc)
 }
 
 type GrpcServerInterceptorsResult struct {
