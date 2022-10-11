@@ -57,6 +57,7 @@ func NewLogger(conf LoggingConfig, lc fx.Lifecycle) (*zap.Logger, error) {
 	switch conf.GetLogging().Mode {
 	case "production":
 		config = zap.NewProductionConfig()
+		config.EncoderConfig.EncodeTime = ISO8601UTCTimeEncoder
 	case "preproduction":
 		config = zap.NewProductionConfig()
 		config.Sampling = nil
