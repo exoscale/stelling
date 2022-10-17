@@ -1,4 +1,4 @@
-//Package fxgrpc provides a convenient way to create well behaved grpc servers and clients.
+// Package fxgrpc provides a convenient way to create well behaved grpc servers and clients.
 package fxgrpc
 
 import (
@@ -90,6 +90,8 @@ type Client struct {
 	RootCAFile string `validate:"omitempty,file"`
 	// Endpoint is IP or hostname of the gRPC server
 	Endpoint string `validate:"required,omitempty,hostname_port"`
+	// LoadBalancingPolicy is the policy to use for load balancing, empty is ignored.
+	LoadBalancingPolicy string `validate:"omitempty,oneof=pick_first round_robin"`
 }
 
 func (c *Client) GetClient() *Client {
@@ -108,6 +110,8 @@ func (c *Client) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddString("key-file", c.KeyFile)
 		enc.AddString("root-ca-file", c.RootCAFile)
 	}
+
+	enc.AddString("load-balancing-policy", c.LoadBalancingPolicy)
 
 	return nil
 }
@@ -208,6 +212,13 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 		grpc.WithChainUnaryInterceptor(unary...),
 		grpc.WithChainStreamInterceptor(stream...),
 	)
+
+	switch conf.LoadBalancingPolicy {
+	case "round_robin":
+		opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`))
+	case "pick_first":
+		opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"pick_first":{}}]}`))
+	}
 
 	// TODO: move this side effect out into the calling functions?
 	grpclog.SetLoggerV2(zapgrpc.NewLogger(logger))
