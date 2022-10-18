@@ -88,8 +88,8 @@ type Client struct {
 	KeyFile string `validate:"required_with=CertFile,omitempty,file"`
 	// RootCAFile is the  path to a pem encoded CA bundle used to validate server connections
 	RootCAFile string `validate:"omitempty,file"`
-	// Endpoint is IP or hostname of the gRPC server
-	Endpoint string `validate:"required,omitempty,hostname_port"`
+	// Endpoint is IP or hostname or scheme for the target gRPC server
+	Endpoint string `validate:"required,omitempty"`
 	// LoadBalancingPolicy is the policy to use for load balancing, empty is ignored.
 	LoadBalancingPolicy string `validate:"omitempty,oneof=pick_first round_robin"`
 }
