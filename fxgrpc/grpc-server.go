@@ -74,7 +74,7 @@ func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddString("client-ca-file", s.ClientCAFile)
 	}
 
-	if err := enc.AddReflected("keepalive", s.Keepalive); err != nil {
+	if err := enc.AddObject("keepalive", &s.Keepalive); err != nil {
 		return err
 	}
 
