@@ -214,10 +214,13 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 	)
 
 	switch conf.LoadBalancingPolicy {
+	case "": // Do nothing
 	case "round_robin":
 		opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`))
 	case "pick_first":
 		opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"pick_first":{}}]}`))
+	default:
+		return nil, nil, fmt.Errorf("invalid loadbalancing policy %s", conf.LoadBalancingPolicy)
 	}
 
 	// TODO: move this side effect out into the calling functions?
