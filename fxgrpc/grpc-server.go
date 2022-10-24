@@ -118,7 +118,7 @@ type GrpcServerParams struct {
 }
 
 func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
-	opts := make([]grpc.ServerOption, 0, 4)
+	opts := []grpc.ServerOption{}
 	serverConf := p.Conf.GetServer()
 
 	// Handle keepalive configuration
