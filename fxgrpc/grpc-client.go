@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -219,19 +220,26 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 		grpc.WithChainStreamInterceptor(stream...),
 	)
 
+	serviceConfig := map[string]interface{}{}
+
 	switch conf.LoadBalancingPolicy {
 	case "": // Do nothing
 	case "round_robin":
-		opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`))
+		fallthrough
 	case "pick_first":
-		opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"pick_first":{}}]}`))
+		serviceConfig["loadBalancingConfig"] = []map[string]interface{}{{conf.LoadBalancingPolicy: struct{}{}}}
 	default:
 		return nil, nil, fmt.Errorf("invalid loadbalancing policy %s", conf.LoadBalancingPolicy)
 	}
 
 	if conf.HealthCheckEnable {
-		serviceConfig := fmt.Sprintf(`{"healthCheckConfig": {"ServiceName": %q}}`, conf.HealthCheckServiceName)
-		opts = append(opts, grpc.WithDefaultServiceConfig(serviceConfig))
+		serviceConfig["healthCheckConfig"] = map[string]string{"ServiceName": conf.HealthCheckServiceName}
+	}
+
+	if serviceConfigJson, err := json.Marshal(serviceConfig); err != nil {
+		return nil, nil, err
+	} else {
+		opts = append(opts, grpc.WithDefaultServiceConfig(string(serviceConfigJson)))
 	}
 
 	// TODO: move this side effect out into the calling functions?
