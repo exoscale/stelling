@@ -92,6 +92,10 @@ type Client struct {
 	Endpoint string `validate:"required,omitempty"`
 	// LoadBalancingPolicy is the policy to use for load balancing, empty is ignored.
 	LoadBalancingPolicy string `validate:"omitempty,oneof=pick_first round_robin"`
+	// HealthCheckEnable toogles the health-checking for a grpc service
+	HealthCheckEnable bool `default:"false"`
+	// HealthCheckServiceName is the name to use for the health-checking (Default is SERVICE_NAME_ALL_SERVICES aka [empty-string])
+	HealthCheckServiceName string `default:""`
 }
 
 func (c *Client) GetClient() *Client {
@@ -112,6 +116,8 @@ func (c *Client) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("load-balancing-policy", c.LoadBalancingPolicy)
+	enc.AddBool("health-check-enable", c.HealthCheckEnable)
+	enc.AddString("health-check-service-name", c.HealthCheckServiceName)
 
 	return nil
 }
@@ -221,6 +227,11 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 		opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"pick_first":{}}]}`))
 	default:
 		return nil, nil, fmt.Errorf("invalid loadbalancing policy %s", conf.LoadBalancingPolicy)
+	}
+
+	if conf.HealthCheckEnable {
+		serviceConfig := fmt.Sprintf(`{"healthCheckConfig": {"ServiceName": %q}}`, conf.HealthCheckServiceName)
+		opts = append(opts, grpc.WithDefaultServiceConfig(serviceConfig))
 	}
 
 	// TODO: move this side effect out into the calling functions?
