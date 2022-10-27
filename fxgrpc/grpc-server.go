@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/keepalive"
 )
 
 // Provides a grpc server
@@ -49,7 +50,12 @@ type Server struct {
 	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
 	// Port is the port the gRPC server will bind to
 	Port int `default:"0" validate:"port"`
+	// Keepalive is the configuration of the grpc-keepalive
+	Keepalive Keepalive
 }
+
+// Struct used to reflect the type
+type Keepalive keepalive.ServerParameters
 
 func (s *Server) GetServer() *Server {
 	return s
@@ -67,6 +73,24 @@ func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddString("key-file", s.KeyFile)
 		enc.AddString("client-ca-file", s.ClientCAFile)
 	}
+
+	if err := enc.AddObject("keepalive", &s.Keepalive); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (k *Keepalive) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if k == nil {
+		return nil
+	}
+
+	enc.AddDuration("max-connection-idle", k.MaxConnectionIdle)
+	enc.AddDuration("max-connection-age", k.MaxConnectionAge)
+	enc.AddDuration("max-connection-age-grace", k.MaxConnectionAgeGrace)
+	enc.AddDuration("time", k.Time)
+	enc.AddDuration("timeout", k.Timeout)
 
 	return nil
 }
@@ -94,8 +118,11 @@ type GrpcServerParams struct {
 }
 
 func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
-	opts := make([]grpc.ServerOption, 0, 3)
+	opts := []grpc.ServerOption{}
 	serverConf := p.Conf.GetServer()
+
+	// Handle keepalive configuration
+	opts = append(opts, grpc.KeepaliveParams(keepalive.ServerParameters(serverConf.Keepalive)))
 
 	// Handle server TLS
 	if serverConf.TLS {
