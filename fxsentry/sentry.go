@@ -27,6 +27,7 @@ type Sentry struct {
 	// Sentry integration is disabled if this is empty
 	Dsn         string
 	Environment string `default:"prod" validate:"oneof=dev lab preprod prod"`
+	Debug       bool
 }
 
 func (s *Sentry) GetSentry() *Sentry {
@@ -40,6 +41,7 @@ func (s *Sentry) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("dsn", s.Dsn)
 	enc.AddString("environment", s.Environment)
+	enc.AddBool("debug", s.Debug)
 
 	return nil
 }
@@ -66,6 +68,7 @@ func NewSentryClient(conf SentryConfig) (*sentry.Client, error) {
 		ServerName:  hostname,
 		Environment: sentryConf.Environment,
 		Release:     version,
+		Debug:       sentryConf.Debug,
 	}
 
 	return sentry.NewClient(opts)
