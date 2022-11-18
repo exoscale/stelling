@@ -1,4 +1,4 @@
-//package fxpprof provides a convenient way to expose pprof endpoint.
+// package fxpprof provides a convenient way to expose pprof endpoint.
 package fxpprof
 
 import (
@@ -12,7 +12,6 @@ import (
 
 	"github.com/exoscale/stelling/fxhttp"
 	"go.uber.org/fx"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -21,17 +20,19 @@ var Module = fx.Module(
 	"pprof",
 	fx.Provide(
 		fx.Annotate(
-			NewPprofHttpServer,
-			fx.ResultTags(`name:"pprof_server"`),
+			NewPprofServerConfig,
+			fx.ResultTags(`name:"pprof"`),
 		),
 	),
 	fx.Invoke(
 		fx.Annotate(
 			InitPprofProfiler,
-			fx.ParamTags(`name:"pprof_server",optional:"true"`),
+			fx.ParamTags(`name:"pprof",optional:"true"`),
 		),
 		InvokeRuntimePprof,
 	),
+	// Specify last so the server starts after we register the handlers
+	fxhttp.NewNamedModule("pprof"),
 )
 
 type PprofConfig interface {
@@ -59,6 +60,20 @@ func (p *Pprof) GetPprof() *Pprof {
 	return p
 }
 
+func NewPprofServerConfig(conf PprofConfig) fxhttp.ServerConfig {
+	pConf := conf.GetPprof()
+	if !pConf.Enabled {
+		return nil
+	}
+	return &fxhttp.Server{
+		Port:         pConf.Port,
+		TLS:          pConf.TLS,
+		CertFile:     pConf.CertFile,
+		KeyFile:      pConf.KeyFile,
+		ClientCAFile: pConf.ClientCAFile,
+	}
+}
+
 func (p *Pprof) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if p == nil {
 		return nil
@@ -78,25 +93,6 @@ func (p *Pprof) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	return nil
-}
-
-func NewPprofHttpServer(lc fx.Lifecycle, conf PprofConfig, logger *zap.Logger) (*http.Server, error) {
-	if !conf.GetPprof().Enabled {
-		return nil, nil
-	}
-
-	sconf := &fxhttp.Server{
-		TLS:          conf.GetPprof().TLS,
-		CertFile:     conf.GetPprof().CertFile,
-		KeyFile:      conf.GetPprof().KeyFile,
-		ClientCAFile: conf.GetPprof().ClientCAFile,
-		Port:         conf.GetPprof().Port,
-	}
-	server, err := fxhttp.NewHTTPServer(lc, sconf, logger)
-	if err != nil {
-		return nil, err
-	}
-	return server, nil
 }
 
 func InvokeRuntimePprof(lc fx.Lifecycle, conf PprofConfig) error {

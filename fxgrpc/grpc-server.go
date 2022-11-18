@@ -33,6 +33,7 @@ var ServerModule = fx.Module(
 		),
 		NewGrpcServer,
 	),
+	fx.Invoke(StartGrpcServer),
 )
 
 type GrpcServerConfig interface {
@@ -154,31 +155,33 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 
 	grpcServer := grpc.NewServer(opts...)
 
-	p.Lc.Append(fx.Hook{
+	return grpcServer, nil
+}
+
+func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, conf GrpcServerConfig) {
+	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			lis, err := net.Listen("tcp", fmt.Sprintf(":%d", serverConf.Port))
+			lis, err := net.Listen("tcp", fmt.Sprintf(":%d", conf.GetServer().Port))
 			if err != nil {
 				return err
 			}
-			p.Logger.Info("Starting gRPC server", zap.Int("port", lis.Addr().(*net.TCPAddr).Port))
+			logger.Info("Starting gRPC server", zap.Int("port", lis.Addr().(*net.TCPAddr).Port))
 			go func() {
-				if err := grpcServer.Serve(lis); err != nil && err != grpc.ErrServerStopped {
+				if err := server.Serve(lis); err != nil && err != grpc.ErrServerStopped {
 					// If err is grpc.ErrServerStopped, it means that
 					// the grpc module was stopped very quickly before
 					// this goroutine was scheduled
-					p.Logger.Fatal("Error while serving grpc", zap.Error(err))
+					logger.Fatal("Error while serving grpc", zap.Error(err))
 				} else {
-					p.Logger.Info("Done serving grpc")
+					logger.Info("Done serving grpc")
 				}
 			}()
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			p.Logger.Info("Stopping gRPC server")
-			grpcServer.GracefulStop()
+			logger.Info("Stopping gRPC server")
+			server.GracefulStop()
 			return nil
 		},
 	})
-
-	return grpcServer, nil
 }

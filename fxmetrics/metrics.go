@@ -1,4 +1,4 @@
-//package fxmetrics provides a convenient way to expose prometheus metrics.
+// package fxmetrics provides a convenient way to expose prometheus metrics.
 package fxmetrics
 
 import (
@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/fx"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 )
@@ -19,14 +18,19 @@ import (
 var Module = fx.Module(
 	"metrics",
 	fx.Provide(
+		fx.Annotate(
+			NewMetricsServerConfig,
+			fx.ResultTags(`name:"metrics"`),
+		),
 		NewPrometheusRegistry,
 		NewGrpcServerInterceptors,
 		NewGrpcClientInterceptors,
-		NewMetricsHttpServer,
 	),
 	fx.Invoke(
 		RegisterMetricsHandlers,
 	),
+	// Specify last so the server starts after we register the handlers
+	fxhttp.NewNamedModule("metrics"),
 )
 
 type MetricsConfig interface {
@@ -54,6 +58,17 @@ func (m *Metrics) GetMetrics() *Metrics {
 	return m
 }
 
+func NewMetricsServerConfig(conf MetricsConfig) fxhttp.ServerConfig {
+	mConf := conf.GetMetrics()
+	return &fxhttp.Server{
+		Port:         mConf.Port,
+		TLS:          mConf.TLS,
+		CertFile:     mConf.CertFile,
+		KeyFile:      mConf.KeyFile,
+		ClientCAFile: mConf.ClientCAFile,
+	}
+}
+
 func (m *Metrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if m == nil {
 		return nil
@@ -74,34 +89,11 @@ func (m *Metrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-type MetricsHttpServerResult struct {
-	fx.Out
-
-	Server *http.Server `name:"metrics_server"`
-}
-
-func NewMetricsHttpServer(lc fx.Lifecycle, conf MetricsConfig, logger *zap.Logger) (MetricsHttpServerResult, error) {
-	sconf := &fxhttp.Server{
-		TLS:          conf.GetMetrics().TLS,
-		CertFile:     conf.GetMetrics().CertFile,
-		KeyFile:      conf.GetMetrics().KeyFile,
-		ClientCAFile: conf.GetMetrics().ClientCAFile,
-		Port:         conf.GetMetrics().Port,
-	}
-	server, err := fxhttp.NewHTTPServer(lc, sconf, logger)
-	if err != nil {
-		return MetricsHttpServerResult{}, err
-	}
-	return MetricsHttpServerResult{
-		Server: server,
-	}, nil
-}
-
 type RegisterParams struct {
 	fx.In
 
 	Reg    *prometheus.Registry
-	Server *http.Server `name:"metrics_server"`
+	Server *http.Server `name:"metrics"`
 }
 
 func RegisterMetricsHandlers(p RegisterParams) {
