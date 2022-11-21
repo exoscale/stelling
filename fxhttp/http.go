@@ -20,32 +20,36 @@ var Module = fx.Module(
 		fx.Annotate(reloader.ProvideCertReloader, fx.ParamTags(``, `optional:"true"`, ``)),
 		fx.Annotate(NewHTTPServer, fx.ParamTags(``, ``, `optional:"true"`)),
 	),
-	fx.Invoke(StartHttpServer),
 )
 
 func NewNamedModule(name string) fx.Option {
 	nameTag := fmt.Sprintf("name:\"%s\"", name)
 	optNameTag := fmt.Sprintf("%s, optional:\"true\"", nameTag)
 	moduleName := fmt.Sprintf("%s-http-server", name)
-	return fx.Module(
-		moduleName,
-		fx.Provide(
-			fx.Annotate(
-				GetCertReloaderConfig,
-				fx.ParamTags(optNameTag),
-				fx.ResultTags(nameTag),
-			),
-			fx.Annotate(
-				reloader.ProvideCertReloader,
-				fx.ParamTags(``, optNameTag, ``),
-				fx.ResultTags(nameTag),
-			),
-			fx.Annotate(
-				NewHTTPServer,
-				fx.ParamTags(``, optNameTag, `optional:"true"`),
-				fx.ResultTags(nameTag),
+	return fx.Options(
+		fx.Module(
+
+			moduleName,
+			fx.Provide(
+				fx.Annotate(
+					GetCertReloaderConfig,
+					fx.ParamTags(optNameTag),
+					fx.ResultTags(nameTag),
+				),
+				fx.Annotate(
+					reloader.ProvideCertReloader,
+					fx.ParamTags(``, optNameTag, ``),
+					fx.ResultTags(nameTag),
+				),
+				fx.Annotate(
+					NewHTTPServer,
+					fx.ParamTags(``, optNameTag, `optional:"true"`),
+					fx.ResultTags(nameTag),
+				),
 			),
 		),
+		// We're not putting this in the module, so that the module which
+		// embeds this can chose when the http server should start
 		fx.Invoke(
 			fx.Annotate(
 				StartHttpServer,

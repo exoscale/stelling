@@ -33,7 +33,6 @@ var ServerModule = fx.Module(
 		),
 		NewGrpcServer,
 	),
-	fx.Invoke(StartGrpcServer),
 )
 
 type GrpcServerConfig interface {
