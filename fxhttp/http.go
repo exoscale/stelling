@@ -1,4 +1,4 @@
-//package fxhttp provides a convenient way to create well behaved http servers
+// package fxhttp provides a convenient way to create well behaved http servers
 package fxhttp
 
 import (
@@ -16,9 +16,44 @@ import (
 var Module = fx.Module(
 	"http",
 	fx.Provide(
-		NewHTTPServer,
+		GetCertReloaderConfig,
+		fx.Annotate(reloader.ProvideCertReloader, fx.ParamTags(``, `optional:"true"`, ``)),
+		fx.Annotate(NewHTTPServer, fx.ParamTags(``, ``, `optional:"true"`)),
 	),
+	fx.Invoke(StartHttpServer),
 )
+
+func NewNamedModule(name string) fx.Option {
+	nameTag := fmt.Sprintf("name:\"%s\"", name)
+	optNameTag := fmt.Sprintf("%s, optional:\"true\"", nameTag)
+	moduleName := fmt.Sprintf("%s-http-server", name)
+	return fx.Module(
+		moduleName,
+		fx.Provide(
+			fx.Annotate(
+				GetCertReloaderConfig,
+				fx.ParamTags(optNameTag),
+				fx.ResultTags(nameTag),
+			),
+			fx.Annotate(
+				reloader.ProvideCertReloader,
+				fx.ParamTags(``, optNameTag, ``),
+				fx.ResultTags(nameTag),
+			),
+			fx.Annotate(
+				NewHTTPServer,
+				fx.ParamTags(``, optNameTag, `optional:"true"`),
+				fx.ResultTags(nameTag),
+			),
+		),
+		fx.Invoke(
+			fx.Annotate(
+				StartHttpServer,
+				fx.ParamTags(``, optNameTag, ``, optNameTag),
+			),
+		),
+	)
+}
 
 type ServerConfig interface {
 	GetServer() *Server
@@ -59,7 +94,7 @@ func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
-	if !conf.GetServer().TLS {
+	if conf == nil || !conf.GetServer().TLS {
 		return nil
 	}
 	return &reloader.CertReloaderConfig{
@@ -69,33 +104,12 @@ func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
 	}
 }
 
-func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, logger *zap.Logger) (*http.Server, error) {
+func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, r *reloader.CertReloader) (*http.Server, error) {
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%d", conf.GetServer().Port),
 	}
 
 	if conf.GetServer().TLS {
-		// We will be defining the reloader inline to eliminate code in the modules that embed an http server
-		// Otherwise these modules would have to wrap around the CertReloader functions to return instances
-		// with different names, which is a huge abstraction leak: the reloader is a dependency of the http server
-		// and not the upper module; the upper module shouldn't be aware of it.
-		// When fx gains support for named subgraphs, we can revisit this.
-		// https://github.com/uber-go/dig/pull/240
-		reloadConfig := &reloader.CertReloaderConfig{
-			CertFile:       conf.GetServer().CertFile,
-			KeyFile:        conf.GetServer().KeyFile,
-			ReloadInterval: 10 * time.Second,
-		}
-		r, err := reloader.NewCertReloader(reloadConfig, logger)
-		if err != nil {
-			return nil, err
-		}
-
-		lc.Append(fx.Hook{
-			OnStart: r.Start,
-			OnStop:  r.Stop,
-		})
-
 		tlsConf, err := reloader.MakeServerTLS(r, conf.GetServer().ClientCAFile)
 		if err != nil {
 			return nil, err
@@ -103,6 +117,10 @@ func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, logger *zap.Logger) (*htt
 		server.TLSConfig = tlsConf
 	}
 
+	return server, nil
+}
+
+func StartHttpServer(lc fx.Lifecycle, server *http.Server, logger *zap.Logger, conf ServerConfig) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			logger.Info("Starting http server", zap.Int("port", conf.GetServer().Port))
@@ -130,6 +148,4 @@ func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, logger *zap.Logger) (*htt
 			return server.Shutdown(ctx)
 		},
 	})
-
-	return server, nil
 }

@@ -74,13 +74,16 @@ func NewLogger(conf LoggingConfig, lc fx.Lifecycle) (*zap.Logger, error) {
 	}
 
 	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			// By logging here we render the decorated config
+			logger.Info("Using configuration", zap.Any("conf", conf))
+			return nil
+		},
 		OnStop: func(ctx context.Context) error {
 			_ = logger.Sync()
 			return nil
 		},
 	})
-
-	logger.Info("Using configuration", zap.Any("conf", conf))
 
 	return logger, nil
 }
