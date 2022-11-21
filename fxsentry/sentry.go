@@ -92,7 +92,6 @@ func ProvideSentryClient(lc fx.Lifecycle, conf SentryConfig) (*sentry.Client, er
 }
 
 func ProvideSentryLogger(logger *zap.Logger, client *sentry.Client) *zap.Logger {
-	logger.Info("Adding sentry support")
 	if client == nil {
 		return logger
 	}
@@ -100,11 +99,9 @@ func ProvideSentryLogger(logger *zap.Logger, client *sentry.Client) *zap.Logger 
 		Level:             zapcore.DPanicLevel,
 		EnableBreadcrumbs: false,
 	}
-	core, err := zapsentry.NewCore(cfg, zapsentry.NewSentryClientFromClient(client))
+
 	// Returns a noopcore if we error, so we can still safely attach to the logger
-	if err != nil {
-		logger.Warn("failed to init sentrylogger", zap.Error(err))
-	}
+	core, _ := zapsentry.NewCore(cfg, zapsentry.NewSentryClientFromClient(client))
 
 	// To use breadcrumbs feature we need to create a new scope explicitly
 	logger = logger.With(zapsentry.NewScope())
