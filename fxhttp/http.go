@@ -28,7 +28,6 @@ func NewNamedModule(name string) fx.Option {
 	moduleName := fmt.Sprintf("%s-http-server", name)
 	return fx.Options(
 		fx.Module(
-
 			moduleName,
 			fx.Provide(
 				fx.Annotate(
@@ -43,7 +42,7 @@ func NewNamedModule(name string) fx.Option {
 				),
 				fx.Annotate(
 					NewHTTPServer,
-					fx.ParamTags(``, optNameTag, `optional:"true"`),
+					fx.ParamTags(``, optNameTag, optNameTag),
 					fx.ResultTags(nameTag),
 				),
 			),
@@ -53,7 +52,7 @@ func NewNamedModule(name string) fx.Option {
 		fx.Invoke(
 			fx.Annotate(
 				StartHttpServer,
-				fx.ParamTags(``, optNameTag, ``, optNameTag),
+				fx.ParamTags(``, optNameTag, ``, nameTag),
 			),
 		),
 	)
@@ -109,6 +108,9 @@ func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
 }
 
 func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, r *reloader.CertReloader) (*http.Server, error) {
+	if conf == nil {
+		return nil, nil
+	}
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%d", conf.GetServer().Port),
 	}
@@ -125,6 +127,9 @@ func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, r *reloader.CertReloader)
 }
 
 func StartHttpServer(lc fx.Lifecycle, server *http.Server, logger *zap.Logger, conf ServerConfig) {
+	if server == nil {
+		return
+	}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			logger.Info("Starting http server", zap.Int("port", conf.GetServer().Port))
