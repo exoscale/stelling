@@ -92,6 +92,8 @@ type Client struct {
 	Endpoint string `validate:"required,omitempty"`
 	// LoadBalancingPolicy is the policy to use for load balancing, empty is ignored.
 	LoadBalancingPolicy string `validate:"omitempty,oneof=pick_first round_robin"`
+	// MaxRecvMsgSize is the maximum size of a grpc message, in bytes, that the client will accept
+	MaxRecvMsgSize int
 }
 
 func (c *Client) GetClient() *Client {
@@ -111,7 +113,12 @@ func (c *Client) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddString("root-ca-file", c.RootCAFile)
 	}
 
-	enc.AddString("load-balancing-policy", c.LoadBalancingPolicy)
+	if c.LoadBalancingPolicy != "" {
+		enc.AddString("load-balancing-policy", c.LoadBalancingPolicy)
+	}
+	if c.MaxRecvMsgSize != 0 {
+		enc.AddInt("max-recv-msg-size", c.MaxRecvMsgSize)
+	}
 
 	return nil
 }
@@ -175,7 +182,14 @@ func MakeClientTLS(c GrpcClientConfig, logger *zap.Logger) (credentials.Transpor
 
 func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientInterceptor, si []grpc.StreamClientInterceptor) ([]grpc.DialOption, *reloader.CertReloader, error) {
 	opts := []grpc.DialOption{}
+	copts := []grpc.CallOption{}
 	var creloader *reloader.CertReloader
+
+	if conf.MaxRecvMsgSize != 0 {
+		copts = append(copts, grpc.MaxCallRecvMsgSize(conf.MaxRecvMsgSize))
+	}
+	// Add additional CallOptions here
+	opts = append(opts, grpc.WithDefaultCallOptions(copts...))
 
 	if conf.InsecureConnection {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
