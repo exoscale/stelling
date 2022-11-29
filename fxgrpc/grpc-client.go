@@ -25,7 +25,7 @@ import (
 var ClientModule = fx.Module(
 	"grpc-client",
 	fx.Provide(
-		ProvideGrpcClient,
+		ProvideGrpcClient(),
 	),
 )
 
@@ -232,35 +232,39 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 // NewGrpcClient returns a grpc client connection that is configured with the same conventions as the fx module
 // It is intended to be used for dynamically created, short lived, clients where using fx causes more troubles than benefits
 // Because the client is assumed to be short lived, it will not reload TLS certificates
-func NewGrpcClient(conf GrpcClientConfig, logger *zap.Logger, ui []grpc.UnaryClientInterceptor, si []grpc.StreamClientInterceptor) (*grpc.ClientConn, error) {
+func NewGrpcClient(conf GrpcClientConfig, logger *zap.Logger, ui []grpc.UnaryClientInterceptor,
+	si []grpc.StreamClientInterceptor, otherGrpcOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	clientConf := conf.GetClient()
 
 	opts, _, err := getDialOpts(clientConf, logger, ui, si)
 	if err != nil {
 		return nil, err
 	}
+	opts = append(opts, otherGrpcOpts...)
 
 	return grpc.Dial(clientConf.Endpoint, opts...)
 }
 
-func ProvideGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
-	clientConf := p.Conf.GetClient()
+func ProvideGrpcClient(otherGrpcOpts ...grpc.DialOption) func(p GrpcClientParams) (grpc.ClientConnInterface, error) {
+	return func(p GrpcClientParams) (grpc.ClientConnInterface, error) {
+		clientConf := p.Conf.GetClient()
 
-	opts, r, err := getDialOpts(clientConf, p.Logger, p.UnaryInterceptors, p.StreamInterceptors)
-	if err != nil {
-		return nil, err
+		opts, r, err := getDialOpts(clientConf, p.Logger, p.UnaryInterceptors, p.StreamInterceptors)
+		if err != nil {
+			return nil, err
+		}
+
+		if r != nil {
+			p.Lc.Append(fx.Hook{OnStart: r.Start, OnStop: r.Stop})
+		}
+		opts = append(opts, otherGrpcOpts...)
+		conn := NewLazyGrpcClientConn(clientConf.Endpoint, opts...)
+
+		p.Lc.Append(fx.Hook{
+			OnStart: conn.Start,
+			OnStop:  conn.Stop,
+		})
+
+		return conn, nil
 	}
-
-	if r != nil {
-		p.Lc.Append(fx.Hook{OnStart: r.Start, OnStop: r.Stop})
-	}
-
-	conn := NewLazyGrpcClientConn(clientConf.Endpoint, opts...)
-
-	p.Lc.Append(fx.Hook{
-		OnStart: conn.Start,
-		OnStop:  conn.Stop,
-	})
-
-	return conn, nil
 }
