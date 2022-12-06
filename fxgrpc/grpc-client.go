@@ -216,58 +216,12 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 		grpc.WithChainStreamInterceptor(stream...),
 	)
 
-	default_service_config := make(map[string]interface{})
-
 	dsc, err := json.Marshal(conf.DefaultServiceConfig)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	opts = append(opts, grpc.WithDefaultServiceConfig(dsc))
-
-	switch conf.LoadBalancingPolicy {
-	case "": // Do nothing
-	case "round_robin":
-		default_service_config["loadBalancingConfig"] = "round_robin" // []map[string]interface{}{{: struct{}{}}}
-	case "pick_first":
-		default_service_config["loadBalancingConfig"] = "pick_first" // []map[string]interface{}{{: struct{}{}}}
-	default:
-		return nil, nil, fmt.Errorf("invalid loadbalancing policy %s", conf.LoadBalancingPolicy)
-	}
-
-	if true {
-		writeConfig := map[string]interface{}{}
-		readConfig := map[string]interface{}{}
-		defaultConfig := map[string]interface{}{}
-
-		writeConfig["name"] = []map[string]string{{"service": "exoscale.blockstorage.ExtentService", "method": "Write"}}
-		readConfig["name"] = []map[string]string{{"service": "exoscale.blockstorage.ExtentService", "method": "Read"}}
-		defaultConfig["name"] = []map[string]string{{"service": "exoscale.blockstorage.ExtentService"}}
-
-		writeConfig["retryPolicy"] = map[string]interface{}{
-			"maxAttempts": 2,
-
-			"initialBackoff":    (time.Millisecond * 250).String(),
-			"maxBackoff":        (time.Second * 2).String(),
-			"backoffMultiplier": 2,
-
-			"retryableStatusCodes": []string{
-				"UNAVAILABLE",
-			},
-		}
-		readConfig["retryPolicy"] = writeConfig["retryPolicy"]
-		defaultConfig["retryPolicy"] = writeConfig["retryPolicy"]
-
-		readConfig["timeout"] = time.Second
-
-		default_service_config["methodConfig"] = []map[string]interface{}{writeConfig, readConfig}
-
-		default_service_config["retryThrottling"] = map[string]float64{
-			"maxTokens":  50,
-			"tokenRatio": .1,
-		}
-	}
-
-	// opts = append(opts, grpc.WithDefaultServiceConfig(`{...}`))
+	fmt.Println("dsc:", string(dsc))
+	opts = append(opts, grpc.WithDefaultServiceConfig(string(dsc)))
 
 	// TODO: move this side effect out into the calling functions?
 	grpclog.SetLoggerV2(zapgrpc.NewLogger(logger))

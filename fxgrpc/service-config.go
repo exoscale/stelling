@@ -1,6 +1,11 @@
 package fxgrpc
 
-import "go.uber.org/zap/zapcore"
+import (
+	"encoding/json"
+	"fmt"
+
+	"go.uber.org/zap/zapcore"
+)
 
 type ServiceConfig struct {
 	LoadBalancingPolicy string         `validate:"omitempty,oneof=pick_first round_robin"`
@@ -16,10 +21,45 @@ func (c *ServiceConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (c ServiceConfig) MarshalJSON() ([]byte, error) {
+	result := map[string][]byte{}
+
+	fmt.Println("foobar", c)
+
+	if len(c.LoadBalancingPolicy) != 0 {
+		value, err := json.Marshal(c.LoadBalancingPolicy)
+		if err != nil {
+			return nil, err
+		}
+		result["loadBalancingConfig"] = value
+	}
+
+	if len(c.MethodConfig) != 0 {
+		value, err := json.Marshal(c.MethodConfig)
+		if err != nil {
+			return nil, err
+		}
+		result["methodConfig"] = value
+	}
+
+	return json.Marshal(result)
+}
+
+// Just to make sure that interfaces are correctly implemented
+func EnsureJsonInterfaceImplemented() {
+	var _ json.Marshaler = (*ServiceConfig)(nil)
+}
+
 type MethodConfig struct {
+	// Name is a list of methods to match with this config
 	Name []MethodName
-	// WaitForReady bool // Too dangerous option
-	Timeout string // duration as string for grpc encoding
+
+	// WaitForReady bool // Side effect of this is too dangerous
+
+	// Timeout for this methods, string representing a duration for json/grpc encoding
+	Timeout string
+
+	// I didn't found a way to have nilable uint32
 	// MaxRequestMessageBytes  *uint32
 	// MaxResponseMessageBytes *uint32
 
