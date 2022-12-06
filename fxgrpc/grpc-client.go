@@ -79,6 +79,34 @@ type GrpcClientConfig interface {
 	GetClient() *Client
 }
 
+type ServiceConfig struct {
+	LoadBalancingPolicy string
+	MethodConfig        []MethodConfig
+}
+
+type MethodConfig struct {
+	Name []MethodName
+	// WaitForReady bool // Too dangerous option
+	Timeout                 string // duration as string for grpc encoding
+	MaxRequestMessageBytes  uint32
+	MaxResponseMessageBytes uint32
+
+	RetryPolicy RetryPolicy
+}
+
+type MethodName struct {
+	Service string
+	Method  string
+}
+
+type RetryPolicy struct {
+	MaxAttempts          uint32
+	InitialBackoff       string // duration as string for grpc encoding
+	MaxBackoff           string // duration as string for grpc encoding
+	BackoffMultiplier    float64
+	RetryableStatusCodes []string
+}
+
 type Client struct {
 	// InsecureConnection indicates whether TLS needs to be disabled when connecting to the grpc server
 	InsecureConnection bool
@@ -92,6 +120,9 @@ type Client struct {
 	Endpoint string `validate:"required,omitempty"`
 	// LoadBalancingPolicy is the policy to use for load balancing, empty is ignored.
 	LoadBalancingPolicy string `validate:"omitempty,oneof=pick_first round_robin"`
+
+	// DefaultServiceConfig
+	DefaultServiceConfig ServiceConfig ``
 }
 
 func (c *Client) GetClient() *Client {
@@ -213,15 +244,52 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 		grpc.WithChainStreamInterceptor(stream...),
 	)
 
+	default_service_config := make(map[string]interface{})
+
 	switch conf.LoadBalancingPolicy {
 	case "": // Do nothing
 	case "round_robin":
-		opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`))
+		default_service_config["loadBalancingConfig"] = "round_robin" // []map[string]interface{}{{: struct{}{}}}
 	case "pick_first":
-		opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"pick_first":{}}]}`))
+		default_service_config["loadBalancingConfig"] = "pick_first" // []map[string]interface{}{{: struct{}{}}}
 	default:
 		return nil, nil, fmt.Errorf("invalid loadbalancing policy %s", conf.LoadBalancingPolicy)
 	}
+
+	if true {
+		writeConfig := map[string]interface{}{}
+		readConfig := map[string]interface{}{}
+		defaultConfig := map[string]interface{}{}
+
+		writeConfig["name"] = []map[string]string{{"service": "exoscale.blockstorage.ExtentService", "method": "Write"}}
+		readConfig["name"] = []map[string]string{{"service": "exoscale.blockstorage.ExtentService", "method": "Read"}}
+		defaultConfig["name"] = []map[string]string{{"service": "exoscale.blockstorage.ExtentService"}}
+
+		writeConfig["retryPolicy"] = map[string]interface{}{
+			"maxAttempts": 2,
+
+			"initialBackoff":    (time.Millisecond * 250).String(),
+			"maxBackoff":        (time.Second * 2).String(),
+			"backoffMultiplier": 2,
+
+			"retryableStatusCodes": []string{
+				"UNAVAILABLE",
+			},
+		}
+		readConfig["retryPolicy"] = writeConfig["retryPolicy"]
+		defaultConfig["retryPolicy"] = writeConfig["retryPolicy"]
+
+		readConfig["timeout"] = time.Second
+
+		default_service_config["methodConfig"] = []map[string]interface{}{writeConfig, readConfig}
+
+		default_service_config["retryThrottling"] = map[string]float64{
+			"maxTokens":  50,
+			"tokenRatio": .1,
+		}
+	}
+
+	// opts = append(opts, grpc.WithDefaultServiceConfig(`{...}`))
 
 	// TODO: move this side effect out into the calling functions?
 	grpclog.SetLoggerV2(zapgrpc.NewLogger(logger))
