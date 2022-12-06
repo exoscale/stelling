@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -79,34 +80,6 @@ type GrpcClientConfig interface {
 	GetClient() *Client
 }
 
-type ServiceConfig struct {
-	LoadBalancingPolicy string
-	MethodConfig        []MethodConfig
-}
-
-type MethodConfig struct {
-	Name []MethodName
-	// WaitForReady bool // Too dangerous option
-	Timeout                 string // duration as string for grpc encoding
-	MaxRequestMessageBytes  uint32
-	MaxResponseMessageBytes uint32
-
-	RetryPolicy RetryPolicy
-}
-
-type MethodName struct {
-	Service string
-	Method  string
-}
-
-type RetryPolicy struct {
-	MaxAttempts          uint32
-	InitialBackoff       string // duration as string for grpc encoding
-	MaxBackoff           string // duration as string for grpc encoding
-	BackoffMultiplier    float64
-	RetryableStatusCodes []string
-}
-
 type Client struct {
 	// InsecureConnection indicates whether TLS needs to be disabled when connecting to the grpc server
 	InsecureConnection bool
@@ -118,10 +91,7 @@ type Client struct {
 	RootCAFile string `validate:"omitempty,file"`
 	// Endpoint is IP or hostname or scheme for the target gRPC server
 	Endpoint string `validate:"required,omitempty"`
-	// LoadBalancingPolicy is the policy to use for load balancing, empty is ignored.
-	LoadBalancingPolicy string `validate:"omitempty,oneof=pick_first round_robin"`
-
-	// DefaultServiceConfig
+	// DefaultServiceConfig is the default configuration used for this grpc service
 	DefaultServiceConfig ServiceConfig ``
 }
 
@@ -142,7 +112,9 @@ func (c *Client) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddString("root-ca-file", c.RootCAFile)
 	}
 
-	enc.AddString("load-balancing-policy", c.LoadBalancingPolicy)
+	if err := enc.AddObject("default-service-config", &c.DefaultServiceConfig); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -245,6 +217,12 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 	)
 
 	default_service_config := make(map[string]interface{})
+
+	dsc, err := json.Marshal(conf.DefaultServiceConfig)
+	if err != nil {
+		return err
+	}
+	opts = append(opts, grpc.WithDefaultServiceConfig(dsc))
 
 	switch conf.LoadBalancingPolicy {
 	case "": // Do nothing
