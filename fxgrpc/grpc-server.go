@@ -32,6 +32,7 @@ var ServerModule = fx.Module(
 			fx.ResultTags(`name:"grpc_server"`),
 		),
 		NewGrpcServer,
+		func(server *grpc.Server) grpc.ServiceRegistrar { return server },
 	),
 )
 
