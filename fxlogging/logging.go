@@ -21,12 +21,16 @@ var Module = fx.Options(
 		"logging",
 		fx.Provide(
 			NewLogger,
-			NewGrpcServerInterceptors,
-			NewGrpcClientInterceptors,
+			fx.Annotate(NewGrpcServerInterceptors, fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`)),
+			fx.Annotate(NewGrpcClientInterceptors, fx.ResultTags(`group:"unary_client_interceptor"`, `group:"stream_client_interceptor"`)),
 		),
-		fx.Supply(DefaultCodeToLevel),
+		fx.Supply(ServerCodeToLevel(DefaultServerCodeToLevel)),
+		fx.Supply(ClientCodeToLevel(DefaultClientCodeToLevel)),
 	),
 )
+
+type ServerCodeToLevel grpc_zap.CodeToLevel
+type ClientCodeToLevel grpc_zap.CodeToLevel
 
 type LoggingConfig interface {
 	GetLogging() *Logging
@@ -95,41 +99,21 @@ func ISO8601UTCTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	zapcore.ISO8601TimeEncoder(t, enc)
 }
 
-type GrpcServerInterceptorsResult struct {
-	fx.Out
-
-	grpc.UnaryServerInterceptor  `group:"unary_server_interceptor"`
-	grpc.StreamServerInterceptor `group:"stream_server_interceptor"`
-}
-
-func NewGrpcServerInterceptors(logger *zap.Logger, codeToLevel func(codes.Code) zapcore.Level) GrpcServerInterceptorsResult {
+func NewGrpcServerInterceptors(logger *zap.Logger, codeToLevel ServerCodeToLevel) (grpc.UnaryServerInterceptor, grpc.StreamServerInterceptor) {
 	logOpts := []grpc_zap.Option{
-		grpc_zap.WithLevels(codeToLevel),
+		grpc_zap.WithLevels(grpc_zap.CodeToLevel(codeToLevel)),
 	}
 
-	return GrpcServerInterceptorsResult{
-		UnaryServerInterceptor:  grpc_zap.UnaryServerInterceptor(logger, logOpts...),
-		StreamServerInterceptor: grpc_zap.StreamServerInterceptor(logger, logOpts...),
-	}
+	return grpc_zap.UnaryServerInterceptor(logger, logOpts...), grpc_zap.StreamServerInterceptor(logger, logOpts...)
 }
 
-type GrpcClientInterceptorsResult struct {
-	fx.Out
-
-	grpc.UnaryClientInterceptor  `group:"unary_client_interceptor"`
-	grpc.StreamClientInterceptor `group:"stream_client_interceptor"`
-}
-
-func NewGrpcClientInterceptors(logger *zap.Logger, codeToLevel func(codes.Code) zapcore.Level) GrpcClientInterceptorsResult {
+func NewGrpcClientInterceptors(logger *zap.Logger, codeToLevel ClientCodeToLevel) (grpc.UnaryClientInterceptor, grpc.StreamClientInterceptor) {
 	logger = logger.WithOptions(zap.WithCaller(false))
 	logOpts := []grpc_zap.Option{
-		grpc_zap.WithLevels(codeToLevel),
+		grpc_zap.WithLevels(grpc_zap.CodeToLevel(codeToLevel)),
 	}
 
-	return GrpcClientInterceptorsResult{
-		UnaryClientInterceptor:  grpc_zap.UnaryClientInterceptor(logger, logOpts...),
-		StreamClientInterceptor: grpc_zap.StreamClientInterceptor(logger, logOpts...),
-	}
+	return grpc_zap.UnaryClientInterceptor(logger, logOpts...), grpc_zap.StreamClientInterceptor(logger, logOpts...)
 }
 
 // NewFxLogger emits an fxevent.Logger that uses the passed in zap logger
@@ -138,13 +122,55 @@ func NewFxLogger(logger *zap.Logger) fxevent.Logger {
 	return &fxevent.ZapLogger{Logger: logger}
 }
 
-// DefaultCodeToLevel maps the grpc response code to a logging level
-func DefaultCodeToLevel(code codes.Code) zapcore.Level {
+// DefaultServerCodeToLevel maps the grpc response code to a logging level
+func DefaultServerCodeToLevel(code codes.Code) zapcore.Level {
 	switch code {
 	case codes.OK:
 		return zap.InfoLevel
 	case codes.Canceled:
 		return zap.InfoLevel
+	case codes.Unknown:
+		return zap.ErrorLevel
+	case codes.InvalidArgument:
+		return zap.InfoLevel
+	case codes.DeadlineExceeded:
+		return zap.WarnLevel
+	case codes.NotFound:
+		return zap.InfoLevel
+	case codes.AlreadyExists:
+		return zap.DebugLevel
+	case codes.PermissionDenied:
+		return zap.WarnLevel
+	case codes.Unauthenticated:
+		return zap.InfoLevel // unauthenticated requests can happen
+	case codes.ResourceExhausted:
+		return zap.WarnLevel
+	case codes.FailedPrecondition:
+		return zap.WarnLevel
+	case codes.Aborted:
+		return zap.WarnLevel
+	case codes.OutOfRange:
+		return zap.WarnLevel
+	case codes.Unimplemented:
+		return zap.ErrorLevel
+	case codes.Internal:
+		return zap.ErrorLevel
+	case codes.Unavailable:
+		return zap.ErrorLevel
+	case codes.DataLoss:
+		return zap.ErrorLevel
+	default:
+		return zap.ErrorLevel
+	}
+}
+
+// DefaultClientCodeToLevel maps the grpc response code to a logging level
+func DefaultClientCodeToLevel(code codes.Code) zapcore.Level {
+	switch code {
+	case codes.OK:
+		return zap.DebugLevel
+	case codes.Canceled:
+		return zap.DebugLevel
 	case codes.Unknown:
 		return zap.ErrorLevel
 	case codes.InvalidArgument:
