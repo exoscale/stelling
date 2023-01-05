@@ -119,7 +119,9 @@ func NewGrpcClientInterceptors(logger *zap.Logger, codeToLevel ClientCodeToLevel
 // NewFxLogger emits an fxevent.Logger that uses the passed in zap logger
 // The fxevent.Logger is used to write out the log messages produces by the fx framework
 func NewFxLogger(logger *zap.Logger) fxevent.Logger {
-	return &fxevent.ZapLogger{Logger: logger}
+	result := &fxevent.ZapLogger{Logger: logger}
+	result.UseLogLevel(zapcore.DebugLevel)
+	return result
 }
 
 // DefaultServerCodeToLevel maps the grpc response code to a logging level
