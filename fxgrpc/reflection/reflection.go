@@ -1,4 +1,4 @@
-//Package reflection provides reflection capabilities for grpc servers.
+// Package reflection provides reflection capabilities for grpc servers.
 package reflection
 
 import (
