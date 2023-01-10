@@ -65,7 +65,9 @@ func (f *FlagLoader) Load(s interface{}) error {
 	f.flagSet = flagSet
 
 	for _, field := range strct.Fields() {
-		f.processField(field.Name(), field)
+		if err := f.processField(field.Name(), field); err != nil {
+			return err
+		}
 	}
 
 	flagSet.Usage = func() {
@@ -91,8 +93,8 @@ func (f *FlagLoader) Load(s interface{}) error {
 func filterArgs(args []string) []string {
 	r := []string{}
 	for i := 0; i < len(args); i++ {
-		if strings.Index(args[i], "test.") >= 0 {
-			if i + 1 < len(args) && strings.Index(args[i + 1], "-") == -1 {
+		if strings.Contains(args[i], "test.") {
+			if i+1 < len(args) && !strings.Contains(args[i+1], "-") {
 				i++
 			}
 			i++
@@ -115,7 +117,7 @@ func (f *FlagLoader) processField(fieldName string, field *structs.Field) error 
 	switch field.Kind() {
 	case reflect.Struct:
 		for _, ff := range field.Fields() {
-			flagName := field.Name() + "-" + ff.Name()
+			flagName := fieldName + "-" + ff.Name()
 
 			if f.Flatten {
 				// first check if it's set or not, because if we have duplicate

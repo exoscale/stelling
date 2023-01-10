@@ -1,7 +1,7 @@
 # Exoscale Config
 This package provides a convenient way to load configuration from various sources, along with validation rules for each item.
 
-It builds upon the excellent [multiconfig](https://github.com/koding/multiconfig) and [validator](https://github.com/go-playground/validtor) libraries.
+It builds upon the excellent [multiconfig](https://github.com/exoscale/multiconfig) and [validator](https://github.com/go-playground/validtor) libraries.
 
 Since it generates a CLI, it is intended to be used by daemons and long-lived server applications. If the application needs a CLI that is meant for regular human consumption (like the `exo` commandline app), it is better to use something like urfave/cli which allows the creation of much more ergnomic terminal APIs.
 
