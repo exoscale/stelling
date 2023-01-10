@@ -9,8 +9,8 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"github.com/exoscale/multiconfig"
 	"github.com/go-playground/validator/v10"
-	"github.com/koding/multiconfig"
 )
 
 // Option applies options to the validation and loading logic

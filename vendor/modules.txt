@@ -19,6 +19,9 @@ github.com/cespare/xxhash/v2
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
+# github.com/exoscale/multiconfig v0.0.0-20230109155939-361b01c7065e
+## explicit; go 1.19
+github.com/exoscale/multiconfig
 # github.com/fatih/camelcase v1.0.0
 ## explicit
 github.com/fatih/camelcase
@@ -79,9 +82,6 @@ github.com/grpc-ecosystem/go-grpc-prometheus
 github.com/grpc-ecosystem/grpc-gateway/v2/internal/httprule
 github.com/grpc-ecosystem/grpc-gateway/v2/runtime
 github.com/grpc-ecosystem/grpc-gateway/v2/utilities
-# github.com/koding/multiconfig v0.0.0-20171124222453-69c27309b2d7
-## explicit
-github.com/koding/multiconfig
 # github.com/leodido/go-urn v1.2.1
 ## explicit; go 1.13
 github.com/leodido/go-urn

@@ -4,13 +4,13 @@ go 1.18
 
 require (
 	github.com/TheZeroSlave/zapsentry v1.12.0
+	github.com/exoscale/multiconfig v0.0.0-20230109155939-361b01c7065e
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/getsentry/sentry-go v0.16.0
 	github.com/go-logr/zapr v1.2.3
 	github.com/go-playground/validator/v10 v10.11.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
-	github.com/koding/multiconfig v0.0.0-20171124222453-69c27309b2d7
 	github.com/prometheus/client_golang v1.14.0
 	github.com/stretchr/testify v1.8.1
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.37.0
