@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/exoscale/stelling/fxgrpc"
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -19,9 +20,8 @@ var Module = fx.Module(
 	),
 )
 
-func NewGrpc(lc fx.Lifecycle) (*grpc.Server, grpc.ClientConnInterface) {
+func NewGrpc(p fxgrpc.GrpcServerParams) (*grpc.Server, grpc.ClientConnInterface) {
 	lis := bufconn.Listen(1024 * 1024)
-	s := grpc.NewServer()
 
 	bufDialer := func(context.Context, string) (net.Conn, error) {
 		return lis.Dial()
@@ -32,7 +32,25 @@ func NewGrpc(lc fx.Lifecycle) (*grpc.Server, grpc.ClientConnInterface) {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 
-	lc.Append(fx.Hook{
+	// Handle server middleware
+	unary := []grpc.UnaryServerInterceptor{grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor))}
+	for i := range p.UnaryInterceptors {
+		if p.UnaryInterceptors[i] != nil {
+			unary = append(unary, p.UnaryInterceptors[i])
+		}
+	}
+	stream := []grpc.StreamServerInterceptor{grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor))}
+	for i := range p.StreamInterceptors {
+		if p.StreamInterceptors[i] != nil {
+			stream = append(stream, p.StreamInterceptors[i])
+		}
+	}
+	s := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(unary...),
+		grpc.ChainStreamInterceptor(stream...),
+	)
+
+	p.Lc.Append(fx.Hook{
 		OnStart: func(_ context.Context) error {
 			go s.Serve(lis) //nolint: errcheck
 			return nil
@@ -43,7 +61,7 @@ func NewGrpc(lc fx.Lifecycle) (*grpc.Server, grpc.ClientConnInterface) {
 		},
 	})
 
-	lc.Append(fx.Hook{
+	p.Lc.Append(fx.Hook{
 		OnStart: func(c context.Context) error {
 			return conn.Start(c)
 		},
