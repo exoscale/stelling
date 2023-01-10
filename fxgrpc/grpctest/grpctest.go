@@ -20,7 +20,15 @@ var Module = fx.Module(
 	),
 )
 
-func NewGrpc(p fxgrpc.GrpcServerParams) (*grpc.Server, grpc.ClientConnInterface) {
+type GrpcServerParams struct {
+	fx.In
+
+	Lc                 fx.Lifecycle
+	UnaryInterceptors  []grpc.UnaryServerInterceptor  `group:"unary_server_interceptor"`
+	StreamInterceptors []grpc.StreamServerInterceptor `group:"stream_server_interceptor"`
+}
+
+func NewGrpc(p GrpcServerParams) (*grpc.Server, grpc.ClientConnInterface) {
 	lis := bufconn.Listen(1024 * 1024)
 
 	bufDialer := func(context.Context, string) (net.Conn, error) {
