@@ -30,6 +30,19 @@ func WithValidator(validate *validator.Validate) Option {
 	}
 }
 
+// WithLegacyFlags will change the flag format to "--struct1-struct2-myoption"
+// rather than "--struct1.struct2.my-option"
+// It provides backwards compatibility with the old default flag format
+func WithLegacyFlags() Option {
+	return func(conf *loaderConfig) {
+		if conf.flagLoader == nil {
+			conf.flagLoader = &multiconfig.FlagLoader{}
+		}
+		conf.flagLoader.CamelCase = false
+		conf.flagLoader.StructSeparator = "-"
+	}
+}
+
 // Load will populate s with configuration and validate it
 // It will load from the following sources in order:
 //  1. The `default` struct tag
@@ -63,7 +76,11 @@ func Load(s interface{}, args []string, opts ...Option) error {
 		// Load configuration from environment variables
 		envLoader: &multiconfig.EnvironmentLoader{},
 		// Load configuration from CLI flags
-		flagLoader: &multiconfig.FlagLoader{Args: newArgs[1:]},
+		flagLoader: &multiconfig.FlagLoader{
+			Args:            newArgs[1:],
+			CamelCase:       true,
+			StructSeparator: ".",
+		},
 	}
 
 	// Apply all the options
