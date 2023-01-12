@@ -130,7 +130,7 @@ loadflag: YAML`)
 	args := []string{
 		"conf",
 		"-f", confFile.Name(),
-		"-loadflag", "Flag",
+		"-load-flag", "Flag",
 	}
 
 	config := Config{}
@@ -139,11 +139,12 @@ loadflag: YAML`)
 	}
 }
 
-func TestNestedDefaultValues(t *testing.T) {
+func TestNestedValues(t *testing.T) {
 	type Config struct {
 		LoadYAML string `default:"Default"`
 		Nested   struct {
 			LoadDefault string `default:"Default"`
+			LoadFlag    string
 		}
 	}
 
@@ -151,8 +152,10 @@ func TestNestedDefaultValues(t *testing.T) {
 		LoadYAML: "YAML",
 		Nested: struct {
 			LoadDefault string `default:"Default"`
+			LoadFlag    string
 		}{
 			LoadDefault: "Default",
+			LoadFlag:    "Flag",
 		},
 	}
 
@@ -167,6 +170,7 @@ func TestNestedDefaultValues(t *testing.T) {
 	args := []string{
 		"conf",
 		"-f", confFile.Name(),
+		"--nested.load-flag", "Flag",
 	}
 
 	config := Config{}
@@ -376,21 +380,51 @@ func TestWithValidator(t *testing.T) {
 	assert.Equal(t, validate, conf.validate)
 }
 
+func TestWithLegacyFlags(t *testing.T) {
+	conf := &loaderConfig{}
+	opt := WithLegacyFlags()
+	opt(conf)
+	assert.False(t, conf.flagLoader.CamelCase)
+	assert.Equal(t, "-", conf.flagLoader.StructSeparator)
+}
+
 func TestLoadWithOptions(t *testing.T) {
-	validate := validator.New()
-	validate.RegisterAlias("my-alias", "ipv4")
-	opt := WithValidator(validate)
+	t.Run("WithValidator", func(t *testing.T) {
+		validate := validator.New()
+		validate.RegisterAlias("my-alias", "ipv4")
+		opt := WithValidator(validate)
 
-	type Config struct {
-		MyIP string `default:"0.0.0.0" validate:"my-alias"`
-	}
+		type Config struct {
+			MyIP string `default:"0.0.0.0" validate:"my-alias"`
+		}
 
-	expected := Config{
-		MyIP: "0.0.0.0",
-	}
+		expected := Config{
+			MyIP: "0.0.0.0",
+		}
 
-	config := Config{}
-	if assert.NoError(t, Load(&config, mockArgs, opt)) {
-		assert.Equal(t, expected, config)
-	}
+		config := Config{}
+		if assert.NoError(t, Load(&config, mockArgs, opt)) {
+			assert.Equal(t, expected, config)
+		}
+	})
+
+	t.Run("WithLegacyFlags", func(t *testing.T) {
+		type NestedConfig struct {
+			MyIP string `default:"0.0.0.0"`
+		}
+		type Config struct {
+			NestedConfig NestedConfig
+		}
+
+		args := []string{"testapp", "--nestedconfig-myip", "1.1.1.1"}
+
+		expected := Config{
+			NestedConfig: NestedConfig{MyIP: "1.1.1.1"},
+		}
+
+		config := Config{}
+		if assert.NoError(t, Load(&config, args, WithLegacyFlags())) {
+			assert.Equal(t, expected, config)
+		}
+	})
 }
