@@ -34,6 +34,12 @@ type FlagLoader struct {
 	// "--access-key"
 	CamelCase bool
 
+	// StructSeparator is the separator for struct names in the flag. By
+	// default "-" is used. For example a config entry of
+	// Struct1.Struct2.Option will result in a flag of
+	//"--struct1-struct2-option"
+	StructSeparator string
+
 	// EnvPrefix is just a placeholder to print the correct usages when an
 	// EnvLoader is used
 	EnvPrefix string
@@ -109,15 +115,21 @@ func filterArgs(args []string) []string {
 // nested struct is detected, a flag for each field of that nested struct is
 // generated too.
 func (f *FlagLoader) processField(fieldName string, field *structs.Field) error {
+	var sep string
+	if f.StructSeparator == "" {
+		sep = "-"
+	} else {
+		sep = f.StructSeparator
+	}
 	if f.CamelCase {
 		fieldName = strings.Join(camelcase.Split(fieldName), "-")
-		fieldName = strings.Replace(fieldName, "---", "-", -1)
+		fieldName = strings.Replace(fieldName, fmt.Sprintf("-%s-", sep), sep, -1)
 	}
 
 	switch field.Kind() {
 	case reflect.Struct:
 		for _, ff := range field.Fields() {
-			flagName := fieldName + "-" + ff.Name()
+			flagName := fieldName + sep + ff.Name()
 
 			if f.Flatten {
 				// first check if it's set or not, because if we have duplicate
@@ -140,7 +152,7 @@ func (f *FlagLoader) processField(fieldName string, field *structs.Field) error 
 	default:
 		// Add custom prefix to the flag if it's set
 		if f.Prefix != "" {
-			fieldName = f.Prefix + "-" + fieldName
+			fieldName = f.Prefix + sep + fieldName
 		}
 
 		// we only can get the value from expored fields, unexported fields panics
