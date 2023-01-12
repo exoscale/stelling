@@ -19,7 +19,7 @@ github.com/cespare/xxhash/v2
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/exoscale/multiconfig v0.0.0-20230112140713-34eb52e96465
+# github.com/exoscale/multiconfig v0.0.0-20230112165055-e91a7cafbafc
 ## explicit; go 1.19
 github.com/exoscale/multiconfig
 # github.com/fatih/camelcase v1.0.0

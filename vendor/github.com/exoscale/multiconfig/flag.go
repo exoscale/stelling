@@ -18,6 +18,7 @@ type FlagLoader struct {
 	// Prefix prepends the prefix to each flag name i.e:
 	// --foo is converted to --prefix-foo.
 	// --foo-bar is converted to --prefix-foo-bar.
+	// Takes into account the StructSeparator
 	Prefix string
 
 	// Flatten doesn't add prefixes for nested structs. So previously if we had
@@ -64,6 +65,9 @@ type FlagLoader struct {
 
 // Load loads the source into the config defined by struct s
 func (f *FlagLoader) Load(s interface{}) error {
+	if f.StructSeparator == "" {
+		f.StructSeparator = "-"
+	}
 	strct := structs.New(s)
 	structName := strct.Name()
 
@@ -71,7 +75,7 @@ func (f *FlagLoader) Load(s interface{}) error {
 	f.flagSet = flagSet
 
 	for _, field := range strct.Fields() {
-		if err := f.processField(field.Name(), field); err != nil {
+		if err := f.processField(f.Prefix, field); err != nil {
 			return err
 		}
 	}
@@ -111,54 +115,52 @@ func filterArgs(args []string) []string {
 	return r
 }
 
-// processField generates a flag based on the given field and fieldName. If a
+// processField generates a flag based on the given prefix and field. If a
 // nested struct is detected, a flag for each field of that nested struct is
 // generated too.
-func (f *FlagLoader) processField(fieldName string, field *structs.Field) error {
-	var sep string
-	if f.StructSeparator == "" {
-		sep = "-"
-	} else {
-		sep = f.StructSeparator
+// panics if it tries to generate duplicate flags (can only happen when Flatten is set)
+func (f *FlagLoader) processField(prefix string, field *structs.Field) error {
+	if !field.IsExported() {
+		return nil
 	}
-	if f.CamelCase {
-		fieldName = strings.Join(camelcase.Split(fieldName), "-")
-		fieldName = strings.Replace(fieldName, fmt.Sprintf("-%s-", sep), sep, -1)
+
+	if prefix != "" {
+		prefix = fmt.Sprintf("%s%s", prefix, f.StructSeparator)
 	}
 
 	switch field.Kind() {
 	case reflect.Struct:
 		for _, ff := range field.Fields() {
-			flagName := fieldName + sep + ff.Name()
-
 			if f.Flatten {
-				// first check if it's set or not, because if we have duplicate
-				// we don't want to break the flag. Panic by giving a readable
-				// output
-				f.flagSet.VisitAll(func(fl *flag.Flag) {
-					if strings.ToLower(ff.Name()) == fl.Name {
-						// already defined
-						panic(fmt.Sprintf("flag '%s' is already defined in outer struct", fl.Name))
-					}
-				})
-
-				flagName = ff.Name()
+				if err := f.processField(prefix, ff); err != nil {
+					return err
+				}
+				continue
 			}
-
-			if err := f.processField(flagName, ff); err != nil {
+			fieldName := field.Name()
+			if f.CamelCase {
+				fieldName = strings.Join(camelcase.Split(fieldName), "-")
+			}
+			if err := f.processField(fmt.Sprintf("%s%s", prefix, fieldName), ff); err != nil {
 				return err
 			}
 		}
 	default:
-		// Add custom prefix to the flag if it's set
-		if f.Prefix != "" {
-			fieldName = f.Prefix + sep + fieldName
+		fieldName := field.Name()
+		if f.CamelCase {
+			fieldName = strings.Join(camelcase.Split(fieldName), "-")
 		}
-
-		// we only can get the value from expored fields, unexported fields panics
-		if field.IsExported() {
-			f.flagSet.Var(newFieldValue(field), flagName(fieldName), f.flagUsage(fieldName, field))
+		fName := flagName(fmt.Sprintf("%s%s", prefix, fieldName))
+		if f.Flatten {
+			// Check if the flag is already defined
+			// Panic with a helpful message if it is
+			f.flagSet.VisitAll(func(fl *flag.Flag) {
+				if fName == fl.Name {
+					panic(fmt.Sprintf("flag '%s' is already defined in an outer struct", fl.Name))
+				}
+			})
 		}
+		f.flagSet.Var(newFieldValue(field), fName, f.flagUsage(fieldName, field))
 	}
 
 	return nil

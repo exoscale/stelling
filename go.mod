@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/TheZeroSlave/zapsentry v1.12.0
-	github.com/exoscale/multiconfig v0.0.0-20230112140713-34eb52e96465
+	github.com/exoscale/multiconfig v0.0.0-20230112165055-e91a7cafbafc
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/getsentry/sentry-go v0.17.0
 	github.com/go-logr/zapr v1.2.3
