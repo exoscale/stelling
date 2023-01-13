@@ -83,6 +83,8 @@ github.com/exoscale/multiconfig v0.0.0-20230112131658-eec2d23c0875 h1:ASo6hXnFpt
 github.com/exoscale/multiconfig v0.0.0-20230112131658-eec2d23c0875/go.mod h1:roSLpjMwWNmyIgvZn6gcXZ8R/hlGVnSiw+YpoXH/Gyk=
 github.com/exoscale/multiconfig v0.0.0-20230112140713-34eb52e96465 h1:9G5cIH527l2wA+TV27hp65byFTMUNxpIJ/Vcx8rUHqM=
 github.com/exoscale/multiconfig v0.0.0-20230112140713-34eb52e96465/go.mod h1:thylIm+voytgvz6QMXgP6rZ8ZWKD3kkGFVpTHCCexyY=
+github.com/exoscale/multiconfig v0.0.0-20230112165055-e91a7cafbafc h1:UElM8YnZ8sgG0rhXEbpUrsxFLGziZTK4d9yZAgw/BA0=
+github.com/exoscale/multiconfig v0.0.0-20230112165055-e91a7cafbafc/go.mod h1:thylIm+voytgvz6QMXgP6rZ8ZWKD3kkGFVpTHCCexyY=
 github.com/fatih/camelcase v1.0.0 h1:hxNvNX/xYBp0ovncs8WyWZrOrpBNub/JfaMvbURyft8=
 github.com/fatih/camelcase v1.0.0/go.mod h1:yN2Sb0lFhZJUdVvtELVWefmrXpuZESvPmqwoZc+/fpc=
 github.com/fatih/structs v1.1.0 h1:Q7juDM0QtcnhCpeyLGQKyg4TOIghuNXrkL32pHAUMxo=
