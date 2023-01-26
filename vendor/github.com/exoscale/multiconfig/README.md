@@ -16,6 +16,7 @@ Multiconfig is able to read configuration automatically based on the given struc
 * YAML file
 * Environment variables
 * Flags
+* Interface method
 
 
 ## Install

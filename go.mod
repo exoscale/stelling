@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/TheZeroSlave/zapsentry v1.12.0
-	github.com/exoscale/multiconfig v0.0.0-20230112165055-e91a7cafbafc
+	github.com/exoscale/multiconfig v0.0.0-20230125174416-7beaf41f3d8e
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/getsentry/sentry-go v0.17.0
 	github.com/go-logr/zapr v1.2.3
@@ -21,7 +21,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.11.2
 	go.uber.org/fx v1.19.1
 	go.uber.org/zap v1.24.0
-	google.golang.org/grpc v1.52.0
+	google.golang.org/grpc v1.52.3
 )
 
 require (
@@ -56,7 +56,7 @@ require (
 	golang.org/x/net v0.5.0 // indirect
 	golang.org/x/sys v0.4.0 // indirect
 	golang.org/x/text v0.6.0 // indirect
-	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
+	google.golang.org/genproto v0.0.0-20230125152338-dcaf20b6aeaa // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

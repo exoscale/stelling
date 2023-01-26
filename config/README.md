@@ -46,9 +46,10 @@ The package currently doesn't expose a way to register custom validators: this i
 This package will attempt to load configuration information from the following sources, in order:
 
 1. Default values in struct tags
-2. YAML configuration file
-3. Environment variables
-4. CLI flags
+2. Default values provided by the `ApplyDefaults` method
+3. YAML configuration file
+4. Environment variables
+5. CLI flags
 
 Variables loaded later will override previously loaded values: thus CLI flags will override env variables, which themselves override the values found in the configuration file.
 

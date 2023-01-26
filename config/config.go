@@ -17,10 +17,11 @@ import (
 type Option func(*loaderConfig)
 
 type loaderConfig struct {
-	tagLoader  *multiconfig.TagLoader
-	envLoader  *multiconfig.EnvironmentLoader
-	flagLoader *multiconfig.FlagLoader
-	validate   *validator.Validate
+	tagLoader       *multiconfig.TagLoader
+	envLoader       *multiconfig.EnvironmentLoader
+	flagLoader      *multiconfig.FlagLoader
+	interfaceLoader *multiconfig.InterfaceLoader
+	validate        *validator.Validate
 }
 
 // WithValidator replaces the built-in validator with a user supplied one
@@ -97,9 +98,9 @@ func Load(s interface{}, args []string, opts ...Option) error {
 	// If a path to a configuration file is provided, add it to the chain
 	if configPath != "" {
 		yaml := &multiconfig.YAMLLoader{Path: configPath}
-		loader = multiconfig.MultiLoader(conf.tagLoader, yaml, conf.envLoader, conf.flagLoader)
+		loader = multiconfig.MultiLoader(conf.tagLoader, conf.interfaceLoader, yaml, conf.envLoader, conf.flagLoader)
 	} else {
-		loader = multiconfig.MultiLoader(conf.tagLoader, conf.envLoader, conf.flagLoader)
+		loader = multiconfig.MultiLoader(conf.tagLoader, conf.interfaceLoader, conf.envLoader, conf.flagLoader)
 	}
 
 	if err := loader.Load(s); err == flag.ErrHelp {
