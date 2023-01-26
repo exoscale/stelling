@@ -38,20 +38,15 @@ type MetricsConfig interface {
 }
 
 type Metrics struct {
-	// Port is the port the Prometheus endpoint will bind to
-	Port int `default:"9091" validate:"port"`
-	// TLS indicates whether the Prometheus endpoint exposes with TLS
-	TLS bool
-	// CertFile is the path to the pem encoded TLS certificate
-	CertFile string `validate:"required_if=TLS true,omitempty,file"`
-	// KeyFile is the path to the pem encoded private key of the TLS certificate
-	KeyFile string `validate:"required_if=TLS true,omitempty,file"`
-	// ClientCAFile is the path to a pem encoded CA cert bundle used to validate clients
-	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
-	// indicates whether Prometheus server export Histograms or not
+	fxhttp.Server
+	// indicates whether Prometheus grpc middleware exports Histograms or not
 	Histograms bool `default:"false"`
 	// ProcessName is used as a prefix for certain metrics that can clash
 	ProcessName string
+}
+
+func (m *Metrics) ApplyDefaults() {
+	m.Server.Port = 9091
 }
 
 func (m *Metrics) GetMetrics() *Metrics {
@@ -59,14 +54,7 @@ func (m *Metrics) GetMetrics() *Metrics {
 }
 
 func NewMetricsServerConfig(conf MetricsConfig) fxhttp.ServerConfig {
-	mConf := conf.GetMetrics()
-	return &fxhttp.Server{
-		Port:         mConf.Port,
-		TLS:          mConf.TLS,
-		CertFile:     mConf.CertFile,
-		KeyFile:      mConf.KeyFile,
-		ClientCAFile: mConf.ClientCAFile,
-	}
+	return &conf.GetMetrics().Server
 }
 
 func (m *Metrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
@@ -74,14 +62,10 @@ func (m *Metrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
-	enc.AddInt("port", m.Port)
-	enc.AddBool("tls", m.TLS)
-
-	if m.TLS {
-		enc.AddString("certfile", m.CertFile)
-		enc.AddString("keyfile", m.KeyFile)
-		enc.AddString("clientcafile", m.ClientCAFile)
+	if err := enc.AddObject("server", &m.Server); err != nil {
+		return err
 	}
+
 	enc.AddBool("histograms", m.Histograms)
 	if m.ProcessName != "" {
 		enc.AddString("processname", m.ProcessName)

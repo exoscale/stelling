@@ -44,16 +44,12 @@ type Pprof struct {
 	GenerateFiles string `validate:"excluded_with=Enabled,omitempty,dir"`
 	// Enabled controls the embedded pprof server
 	Enabled bool
-	// Port is the port the Pprof endpoint will bind to
-	Port int `default:"9092" validate:"port"`
-	// TLS indicates whether the Pprof endpoint exposes with TLS
-	TLS bool
-	// CertFile is the path to the pem encoded TLS certificate
-	CertFile string `validate:"required_if=TLS true,omitempty,file"`
-	// KeyFile is the path to the pem encoded private key of the TLS certificate
-	KeyFile string `validate:"required_if=TLS true,omitempty,file"`
-	// ClientCAFile is the path to a pem encoded CA cert bundle used to validate clients
-	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
+
+	fxhttp.Server
+}
+
+func (p *Pprof) ApplyDefauls() {
+	p.Server.Port = 9092
 }
 
 func (p *Pprof) GetPprof() *Pprof {
@@ -65,13 +61,7 @@ func NewPprofServerConfig(conf PprofConfig) fxhttp.ServerConfig {
 	if !pConf.Enabled {
 		return nil
 	}
-	return &fxhttp.Server{
-		Port:         pConf.Port,
-		TLS:          pConf.TLS,
-		CertFile:     pConf.CertFile,
-		KeyFile:      pConf.KeyFile,
-		ClientCAFile: pConf.ClientCAFile,
-	}
+	return &pConf.Server
 }
 
 func (p *Pprof) MarshalLogObject(enc zapcore.ObjectEncoder) error {
@@ -83,12 +73,8 @@ func (p *Pprof) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddBool("enabled", p.Enabled)
 
 	if p.Enabled {
-		enc.AddInt("port", p.Port)
-		enc.AddBool("tls", p.TLS)
-		if p.TLS {
-			enc.AddString("cert-file", p.CertFile)
-			enc.AddString("key-file", p.KeyFile)
-			enc.AddString("client-ca-file", p.ClientCAFile)
+		if err := enc.AddObject("server", &p.Server); err != nil {
+			return err
 		}
 	}
 
