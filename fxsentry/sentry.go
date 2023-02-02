@@ -3,6 +3,7 @@ package fxsentry
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"time"
 
@@ -25,9 +26,14 @@ type SentryConfig interface {
 type Sentry struct {
 	// Dsn contains the sentry Dsn
 	// Sentry integration is disabled if this is empty
-	Dsn         string
+	Dsn string
+	// Environment is reported as the 'environment' tag in any sentry events
 	Environment string `default:"prod" validate:"oneof=dev lab preprod prod"`
-	Debug       bool
+	// Debug controls whether sentry emits debugs logs about its own actions
+	Debug bool
+	// Process is the name of the current process, will be reported in the 'process' tag
+	// The lib will try to deduce a value from the runtime if not set
+	Process string
 }
 
 func (s *Sentry) GetSentry() *Sentry {
@@ -42,6 +48,7 @@ func (s *Sentry) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("dsn", s.Dsn)
 	enc.AddString("environment", s.Environment)
 	enc.AddBool("debug", s.Debug)
+	enc.AddString("process", s.Process)
 
 	return nil
 }
@@ -59,17 +66,42 @@ func NewSentryClient(conf SentryConfig) (*sentry.Client, error) {
 		hostname = ""
 	}
 	version := "undefined"
+	// We're not using info.Main.Version because it always shows `(devel)` for the main
+	// module, unless installed through go install
+	// Hopefully the resolution to this issue improves things: https://github.com/golang/go/issues/50603
 	if info, ok := debug.ReadBuildInfo(); ok {
-		version = info.Main.Version
+		// I think a common lisper snuck code into go: why use a map when you have lists!
+		for _, item := range info.Settings {
+			if item.Key == "vcs.revision" {
+				version = item.Value
+				break
+			}
+		}
 	}
 
 	opts := sentry.ClientOptions{
-		Dsn:         sentryConf.Dsn,
-		ServerName:  hostname,
-		Environment: sentryConf.Environment,
-		Release:     version,
-		Debug:       sentryConf.Debug,
+		Dsn:              sentryConf.Dsn,
+		ServerName:       hostname,
+		Environment:      sentryConf.Environment,
+		Release:          version,
+		Debug:            sentryConf.Debug,
+		AttachStacktrace: true,
 	}
+
+	// Mutate the top level scope with some extra useful information
+	sentry.ConfigureScope(func(scope *sentry.Scope) {
+		procName := sentryConf.Process
+		if procName == "" {
+			pathName, err := os.Executable()
+			// We'll ignore errors
+			if err == nil && pathName != "" {
+				procName = filepath.Base(pathName)
+			}
+		}
+		if procName != "" {
+			scope.SetTag("process", filepath.Base(procName))
+		}
+	})
 
 	return sentry.NewClient(opts)
 }
@@ -102,9 +134,6 @@ func ProvideSentryLogger(logger *zap.Logger, client *sentry.Client) *zap.Logger 
 
 	// Returns a noopcore if we error, so we can still safely attach to the logger
 	core, _ := zapsentry.NewCore(cfg, zapsentry.NewSentryClientFromClient(client))
-
-	// To use breadcrumbs feature we need to create a new scope explicitly
-	logger = logger.With(zapsentry.NewScope())
 
 	return zapsentry.AttachCoreToLogger(core, logger)
 }
