@@ -14,13 +14,19 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var Module = fx.Options(
-	fx.Provide(ProvideSentryClient),
-	fx.Decorate(fx.Annotate(ProvideSentryLogger, fx.ParamTags(``, `optional:"true"`))),
-)
+func NewModule(conf SentryConfig) fx.Option {
+	if conf.SentryConfig().Dsn == "" {
+		return fx.Options()
+	}
+	return fx.Options(
+		fx.Supply(fx.Annotate(conf, fx.As(new(SentryConfig)))),
+		fx.Provide(ProvideSentryClient),
+		fx.Decorate(ProvideSentryLogger),
+	)
+}
 
 type SentryConfig interface {
-	GetSentry() *Sentry
+	SentryConfig() *Sentry
 }
 
 type Sentry struct {
@@ -36,7 +42,7 @@ type Sentry struct {
 	Process string
 }
 
-func (s *Sentry) GetSentry() *Sentry {
+func (s *Sentry) SentryConfig() *Sentry {
 	return s
 }
 
@@ -54,7 +60,7 @@ func (s *Sentry) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 func NewSentryClient(conf SentryConfig) (*sentry.Client, error) {
-	sentryConf := conf.GetSentry()
+	sentryConf := conf.SentryConfig()
 
 	if sentryConf.Dsn == "" {
 		return nil, nil
@@ -124,9 +130,6 @@ func ProvideSentryClient(lc fx.Lifecycle, conf SentryConfig) (*sentry.Client, er
 }
 
 func ProvideSentryLogger(logger *zap.Logger, client *sentry.Client) *zap.Logger {
-	if client == nil {
-		return logger
-	}
 	cfg := zapsentry.Configuration{
 		Level:             zapcore.DPanicLevel,
 		EnableBreadcrumbs: false,

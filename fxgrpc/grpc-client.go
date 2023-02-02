@@ -21,13 +21,18 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
-// Provides a grpc client
-var ClientModule = fx.Module(
-	"grpc-client",
-	fx.Provide(
-		ProvideGrpcClient,
-	),
-)
+// TODO: refactor constructors in terms of DialOptions
+// This should also make it easier to use outside of an fx system
+// Or use fx to manage the tls and middleware, but create clients ad hoc
+
+// NewModule Provides a grpc client
+func NewModule(conf ClientConfig) fx.Option {
+	return fx.Module(
+		"grpc-client",
+		fx.Supply(fx.Annotate(conf, fx.As(new(ClientConfig)))),
+		fx.Provide(ProvideGrpcClient),
+	)
+}
 
 // LazyGrpcClientConn is GrpcClientConn that defers initialization of the connection until Start is called
 type LazyGrpcClientConn struct {
@@ -75,8 +80,8 @@ func (c *LazyGrpcClientConn) Stop(ctx context.Context) error {
 	return c.conn.Close()
 }
 
-type GrpcClientConfig interface {
-	GetClient() *Client
+type ClientConfig interface {
+	GrpcClientConfig() *Client
 }
 
 type Client struct {
@@ -94,7 +99,7 @@ type Client struct {
 	LoadBalancingPolicy string `validate:"omitempty,oneof=pick_first round_robin"`
 }
 
-func (c *Client) GetClient() *Client {
+func (c *Client) GrpcClientConfig() *Client {
 	return c
 }
 
@@ -120,14 +125,14 @@ type GrpcClientParams struct {
 	fx.In
 
 	Lc                 fx.Lifecycle
-	Conf               GrpcClientConfig
+	Conf               ClientConfig
 	Logger             *zap.Logger
 	UnaryInterceptors  []grpc.UnaryClientInterceptor  `group:"unary_client_interceptor"`
 	StreamInterceptors []grpc.StreamClientInterceptor `group:"stream_client_interceptor"`
 }
 
-func MakeClientTLS(c GrpcClientConfig, logger *zap.Logger) (credentials.TransportCredentials, *reloader.CertReloader, error) {
-	conf := c.GetClient()
+func MakeClientTLS(c ClientConfig, logger *zap.Logger) (credentials.TransportCredentials, *reloader.CertReloader, error) {
+	conf := c.GrpcClientConfig()
 	if conf.RootCAFile != "" && conf.CertFile == "" {
 		creds, err := credentials.NewClientTLSFromFile(conf.RootCAFile, "")
 		return creds, nil, err
@@ -232,8 +237,8 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 // NewGrpcClient returns a grpc client connection that is configured with the same conventions as the fx module
 // It is intended to be used for dynamically created, short lived, clients where using fx causes more troubles than benefits
 // Because the client is assumed to be short lived, it will not reload TLS certificates
-func NewGrpcClient(conf GrpcClientConfig, logger *zap.Logger, ui []grpc.UnaryClientInterceptor, si []grpc.StreamClientInterceptor) (*grpc.ClientConn, error) {
-	clientConf := conf.GetClient()
+func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []grpc.UnaryClientInterceptor, si []grpc.StreamClientInterceptor) (*grpc.ClientConn, error) {
+	clientConf := conf.GrpcClientConfig()
 
 	opts, _, err := getDialOpts(clientConf, logger, ui, si)
 	if err != nil {
@@ -244,7 +249,7 @@ func NewGrpcClient(conf GrpcClientConfig, logger *zap.Logger, ui []grpc.UnaryCli
 }
 
 func ProvideGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
-	clientConf := p.Conf.GetClient()
+	clientConf := p.Conf.GrpcClientConfig()
 
 	opts, r, err := getDialOpts(clientConf, p.Logger, p.UnaryInterceptors, p.StreamInterceptors)
 	if err != nil {

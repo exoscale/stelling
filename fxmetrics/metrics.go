@@ -14,31 +14,31 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Exposes prometheus metrics.
-var Module = fx.Module(
-	"metrics",
-	fx.Provide(
-		fx.Annotate(
-			NewMetricsServerConfig,
-			fx.ResultTags(`name:"metrics"`),
+// NewModule Exposes prometheus metrics.
+func NewModule(conf MetricsConfig) fx.Option {
+	return fx.Module(
+		"metrics",
+		fx.Supply(fx.Annotate(conf, fx.As(new(MetricsConfig)))),
+		fx.Provide(
+			NewPrometheusRegistry,
+			NewGrpcServerInterceptors,
+			NewGrpcClientInterceptors,
 		),
-		NewPrometheusRegistry,
-		NewGrpcServerInterceptors,
-		NewGrpcClientInterceptors,
-	),
-	fx.Invoke(
-		RegisterMetricsHandlers,
-	),
-	// Specify last so the server starts after we register the handlers
-	fxhttp.NewNamedModule("metrics"),
-)
+		fx.Invoke(
+			RegisterMetricsHandlers,
+		),
+		// Specify last so the server starts after we register the handlers
+		fxhttp.NewNamedModule("metrics", &conf.MetricsConfig().Server),
+	)
+}
 
 type MetricsConfig interface {
-	GetMetrics() *Metrics
+	MetricsConfig() *Metrics
 }
 
 type Metrics struct {
 	fxhttp.Server
+
 	// indicates whether Prometheus grpc middleware exports Histograms or not
 	Histograms bool `default:"false"`
 	// ProcessName is used as a prefix for certain metrics that can clash
@@ -49,12 +49,8 @@ func (m *Metrics) ApplyDefaults() {
 	m.Server.Port = 9091
 }
 
-func (m *Metrics) GetMetrics() *Metrics {
+func (m *Metrics) MetricsConfig() *Metrics {
 	return m
-}
-
-func NewMetricsServerConfig(conf MetricsConfig) fxhttp.ServerConfig {
-	return &conf.GetMetrics().Server
 }
 
 func (m *Metrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
@@ -99,7 +95,7 @@ func NewGrpcServerInterceptors(reg *prometheus.Registry, conf MetricsConfig) (Gr
 	if err := reg.Register(serverMetrics); err != nil {
 		return GrpcServerInterceptorsResult{}, err
 	}
-	if conf.GetMetrics().Histograms {
+	if conf.MetricsConfig().Histograms {
 		serverMetrics.EnableHandlingTimeHistogram()
 	}
 	return GrpcServerInterceptorsResult{
@@ -138,7 +134,7 @@ func NewPrometheusRegistry(conf MetricsConfig) (*prometheus.Registry, error) {
 		return nil, err
 	}
 	opts := collectors.ProcessCollectorOpts{
-		Namespace: conf.GetMetrics().ProcessName,
+		Namespace: conf.MetricsConfig().ProcessName,
 	}
 	if err := reg.Register(collectors.NewProcessCollector(opts)); err != nil {
 		return nil, err

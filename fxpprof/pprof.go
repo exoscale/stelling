@@ -15,28 +15,38 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// Exposes pprof endpoint
-var Module = fx.Module(
-	"pprof",
-	fx.Provide(
-		fx.Annotate(
-			NewPprofServerConfig,
-			fx.ResultTags(`name:"pprof"`),
-		),
-	),
-	fx.Invoke(
-		fx.Annotate(
-			InitPprofProfiler,
-			fx.ParamTags(`name:"pprof",optional:"true"`),
-		),
-		InvokeRuntimePprof,
-	),
-	// Specify last so the server starts after we register the handlers
-	fxhttp.NewNamedModule("pprof"),
-)
+// NewModule adds pprof support to the system
+// Depending on the config it will either spawn a dedicated pprof server
+// or directly instrument the process and dump results to a directory
+func NewModule(conf PprofConfig) fx.Option {
+	if conf.PprofConfig().GenerateFiles != "" {
+		return fx.Module(
+			"pprof",
+			fx.Supply(fx.Annotate(conf, fx.As(new(PprofConfig)))),
+			fx.Invoke(InvokeRuntimePprof),
+		)
+	}
+
+	if conf.PprofConfig().Enabled {
+		return fx.Module(
+			"pprof",
+			fx.Supply(fx.Annotate(conf, fx.As(new(PprofConfig)))),
+			fx.Invoke(
+				fx.Annotate(
+					InitPprofProfiler,
+					fx.ParamTags(`name:"pprof"`),
+				),
+			),
+			// Specify last so the server starts after we register the handlers
+			fxhttp.NewNamedModule("pprof", &conf.PprofConfig().Server),
+		)
+	}
+
+	return fx.Options()
+}
 
 type PprofConfig interface {
-	GetPprof() *Pprof
+	PprofConfig() *Pprof
 }
 
 type Pprof struct {
@@ -45,23 +55,15 @@ type Pprof struct {
 	// Enabled controls the embedded pprof server
 	Enabled bool
 
-	fxhttp.Server
+	Server fxhttp.Server
 }
 
-func (p *Pprof) ApplyDefauls() {
+func (p *Pprof) ApplyDefaults() {
 	p.Server.Port = 9092
 }
 
-func (p *Pprof) GetPprof() *Pprof {
+func (p *Pprof) PprofConfig() *Pprof {
 	return p
-}
-
-func NewPprofServerConfig(conf PprofConfig) fxhttp.ServerConfig {
-	pConf := conf.GetPprof()
-	if !pConf.Enabled {
-		return nil
-	}
-	return &pConf.Server
 }
 
 func (p *Pprof) MarshalLogObject(enc zapcore.ObjectEncoder) error {
@@ -82,14 +84,11 @@ func (p *Pprof) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 func InvokeRuntimePprof(lc fx.Lifecycle, conf PprofConfig) error {
-	if conf.GetPprof().GenerateFiles == "" {
-		return nil
-	}
-	cpu, err := os.Create(filepath.Join(conf.GetPprof().GenerateFiles, "pprof.cpu"))
+	cpu, err := os.Create(filepath.Join(conf.PprofConfig().GenerateFiles, "pprof.cpu"))
 	if err != nil {
 		return err
 	}
-	mem, err := os.Create(filepath.Join(conf.GetPprof().GenerateFiles, "pprof.mem"))
+	mem, err := os.Create(filepath.Join(conf.PprofConfig().GenerateFiles, "pprof.mem"))
 	if err != nil {
 		cpu.Close()
 		return err
@@ -113,10 +112,6 @@ func InvokeRuntimePprof(lc fx.Lifecycle, conf PprofConfig) error {
 }
 
 func InitPprofProfiler(server *http.Server) {
-	if server == nil {
-		return
-	}
-
 	mux := http.NewServeMux()
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)

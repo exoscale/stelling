@@ -13,53 +13,78 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var Module = fx.Module(
-	"http",
-	fx.Provide(
-		GetCertReloaderConfig,
-		fx.Annotate(reloader.ProvideCertReloader, fx.ParamTags(``, `optional:"true"`, ``)),
-		fx.Annotate(NewHTTPServer, fx.ParamTags(``, ``, `optional:"true"`)),
-	),
-)
+// NewModule provides a configured *http.Server to the system
+// You still have to invoke StartHttpServer to ensure it starts
+func NewModule(conf ServerConfig) fx.Option {
+	opts := fx.Options(
+		fx.Supply(fx.Annotate(conf, fx.As(new(ServerConfig)))),
+		fx.Provide(
+			fx.Annotate(NewHTTPServer, fx.ParamTags(``, ``, `optional:"true"`)),
+		),
+	)
+	if conf.HttpServerConfig().TLS {
+		opts = fx.Options(
+			opts,
+			fx.Provide(
+				GetCertReloaderConfig,
+				reloader.ProvideCertReloader,
+			),
+		)
+	}
+	return fx.Module("http", opts)
+}
 
-func NewNamedModule(name string) fx.Option {
+// NewNamedModule adds a named http server to the system
+// It is mostly of use for other stelling components which may need to
+// start their own http servers
+// The average application should be able to use NewModule instead
+func NewNamedModule(name string, conf ServerConfig) fx.Option {
 	nameTag := fmt.Sprintf("name:\"%s\"", name)
-	optNameTag := fmt.Sprintf("%s, optional:\"true\"", nameTag)
+	optNameTag := fmt.Sprintf("%s optional:\"true\"", nameTag)
 	moduleName := fmt.Sprintf("%s-http-server", name)
-	return fx.Options(
-		fx.Module(
-			moduleName,
+
+	opts := fx.Options(
+		fx.Supply(fx.Annotate(conf, fx.As(new(ServerConfig)), fx.ResultTags(nameTag))),
+		fx.Provide(
+			fx.Annotate(
+				NewHTTPServer,
+				fx.ParamTags(``, nameTag, optNameTag),
+				fx.ResultTags(nameTag),
+			),
+		),
+	)
+	if conf.HttpServerConfig().TLS {
+		opts = fx.Options(
+			opts,
 			fx.Provide(
 				fx.Annotate(
 					GetCertReloaderConfig,
-					fx.ParamTags(optNameTag),
+					fx.ParamTags(nameTag),
 					fx.ResultTags(nameTag),
 				),
 				fx.Annotate(
 					reloader.ProvideCertReloader,
-					fx.ParamTags(``, optNameTag, ``),
-					fx.ResultTags(nameTag),
-				),
-				fx.Annotate(
-					NewHTTPServer,
-					fx.ParamTags(``, optNameTag, optNameTag),
+					fx.ParamTags(``, nameTag, ``),
 					fx.ResultTags(nameTag),
 				),
 			),
-		),
+		)
+	}
+	return fx.Options(
+		fx.Module(moduleName, opts),
 		// We're not putting this in the module, so that the module which
 		// embeds this can chose when the http server should start
 		fx.Invoke(
 			fx.Annotate(
 				StartHttpServer,
-				fx.ParamTags(``, optNameTag, ``, nameTag),
+				fx.ParamTags(``, nameTag, ``, nameTag),
 			),
 		),
 	)
 }
 
 type ServerConfig interface {
-	GetServer() *Server
+	HttpServerConfig() *Server
 }
 
 type Server struct {
@@ -75,7 +100,7 @@ type Server struct {
 	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
 }
 
-func (s *Server) GetServer() *Server {
+func (s *Server) HttpServerConfig() *Server {
 	return s
 }
 
@@ -97,26 +122,20 @@ func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
-	if conf == nil || !conf.GetServer().TLS {
-		return nil
-	}
 	return &reloader.CertReloaderConfig{
-		CertFile:       conf.GetServer().CertFile,
-		KeyFile:        conf.GetServer().KeyFile,
+		CertFile:       conf.HttpServerConfig().CertFile,
+		KeyFile:        conf.HttpServerConfig().KeyFile,
 		ReloadInterval: 10 * time.Second,
 	}
 }
 
 func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, r *reloader.CertReloader) (*http.Server, error) {
-	if conf == nil {
-		return nil, nil
-	}
 	server := &http.Server{
-		Addr: fmt.Sprintf(":%d", conf.GetServer().Port),
+		Addr: fmt.Sprintf(":%d", conf.HttpServerConfig().Port),
 	}
 
-	if conf.GetServer().TLS {
-		tlsConf, err := reloader.MakeServerTLS(r, conf.GetServer().ClientCAFile)
+	if conf.HttpServerConfig().TLS {
+		tlsConf, err := reloader.MakeServerTLS(r, conf.HttpServerConfig().ClientCAFile)
 		if err != nil {
 			return nil, err
 		}
@@ -127,13 +146,10 @@ func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, r *reloader.CertReloader)
 }
 
 func StartHttpServer(lc fx.Lifecycle, server *http.Server, logger *zap.Logger, conf ServerConfig) {
-	if server == nil {
-		return
-	}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			logger.Info("Starting http server", zap.Int("port", conf.GetServer().Port))
-			if conf.GetServer().TLS {
+			logger.Info("Starting http server", zap.Int("port", conf.HttpServerConfig().Port))
+			if conf.HttpServerConfig().TLS {
 				go func() {
 					if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
 						logger.Fatal("Error while serving http", zap.Error(err))

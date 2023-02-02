@@ -18,17 +18,21 @@ import (
 	"google.golang.org/grpc"
 )
 
-var Module = fx.Module(
-	"tracing",
-	fx.Provide(
-		NewTracerProvider,
-		NewGrpcServerInterceptors,
-		NewGrpcClientInterceptors,
-	),
-)
+// NewModule provides an opentelemetry TracingProvider to the system
+func NewModule(conf TracingConfig) fx.Option {
+	return fx.Module(
+		"tracing",
+		fx.Supply(fx.Annotate(conf, fx.As(new(TracingConfig)))),
+		fx.Provide(
+			NewTracerProvider,
+			NewGrpcServerInterceptors,
+			NewGrpcClientInterceptors,
+		),
+	)
+}
 
 type TracingConfig interface {
-	GetTracing() *Tracing
+	TracingConfig() *Tracing
 }
 
 type Tracing struct {
@@ -46,7 +50,7 @@ type Tracing struct {
 	Endpoint string `validate:"required_if=Enabled true InsecureConnection false,omitempty,hostname_port"`
 }
 
-func (t *Tracing) GetTracing() *Tracing {
+func (t *Tracing) TracingConfig() *Tracing {
 	return t
 }
 
@@ -70,7 +74,7 @@ func (t *Tracing) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) (trace.TracerProvider, error) {
-	tracingConf := conf.GetTracing()
+	tracingConf := conf.TracingConfig()
 	otel.SetLogger(zapr.NewLogger(logger))
 
 	if !tracingConf.Enabled {
