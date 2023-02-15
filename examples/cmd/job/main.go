@@ -67,7 +67,7 @@ func createSystem(conf *config.Config) fx.Option {
 		),
 
 		// Invoke functions are run in the order in which they are specified
-		fx.Invoke(job.StartJob),
+		fx.Invoke(job.InvokeJob),
 	)
 
 	return opts

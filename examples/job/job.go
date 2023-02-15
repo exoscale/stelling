@@ -82,13 +82,13 @@ func sideEffect() error {
 	return nil
 }
 
-// StartJob is the function we'll Invoke in our system
+// InvokeJob is the function we'll Invoke in our system
 // In its OnStart hook we spawn the go routine that executes the work
 // We use an fx.Shutdowner to stop the system when all work is done
 // In its OnStop hook, we check if there were any errors and return them:
 // this will cause the program to return a non-zero exit code if any errors
 // happened during execution
-func StartJob(lc fx.Lifecycle, sd fx.Shutdowner, job *Job, logger *zap.Logger) {
+func InvokeJob(lc fx.Lifecycle, sd fx.Shutdowner, job *Job, logger *zap.Logger) {
 	jobCtx, cancel := context.WithCancel(context.Background())
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {

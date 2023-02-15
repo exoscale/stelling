@@ -39,5 +39,8 @@ While the packages in stelling will work better with `fx`, the modules (and `fx`
 * Components that do need lifecycle hooks will have two constructors:
   - `NewMyType` which is `fx` type free, and returns a `MyType`, leaving the handling of the lifecycle to the caller
   - `ProvideMyType`, which will have `fx` types in its signature and provides wiring to let `fx` handle the lifecycle.
+* Components at the edge of the dependency tree (such as http servers) will have `InvokeMyType` or `StartMyType` functions that register the lifecycle hooks.
+  They are meant to be used as Invoke functions which force their dependencies to be created. Because Invoke functions are executed in the order in which they
+  are registered, this design allows for fine grained control over the startup and shutdown order of unrelated components in the system.
 
 This allows the components to be used in as many situations as possible.
