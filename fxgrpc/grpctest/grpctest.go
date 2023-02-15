@@ -17,6 +17,7 @@ var Module = fx.Module(
 	"grpc-test",
 	fx.Provide(
 		NewGrpc,
+		func(server *grpc.Server) grpc.ServiceRegistrar { return server },
 	),
 )
 
