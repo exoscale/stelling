@@ -47,7 +47,7 @@ func Example_server() {
 	opts := fx.Options(
 		// Suppressing fx logs to ensure deterministic output
 		fx.WithLogger(func() fxevent.Logger { return fxevent.NopLogger }),
-		fx.Provide(zap.NewDevelopment),
+		fx.Provide(zap.NewNop),
 		fxpprof.NewModule(conf),
 		fx.Invoke(run),
 	)

@@ -6,33 +6,33 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	sconfig "github.com/exoscale/stelling/config"
-	"github.com/exoscale/stelling/fxlogging"
 	"github.com/exoscale/stelling/fxmetrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx"
+	"go.uber.org/fx/fxevent"
 	"go.uber.org/zap"
 )
 
 type Config struct {
-	fxlogging.Logging
 	fxmetrics.Metrics
 }
 
 func Example() {
 	conf := &Config{}
-	args := []string{"metrics-test", "--logging.mode", "production"}
+	args := []string{"metrics-test"}
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
 	}
 	opts := fx.Options(
-		fxlogging.NewModule(conf),
+		// Suppressing fx logs to ensure deterministic output
+		fx.WithLogger(func() fxevent.Logger { return fxevent.NopLogger }),
 		fxmetrics.NewModule(conf),
-		// zapOpts contains options to make the logs determistic so we can test the output
-		fx.Supply(fx.Annotate(zapOpts, fx.ResultTags(`group:"zap_opts,flatten"`))),
-		fx.Provide(provideMetrics),
+		fx.Provide(
+			zap.NewNop,
+			provideMetrics,
+		),
 		fx.Invoke(registerMetrics),
 		fx.Invoke(run),
 	)
@@ -43,13 +43,8 @@ func Example() {
 	fx.New(opts).Run()
 
 	// Output:
-	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Using configuration","conf":{"Mode":"production","Port":9091,"TLS":false,"CertFile":"","KeyFile":"","ClientCAFile":"","Histograms":false,"ProcessName":""}}
-	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Final configuration","conf":{"Mode":"production","Port":9091,"TLS":false,"CertFile":"","KeyFile":"","ClientCAFile":"","Histograms":false,"ProcessName":""}}
-	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Starting http server","port":9091}
 	// Response code for GET http://localhost:9091/metrics 200
 	// Payload contains the custom metric true
-	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Stopping http server"}
-	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Done serving http"}
 }
 
 func provideMetrics() prometheus.Collector {
@@ -91,21 +86,4 @@ func run(lc fx.Lifecycle, sd fx.Shutdowner) {
 			return nil
 		},
 	})
-}
-
-var zapOpts = []zap.Option{
-	zap.WithCaller(false),
-	zap.WithClock(&fixedClock{ts: 1257894000}),
-}
-
-type fixedClock struct {
-	ts int64
-}
-
-func (c *fixedClock) Now() time.Time {
-	return time.Unix(c.ts, 0).UTC()
-}
-
-func (c *fixedClock) NewTicker(d time.Duration) *time.Ticker {
-	return time.NewTicker(d)
 }
