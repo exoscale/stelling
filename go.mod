@@ -22,10 +22,10 @@ require (
 	go.uber.org/fx v1.19.1
 	go.uber.org/zap v1.24.0
 	google.golang.org/grpc v1.52.3
+	google.golang.org/grpc/examples v0.0.0-20230215194445-0f02ca5cc927
 )
 
 require (
-	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect

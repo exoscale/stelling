@@ -25,8 +25,8 @@ import (
 // This should also make it easier to use outside of an fx system
 // Or use fx to manage the tls and middleware, but create clients ad hoc
 
-// NewModule Provides a grpc client
-func NewModule(conf ClientConfig) fx.Option {
+// NewClientModule Provides a grpc client
+func NewClientModule(conf ClientConfig) fx.Option {
 	return fx.Module(
 		"grpc-client",
 		fx.Supply(fx.Annotate(conf, fx.As(new(ClientConfig)))),
