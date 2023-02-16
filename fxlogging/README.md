@@ -17,6 +17,12 @@ In case special configuration of the zap Logger is needed, that is not supported
 `zap_opts` can be inserted into the system: these will be fed through to the `zap.Logger` constructor
 without modification. The included example test provides a working example of this.
 
+Similarly the grpc server and client interceptors can be customized by supplying a value group of
+[grpc_zap.Option](https://pkg.go.dev/github.com/grpc-ecosystem/go-grpc-middleware/logging/zap#Option)
+with the name `grpc_zap_server_options` and `grpc_zap_client_options` respectively.
+This allows customization of the grpc code to log level mapping and passing in a custom decider for when
+requests should be logged.
+
 ## Configuration file
 At the moment the configuration for the logger only has a single option: `mode`:
 
