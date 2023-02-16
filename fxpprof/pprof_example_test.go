@@ -32,10 +32,11 @@ func Example_server() {
 			OnStart: func(ctx context.Context) error {
 				go func() {
 					// By default the pprof server binds to localhost:9092
-					resp, err := http.DefaultClient.Get("http://localhost:9092/debug/pprof")
+					resp, err := http.DefaultClient.Get("http://localhost:9092/debug/pprof") //nolint:noctx
 					if err != nil {
 						panic(err)
 					}
+					defer resp.Body.Close()
 					fmt.Println("Response code for GET http://localhost:9092/debug/pprof:", resp.StatusCode)
 					sd.Shutdown() //nolint:errcheck
 				}()

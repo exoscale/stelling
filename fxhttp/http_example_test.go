@@ -69,7 +69,7 @@ func run(lc fx.Lifecycle, sd fx.Shutdowner) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			go func() {
-				resp, err := http.DefaultClient.Get("http://localhost:8080/foo")
+				resp, err := http.DefaultClient.Get("http://localhost:8080/foo") //nolint:noctx
 				if err != nil {
 					panic(err)
 				}

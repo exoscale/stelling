@@ -64,7 +64,7 @@ func run(lc fx.Lifecycle, sd fx.Shutdowner, tp trace.TracerProvider) {
 	})
 }
 
-func job(ctx context.Context) {
+func job(_ context.Context) {
 	time.Sleep(1 * time.Millisecond)
 }
 

@@ -17,7 +17,7 @@ func validatePortNumber(input int64) error {
 func validateExoscaleZone(input string) error {
 	// The list of short zone strings can be found here:
 	// https://github.com/exoscale/puppet/blob/master/configstore/common.yaml#L1114
-	// It is also refered to as "location" in puppet variables
+	// It is also referred to as "location" in puppet variables
 	zones := []string{
 		"zrh1",
 		"fra1",

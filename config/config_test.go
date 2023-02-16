@@ -89,7 +89,7 @@ func TestConfigFromEnvironment(t *testing.T) {
 		MyString: "EnvironmentVariable",
 	}
 
-	os.Setenv("CONFIG_MYSTRING", "EnvironmentVariable")
+	t.Setenv("CONFIG_MYSTRING", "EnvironmentVariable")
 
 	config := Config{}
 	if assert.NoError(t, Load(&config, mockArgs)) {
@@ -124,8 +124,8 @@ loadflag: YAML`)
 	assert.NoError(t, err, "Failed to write to temporary file")
 	assert.NoError(t, confFile.Close(), "Failed to close temporary file")
 
-	os.Setenv("CONFIG_LOADENV", "Env")
-	os.Setenv("CONFIG_LOADFLAG", "Env")
+	t.Setenv("CONFIG_LOADENV", "Env")
+	t.Setenv("CONFIG_LOADFLAG", "Env")
 
 	args := []string{
 		"conf",

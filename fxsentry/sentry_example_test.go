@@ -72,7 +72,7 @@ func shutdown(sd fx.Shutdowner) {
 var zapOpts = []zap.Option{
 	zap.WithCaller(false),
 	zap.WithClock(&fixedClock{ts: 1257894000}),
-	zap.AddStacktrace(zapcore.PanicLevel), // Disabling stacktraces to keep things reproducable
+	zap.AddStacktrace(zapcore.PanicLevel), // Disabling stacktraces to keep things reproducible
 }
 
 type fixedClock struct {

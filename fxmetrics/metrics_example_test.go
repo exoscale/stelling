@@ -68,7 +68,7 @@ func run(lc fx.Lifecycle, sd fx.Shutdowner) {
 		OnStart: func(ctx context.Context) error {
 			go func() {
 				// By default the metrics server binds to 0.0.0.0:9091
-				resp, err := http.DefaultClient.Get("http://localhost:9091/metrics")
+				resp, err := http.DefaultClient.Get("http://localhost:9091/metrics") //nolint:noctx
 				if err != nil {
 					panic(err)
 				}

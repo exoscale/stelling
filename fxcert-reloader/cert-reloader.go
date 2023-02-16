@@ -1,4 +1,4 @@
-//Package fxcert-reloader provides a way to automatically reload certificates when changed on disk.
+// Package fxcert-reloader provides a way to automatically reload certificates when changed on disk.
 package fxcert_reloader
 
 import (
