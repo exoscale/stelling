@@ -62,8 +62,6 @@ type Server struct {
 	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
 	// Port is the port the gRPC server will bind to
 	Port int `default:"0" validate:"port"`
-	// Keepalive is the configuration of the grpc-keepalive
-	Keepalive Keepalive
 }
 
 // Struct used to reflect the type
@@ -84,10 +82,6 @@ func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddString("cert-file", s.CertFile)
 		enc.AddString("key-file", s.KeyFile)
 		enc.AddString("client-ca-file", s.ClientCAFile)
-	}
-
-	if err := enc.AddObject("keepalive", &s.Keepalive); err != nil {
-		return err
 	}
 
 	return nil
@@ -126,15 +120,12 @@ type GrpcServerParams struct {
 	UnaryInterceptors  []grpc.UnaryServerInterceptor  `group:"unary_server_interceptor"`
 	StreamInterceptors []grpc.StreamServerInterceptor `group:"stream_server_interceptor"`
 	Reloader           *reloader.CertReloader         `name:"grpc_server" optional:"true"`
+	ServerOpts         []grpc.ServerOption            `group:"grpc_server_options"`
 }
 
-// TODO: investigate a design where this takes in a list of ServerOption
 func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	opts := []grpc.ServerOption{}
 	serverConf := p.Conf.GrpcServerConfig()
-
-	// Handle keepalive configuration
-	opts = append(opts, grpc.KeepaliveParams(keepalive.ServerParameters(serverConf.Keepalive)))
 
 	// Handle server TLS
 	if serverConf.TLS {
@@ -160,6 +151,9 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 		}
 	}
 	opts = append(opts, grpc.ChainUnaryInterceptor(unary...), grpc.ChainStreamInterceptor(stream...))
+
+	// Add the externally supplied options last: this allows the user to override any options we may have set already
+	opts = append(opts, p.ServerOpts...)
 
 	// Set our logger as the logger used by the gRPC framework
 	grpclog.SetLoggerV2(zapgrpc.NewLogger(p.Logger))

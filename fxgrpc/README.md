@@ -22,7 +22,7 @@ The module adds the following features to the server:
 
 The user needs to explicitly Invoke `StartGrpcServer` in their system. This allows fine grained control over the start and stop timing of components that do not share explicit dependencies.
 
-TODO: The server can further be customized by providing [grpc.ServerOptions](https://pkg.go.dev/google.golang.org/grpc#ServerOption) in the `grpc_server_options` value group.
+The server can further be customized by providing [grpc.ServerOptions](https://pkg.go.dev/google.golang.org/grpc#ServerOption) in the `grpc_server_options` value group.
 
 ### Configuration
 The module provides the following configuration options:
@@ -53,4 +53,4 @@ The module provides the following configuration options:
 * `RootCAFile`: Path to a pem encoded CA bundle to validate the server certificate
 * `Endpoint`: The address + port (without protocol) of the grpc server
 
-TODO: The client can further be customized by providing [grpc.DialOption](https://pkg.go.dev/google.golang.org/grpc#DialOption) in the `grpc_client_options` value group.
+The client can further be customized by providing [grpc.DialOption](https://pkg.go.dev/google.golang.org/grpc#DialOption) in the `grpc_client_options` value group.
