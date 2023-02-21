@@ -25,6 +25,7 @@ func validateExoscaleZone(input string) error {
 		"muc1",
 		"sof1",
 		"vie1",
+		"vie2",
 		"zrh1",
 		"aws",
 	}
@@ -49,6 +50,7 @@ func validateExoscaleZoneLong(input string) error {
 		"de-muc-1",
 		"ch-dk-2",
 		"at-vie-1",
+		"at-vie-2",
 		"bg-sof-1",
 	}
 
