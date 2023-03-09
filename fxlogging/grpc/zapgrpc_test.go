@@ -156,38 +156,40 @@ func TestLoggerV2(t *testing.T) {
 }
 
 func checkLevel(
-	t testing.TB,
+	tb testing.TB,
 	enab zapcore.LevelEnabler,
 	expectedBool bool,
 	f func(*Logger) bool,
 ) {
+	tb.Helper()
 	withLogger(enab, func(logger *Logger, observedLogs *observer.ObservedLogs) {
 		actualBool := f(logger)
 		if expectedBool {
-			require.True(t, actualBool)
+			require.True(tb, actualBool)
 		} else {
-			require.False(t, actualBool)
+			require.False(tb, actualBool)
 		}
 	})
 }
 
 func checkMessages(
-	t testing.TB,
+	tb testing.TB,
 	enab zapcore.LevelEnabler,
 	expectedLevel zapcore.Level,
 	expectedMessages []string,
 	f func(*Logger),
 ) {
+	tb.Helper()
 	if expectedLevel == zapcore.FatalLevel {
 		expectedLevel = zapcore.WarnLevel
 	}
 	withLogger(enab, func(logger *Logger, observedLogs *observer.ObservedLogs) {
 		f(logger)
 		logEntries := observedLogs.All()
-		require.Equal(t, len(expectedMessages), len(logEntries))
+		require.Equal(tb, len(expectedMessages), len(logEntries))
 		for i, logEntry := range logEntries {
-			require.Equal(t, expectedLevel, logEntry.Level)
-			require.Equal(t, expectedMessages[i], logEntry.Message)
+			require.Equal(tb, expectedLevel, logEntry.Level)
+			require.Equal(tb, expectedMessages[i], logEntry.Message)
 		}
 	})
 }

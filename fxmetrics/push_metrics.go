@@ -17,38 +17,42 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var PushModule = fx.Module(
-	"metrics",
-	fx.Provide(
-		NewPrometheusRegistry,
-		NewGrpcServerInterceptors,
-		NewGrpcClientInterceptors,
-		func(m PushMetricsConfig) MetricsConfig { return m },
-		fx.Annotate(
-			GetCertReloaderConfig,
-			fx.ResultTags(`name:"metrics_pusher"`),
+func NewPushModule(conf PushMetricsConfig) fx.Option {
+	opts := fx.Options(
+		fx.Supply(fx.Annotate(conf, fx.As(new(PushMetricsConfig)))),
+		fx.Provide(
+			NewPrometheusRegistry,
+			NewGrpcServerInterceptors,
+			NewGrpcClientInterceptors,
+			func(m PushMetricsConfig) MetricsConfig { return m },
 		),
-		fx.Annotate(
-			reloader.ProvideCertReloader,
-			fx.ParamTags(``, `name:"metrics_pusher" optional:"true"`, ``),
-			fx.ResultTags(`name:"metrics_pusher"`),
-		),
-		fx.Annotate(
-			ProvideMetricsPusher,
-			fx.ParamTags(``, ``, `name:"metrics_pusher" optional:"true"`),
-		),
-	),
-	fx.Invoke(
-		fx.Annotate(
-			RegisterPushMetrics,
-			fx.ParamTags(``, `optional:"true"`),
-		),
-	),
-)
+	)
+	if conf.PushMetricsConfig().Endpoint != "" {
+		opts = fx.Options(
+			opts,
+			fx.Provide(
+				fx.Annotate(
+					ProvideMetricsPusher,
+					fx.ParamTags(``, ``, `name:"metrics_pusher" optional:"true"`),
+				),
+			),
+			fx.Invoke(RegisterPushMetrics),
+		)
+		if conf.PushMetricsConfig().CertFile != "" {
+			opts = fx.Options(
+				opts,
+				fx.Provide(
+					fx.Annotate(GetCertReloaderConfig, fx.ResultTags(`name:"metrics_pusher"`)),
+				),
+			)
+		}
+	}
+	return opts
+}
 
 type PushMetricsConfig interface {
-	GetPushMetrics() *PushMetrics
-	GetMetrics() *Metrics
+	PushMetricsConfig() *PushMetrics
+	MetricsConfig() *Metrics
 }
 
 type PushMetrics struct {
@@ -60,7 +64,7 @@ type PushMetrics struct {
 	KeyFile string `validate:"required_with=CertFile,omitempty,file"`
 	// RootCAFile is the path to a pem encoded CA cert bundle used to validate server connections
 	RootCAFile string `validate:"omitempty,file"`
-	// indicates whether Prometheus server export Histograms or not
+	// indicates whether Prometheus grpc middleware exports Histograms or not
 	Histograms bool `default:"false"`
 	// ProcessName is used as a prefix for certain metrics that can clash
 	ProcessName string
@@ -78,11 +82,11 @@ type PushMetrics struct {
 	PushInterval time.Duration `default:"15s"`
 }
 
-func (m *PushMetrics) GetPushMetrics() *PushMetrics {
+func (m *PushMetrics) PushMetricsConfig() *PushMetrics {
 	return m
 }
 
-func (m *PushMetrics) GetMetrics() *Metrics {
+func (m *PushMetrics) MetricsConfig() *Metrics {
 	return &Metrics{
 		Histograms:  m.Histograms,
 		ProcessName: m.ProcessName,
@@ -115,12 +119,9 @@ func (m *PushMetrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 func GetCertReloaderConfig(conf PushMetricsConfig) *reloader.CertReloaderConfig {
-	if conf.GetPushMetrics().CertFile == "" {
-		return nil
-	}
 	return &reloader.CertReloaderConfig{
-		CertFile:       conf.GetPushMetrics().CertFile,
-		KeyFile:        conf.GetPushMetrics().KeyFile,
+		CertFile:       conf.PushMetricsConfig().CertFile,
+		KeyFile:        conf.PushMetricsConfig().KeyFile,
 		ReloadInterval: 10 * time.Second,
 	}
 }
@@ -152,18 +153,14 @@ func httpClient(conf *PushMetrics, reloader *reloader.CertReloader) (*http.Clien
 }
 
 func ProvideMetricsPusher(lc fx.Lifecycle, conf PushMetricsConfig, reloader *reloader.CertReloader, logger *zap.Logger) (*push.Pusher, error) {
-	pConf := conf.GetPushMetrics()
-	endpoint := pConf.Endpoint
-	if endpoint == "" {
-		return nil, nil
-	}
+	pConf := conf.PushMetricsConfig()
 	logger = logger.Named("metrics-pusher")
 
 	client, err := httpClient(pConf, reloader)
 	if err != nil {
 		return nil, err
 	}
-	pusher := push.New(endpoint, pConf.JobName).Client(client)
+	pusher := push.New(pConf.Endpoint, pConf.JobName).Client(client)
 
 	if pConf.GroupingLabelKey != "" {
 		pusher = pusher.Grouping(pConf.GroupingLabelKey, pConf.GroupingLabelValue)
@@ -211,7 +208,5 @@ func ProvideMetricsPusher(lc fx.Lifecycle, conf PushMetricsConfig, reloader *rel
 }
 
 func RegisterPushMetrics(reg *prometheus.Registry, pusher *push.Pusher) {
-	if pusher != nil {
-		pusher.Gatherer(reg)
-	}
+	pusher.Gatherer(reg)
 }

@@ -21,13 +21,18 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
-// Provides a grpc client
-var ClientModule = fx.Module(
-	"grpc-client",
-	fx.Provide(
-		ProvideGrpcClient,
-	),
-)
+// TODO: refactor constructors in terms of DialOptions
+// This should also make it easier to use outside of an fx system
+// Or use fx to manage the tls and middleware, but create clients ad hoc
+
+// NewClientModule Provides a grpc client
+func NewClientModule(conf ClientConfig) fx.Option {
+	return fx.Module(
+		"grpc-client",
+		fx.Supply(fx.Annotate(conf, fx.As(new(ClientConfig)))),
+		fx.Provide(ProvideGrpcClient),
+	)
+}
 
 // LazyGrpcClientConn is GrpcClientConn that defers initialization of the connection until Start is called
 type LazyGrpcClientConn struct {
@@ -75,8 +80,8 @@ func (c *LazyGrpcClientConn) Stop(ctx context.Context) error {
 	return c.conn.Close()
 }
 
-type GrpcClientConfig interface {
-	GetClient() *Client
+type ClientConfig interface {
+	GrpcClientConfig() *Client
 }
 
 type Client struct {
@@ -90,11 +95,9 @@ type Client struct {
 	RootCAFile string `validate:"omitempty,file"`
 	// Endpoint is IP or hostname or scheme for the target gRPC server
 	Endpoint string `validate:"required,omitempty"`
-	// LoadBalancingPolicy is the policy to use for load balancing, empty is ignored.
-	LoadBalancingPolicy string `validate:"omitempty,oneof=pick_first round_robin"`
 }
 
-func (c *Client) GetClient() *Client {
+func (c *Client) GrpcClientConfig() *Client {
 	return c
 }
 
@@ -111,8 +114,6 @@ func (c *Client) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddString("root-ca-file", c.RootCAFile)
 	}
 
-	enc.AddString("load-balancing-policy", c.LoadBalancingPolicy)
-
 	return nil
 }
 
@@ -120,14 +121,15 @@ type GrpcClientParams struct {
 	fx.In
 
 	Lc                 fx.Lifecycle
-	Conf               GrpcClientConfig
+	Conf               ClientConfig
 	Logger             *zap.Logger
 	UnaryInterceptors  []grpc.UnaryClientInterceptor  `group:"unary_client_interceptor"`
 	StreamInterceptors []grpc.StreamClientInterceptor `group:"stream_client_interceptor"`
+	ClientOpts         []grpc.DialOption              `group:"grpc_client_options"`
 }
 
-func MakeClientTLS(c GrpcClientConfig, logger *zap.Logger) (credentials.TransportCredentials, *reloader.CertReloader, error) {
-	conf := c.GetClient()
+func MakeClientTLS(c ClientConfig, logger *zap.Logger) (credentials.TransportCredentials, *reloader.CertReloader, error) {
+	conf := c.GrpcClientConfig()
 	if conf.RootCAFile != "" && conf.CertFile == "" {
 		creds, err := credentials.NewClientTLSFromFile(conf.RootCAFile, "")
 		return creds, nil, err
@@ -213,16 +215,6 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 		grpc.WithChainStreamInterceptor(stream...),
 	)
 
-	switch conf.LoadBalancingPolicy {
-	case "": // Do nothing
-	case "round_robin":
-		opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`))
-	case "pick_first":
-		opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"pick_first":{}}]}`))
-	default:
-		return nil, nil, fmt.Errorf("invalid loadbalancing policy %s", conf.LoadBalancingPolicy)
-	}
-
 	// TODO: move this side effect out into the calling functions?
 	grpclog.SetLoggerV2(zapgrpc.NewLogger(logger))
 
@@ -232,24 +224,30 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 // NewGrpcClient returns a grpc client connection that is configured with the same conventions as the fx module
 // It is intended to be used for dynamically created, short lived, clients where using fx causes more troubles than benefits
 // Because the client is assumed to be short lived, it will not reload TLS certificates
-func NewGrpcClient(conf GrpcClientConfig, logger *zap.Logger, ui []grpc.UnaryClientInterceptor, si []grpc.StreamClientInterceptor) (*grpc.ClientConn, error) {
-	clientConf := conf.GetClient()
+func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []grpc.UnaryClientInterceptor, si []grpc.StreamClientInterceptor, dOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	clientConf := conf.GrpcClientConfig()
 
 	opts, _, err := getDialOpts(clientConf, logger, ui, si)
 	if err != nil {
 		return nil, err
 	}
 
+	// Add the externally supplied options last: this allows the user to override any options we may have set already
+	opts = append(opts, dOpts...)
+
 	return grpc.Dial(clientConf.Endpoint, opts...)
 }
 
 func ProvideGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
-	clientConf := p.Conf.GetClient()
+	clientConf := p.Conf.GrpcClientConfig()
 
 	opts, r, err := getDialOpts(clientConf, p.Logger, p.UnaryInterceptors, p.StreamInterceptors)
 	if err != nil {
 		return nil, err
 	}
+
+	// Add the externally supplied options last: this allows the user to override any options we may have set already
+	opts = append(opts, p.ClientOpts...)
 
 	if r != nil {
 		p.Lc.Append(fx.Hook{OnStart: r.Start, OnStop: r.Stop})

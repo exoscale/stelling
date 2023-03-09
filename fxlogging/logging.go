@@ -14,26 +14,37 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-// Provides a logger
-var Module = fx.Options(
-	fx.WithLogger(NewFxLogger),
-	fx.Module(
-		"logging",
-		fx.Provide(
-			NewLogger,
-			fx.Annotate(NewGrpcServerInterceptors, fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`)),
-			fx.Annotate(NewGrpcClientInterceptors, fx.ResultTags(`group:"unary_client_interceptor"`, `group:"stream_client_interceptor"`)),
+// NewModule provides a *zap.Logger to the system
+// It also provides the following related items:
+// * Grpc middleware
+// * An adapter to log fx system events
+func NewModule(conf LoggingConfig) fx.Option {
+	return fx.Options(
+		fx.WithLogger(NewFxLogger),
+		fx.Module(
+			"logging",
+			fx.Provide(
+				fx.Annotate(NewLogger, fx.ParamTags(``, ``, `group:"zap_opts"`)),
+				fx.Annotate(
+					NewGrpcServerInterceptors,
+					fx.ParamTags(``, `group:"grpc_zap_server_options"`),
+					fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
+				),
+				fx.Annotate(
+					NewGrpcClientInterceptors,
+					fx.ParamTags(``, `group:"grpc_zap_client_options"`),
+					fx.ResultTags(`group:"unary_client_interceptor"`, `group:"stream_client_interceptor"`),
+				),
+			),
+			fx.Supply(
+				fx.Annotate(conf, fx.As(new(LoggingConfig))),
+			),
 		),
-		fx.Supply(ServerCodeToLevel(DefaultServerCodeToLevel)),
-		fx.Supply(ClientCodeToLevel(DefaultClientCodeToLevel)),
-	),
-)
-
-type ServerCodeToLevel grpc_zap.CodeToLevel
-type ClientCodeToLevel grpc_zap.CodeToLevel
+	)
+}
 
 type LoggingConfig interface {
-	GetLogging() *Logging
+	LoggingConfig() *Logging
 }
 
 // Logging contains the configuration options for the logging module
@@ -52,13 +63,13 @@ func (l *Logging) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (l *Logging) GetLogging() *Logging {
+func (l *Logging) LoggingConfig() *Logging {
 	return l
 }
 
-func NewLogger(conf LoggingConfig, lc fx.Lifecycle) (*zap.Logger, error) {
+func NewLogger(conf LoggingConfig, lc fx.Lifecycle, opts ...zap.Option) (*zap.Logger, error) {
 	var config zap.Config
-	switch conf.GetLogging().Mode {
+	switch conf.LoggingConfig().Mode {
 	case "production":
 		config = zap.NewProductionConfig()
 		config.EncoderConfig.EncodeTime = ISO8601UTCTimeEncoder
@@ -72,15 +83,17 @@ func NewLogger(conf LoggingConfig, lc fx.Lifecycle) (*zap.Logger, error) {
 	}
 	config.OutputPaths = []string{"stdout"}
 	config.ErrorOutputPaths = []string{"stdout"}
-	logger, err := config.Build()
+	logger, err := config.Build(opts...)
 	if err != nil {
 		return nil, err
 	}
+	logger.Info("Using configuration", zap.Any("conf", conf))
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			// By logging here we render the decorated config
-			logger.Info("Using configuration", zap.Any("conf", conf))
+			// If any components update the config we'll show those results here
+			logger.Info("Final configuration", zap.Any("conf", conf))
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
@@ -99,19 +112,23 @@ func ISO8601UTCTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	zapcore.ISO8601TimeEncoder(t, enc)
 }
 
-func NewGrpcServerInterceptors(logger *zap.Logger, codeToLevel ServerCodeToLevel) (grpc.UnaryServerInterceptor, grpc.StreamServerInterceptor) {
+func NewGrpcServerInterceptors(logger *zap.Logger, opts ...grpc_zap.Option) (grpc.UnaryServerInterceptor, grpc.StreamServerInterceptor) {
 	logOpts := []grpc_zap.Option{
-		grpc_zap.WithLevels(grpc_zap.CodeToLevel(codeToLevel)),
+		grpc_zap.WithLevels(DefaultServerCodeToLevel),
 	}
+	// Append externally supplied options last so they can overwrite our defaults
+	logOpts = append(logOpts, opts...)
 
 	return grpc_zap.UnaryServerInterceptor(logger, logOpts...), grpc_zap.StreamServerInterceptor(logger, logOpts...)
 }
 
-func NewGrpcClientInterceptors(logger *zap.Logger, codeToLevel ClientCodeToLevel) (grpc.UnaryClientInterceptor, grpc.StreamClientInterceptor) {
+func NewGrpcClientInterceptors(logger *zap.Logger, opts ...grpc_zap.Option) (grpc.UnaryClientInterceptor, grpc.StreamClientInterceptor) {
 	logger = logger.WithOptions(zap.WithCaller(false))
 	logOpts := []grpc_zap.Option{
-		grpc_zap.WithLevels(grpc_zap.CodeToLevel(codeToLevel)),
+		grpc_zap.WithLevels(DefaultClientCodeToLevel),
 	}
+	// Append externally supplied options last so they can overwrite our defaults
+	logOpts = append(logOpts, opts...)
 
 	return grpc_zap.UnaryClientInterceptor(logger, logOpts...), grpc_zap.StreamClientInterceptor(logger, logOpts...)
 }

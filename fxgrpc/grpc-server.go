@@ -18,26 +18,37 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-// Provides a grpc server
-var ServerModule = fx.Module(
-	"grpc-server",
-	fx.Provide(
-		fx.Annotate(
-			GetCertReloaderConfig,
-			fx.ResultTags(`name:"grpc_server"`),
+func NewServerModule(conf ServerConfig) fx.Option {
+	opts := fx.Options(
+		fx.Supply(fx.Annotate(conf, fx.As(new(ServerConfig)))),
+		fx.Provide(
+			NewGrpcServer,
+			func(server *grpc.Server) grpc.ServiceRegistrar { return server },
 		),
-		fx.Annotate(
-			reloader.ProvideCertReloader,
-			fx.ParamTags(``, `name:"grpc_server" optional:"true"`, ``),
-			fx.ResultTags(`name:"grpc_server"`),
-		),
-		NewGrpcServer,
-		func(server *grpc.Server) grpc.ServiceRegistrar { return server },
-	),
-)
+	)
+	if conf.GrpcServerConfig().TLS {
+		opts = fx.Options(
+			fx.Provide(
+				fx.Annotate(
+					GetCertReloaderConfig,
+					fx.ResultTags(`name:"grpc_server"`),
+				),
+				fx.Annotate(
+					reloader.ProvideCertReloader,
+					fx.ParamTags(``, `name:"grpc_server"`, ``),
+					fx.ResultTags(`name:"grpc_server"`),
+				),
+			),
+		)
+	}
+	return fx.Module(
+		"grpc-server",
+		opts,
+	)
+}
 
-type GrpcServerConfig interface {
-	GetServer() *Server
+type ServerConfig interface {
+	GrpcServerConfig() *Server
 }
 
 type Server struct {
@@ -51,14 +62,12 @@ type Server struct {
 	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
 	// Port is the port the gRPC server will bind to
 	Port int `default:"0" validate:"port"`
-	// Keepalive is the configuration of the grpc-keepalive
-	Keepalive Keepalive
 }
 
 // Struct used to reflect the type
 type Keepalive keepalive.ServerParameters
 
-func (s *Server) GetServer() *Server {
+func (s *Server) GrpcServerConfig() *Server {
 	return s
 }
 
@@ -73,10 +82,6 @@ func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddString("cert-file", s.CertFile)
 		enc.AddString("key-file", s.KeyFile)
 		enc.AddString("client-ca-file", s.ClientCAFile)
-	}
-
-	if err := enc.AddObject("keepalive", &s.Keepalive); err != nil {
-		return err
 	}
 
 	return nil
@@ -96,13 +101,13 @@ func (k *Keepalive) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func GetCertReloaderConfig(conf GrpcServerConfig) *reloader.CertReloaderConfig {
-	if !conf.GetServer().TLS {
+func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
+	if !conf.GrpcServerConfig().TLS {
 		return nil
 	}
 	return &reloader.CertReloaderConfig{
-		CertFile:       conf.GetServer().CertFile,
-		KeyFile:        conf.GetServer().KeyFile,
+		CertFile:       conf.GrpcServerConfig().CertFile,
+		KeyFile:        conf.GrpcServerConfig().KeyFile,
 		ReloadInterval: 10 * time.Second,
 	}
 }
@@ -110,20 +115,17 @@ func GetCertReloaderConfig(conf GrpcServerConfig) *reloader.CertReloaderConfig {
 type GrpcServerParams struct {
 	fx.In
 
-	Lc                 fx.Lifecycle
-	Conf               GrpcServerConfig
+	Conf               ServerConfig
 	Logger             *zap.Logger
 	UnaryInterceptors  []grpc.UnaryServerInterceptor  `group:"unary_server_interceptor"`
 	StreamInterceptors []grpc.StreamServerInterceptor `group:"stream_server_interceptor"`
 	Reloader           *reloader.CertReloader         `name:"grpc_server" optional:"true"`
+	ServerOpts         []grpc.ServerOption            `group:"grpc_server_options"`
 }
 
 func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	opts := []grpc.ServerOption{}
-	serverConf := p.Conf.GetServer()
-
-	// Handle keepalive configuration
-	opts = append(opts, grpc.KeepaliveParams(keepalive.ServerParameters(serverConf.Keepalive)))
+	serverConf := p.Conf.GrpcServerConfig()
 
 	// Handle server TLS
 	if serverConf.TLS {
@@ -150,6 +152,9 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	}
 	opts = append(opts, grpc.ChainUnaryInterceptor(unary...), grpc.ChainStreamInterceptor(stream...))
 
+	// Add the externally supplied options last: this allows the user to override any options we may have set already
+	opts = append(opts, p.ServerOpts...)
+
 	// Set our logger as the logger used by the gRPC framework
 	grpclog.SetLoggerV2(zapgrpc.NewLogger(p.Logger))
 
@@ -158,10 +163,10 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	return grpcServer, nil
 }
 
-func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, conf GrpcServerConfig) {
+func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, conf ServerConfig) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			lis, err := net.Listen("tcp", fmt.Sprintf(":%d", conf.GetServer().Port))
+			lis, err := net.Listen("tcp", fmt.Sprintf(":%d", conf.GrpcServerConfig().Port))
 			if err != nil {
 				return err
 			}
