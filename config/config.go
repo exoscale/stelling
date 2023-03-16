@@ -161,6 +161,12 @@ func registerValidators(validate *validator.Validate) error {
 				return validateExoscaleZoneLong(fl.Field().String()) == nil
 			},
 		},
+		{
+			tag: "duration_flag",
+			validator: func(fl validator.FieldLevel) bool {
+				return validateFlagDuration(fl.Field().String()) == nil
+			},
+		},
 	}
 
 	for _, v := range validators {
