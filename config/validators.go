@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"time"
 )
 
 func validatePortNumber(input int64) error {
@@ -62,11 +61,4 @@ func validateExoscaleZoneLong(input string) error {
 	}
 
 	return fmt.Errorf("'%s' is not a valid Exoscale zone", input)
-}
-
-func validateFlagDuration(input string) error {
-	if _, err := time.ParseDuration(input); err != nil {
-		return fmt.Errorf("'%s' is not a parseable time.Duration", input)
-	}
-	return nil
 }
