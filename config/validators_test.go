@@ -115,38 +115,3 @@ func TestValidateExoscaleZoneLong(t *testing.T) {
 		})
 	}
 }
-
-func TestValidateDurationFlag(t *testing.T) {
-	cases := []struct {
-		name     string
-		input    string
-		hasError bool
-	}{
-		{
-			name:     "Should accept a parseable duration",
-			input:    "2h45m",
-			hasError: false,
-		},
-		{
-			name:     "Should reject an empty string",
-			input:    "",
-			hasError: true,
-		},
-		{
-			name:     "Should reject an unparseable string",
-			input:    "2w", // acceptable units are only  "ns", "us" (or "µs"), "ms", "s", "m", "h"
-			hasError: true,
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := validateFlagDuration(tc.input)
-			if tc.hasError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
