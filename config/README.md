@@ -41,7 +41,6 @@ The package currently doesn't expose a way to register custom validators: this i
 * _port_: Validates that the int value can be used as a port number
 * _exoscale\_zone_: Validates that the string is a known zone short string (eg: 'gva2')
 * _exoscale\_zone\_long_: Validates that the string is a known zone in cloudstack (eg: 'ch-gva-2')
-* _duration_string_: Validates that the string is parseable by [time.ParseDuration](https://pkg.go.dev/time#ParseDuration) (eg: '500ms')
 
 ## Load order
 This package will attempt to load configuration information from the following sources, in order:

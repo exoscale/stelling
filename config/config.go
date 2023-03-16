@@ -162,7 +162,7 @@ func registerValidators(validate *validator.Validate) error {
 			},
 		},
 		{
-			tag: "duration_string",
+			tag: "duration_flag",
 			validator: func(fl validator.FieldLevel) bool {
 				return validateFlagDuration(fl.Field().String()) == nil
 			},
