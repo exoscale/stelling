@@ -75,7 +75,9 @@ func Load(s interface{}, args []string, opts ...Option) error {
 		// Load default configuration from struct tags
 		tagLoader: &multiconfig.TagLoader{},
 		// Load configuration from environment variables
-		envLoader: &multiconfig.EnvironmentLoader{},
+		envLoader: &multiconfig.EnvironmentLoader{
+			CamelCase: true,
+		},
 		// Load configuration from CLI flags
 		flagLoader: &multiconfig.FlagLoader{
 			Args:            newArgs[1:],
