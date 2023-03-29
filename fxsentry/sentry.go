@@ -66,7 +66,6 @@ func NewSentryClient(conf SentryConfig) (*sentry.Client, error) {
 		return nil, nil
 	}
 
-	hostname := ""
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = ""
