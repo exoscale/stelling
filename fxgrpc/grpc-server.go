@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
-	"google.golang.org/grpc/keepalive"
 )
 
 func NewServerModule(conf ServerConfig) fx.Option {
@@ -64,9 +63,6 @@ type Server struct {
 	Port int `default:"0" validate:"port"`
 }
 
-// Struct used to reflect the type
-type Keepalive keepalive.ServerParameters
-
 func (s *Server) GrpcServerConfig() *Server {
 	return s
 }
@@ -83,20 +79,6 @@ func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddString("key-file", s.KeyFile)
 		enc.AddString("client-ca-file", s.ClientCAFile)
 	}
-
-	return nil
-}
-
-func (k *Keepalive) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if k == nil {
-		return nil
-	}
-
-	enc.AddDuration("max-connection-idle", k.MaxConnectionIdle)
-	enc.AddDuration("max-connection-age", k.MaxConnectionAge)
-	enc.AddDuration("max-connection-age-grace", k.MaxConnectionAgeGrace)
-	enc.AddDuration("time", k.Time)
-	enc.AddDuration("timeout", k.Timeout)
 
 	return nil
 }
