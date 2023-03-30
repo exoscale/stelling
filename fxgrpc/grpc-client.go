@@ -123,9 +123,9 @@ type GrpcClientParams struct {
 	Lc                 fx.Lifecycle
 	Conf               ClientConfig
 	Logger             *zap.Logger
-	UnaryInterceptors  []grpc.UnaryClientInterceptor  `group:"unary_client_interceptor"`
-	StreamInterceptors []grpc.StreamClientInterceptor `group:"stream_client_interceptor"`
-	ClientOpts         []grpc.DialOption              `group:"grpc_client_options"`
+	UnaryInterceptors  []*UnaryClientInterceptor  `group:"unary_client_interceptor"`
+	StreamInterceptors []*StreamClientInterceptor `group:"stream_client_interceptor"`
+	ClientOpts         []grpc.DialOption          `group:"grpc_client_options"`
 }
 
 func MakeClientTLS(c ClientConfig, logger *zap.Logger) (credentials.TransportCredentials, *reloader.CertReloader, error) {
@@ -241,7 +241,17 @@ func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []grpc.UnaryClientI
 func ProvideGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
 	clientConf := p.Conf.GrpcClientConfig()
 
-	opts, r, err := getDialOpts(clientConf, p.Logger, p.UnaryInterceptors, p.StreamInterceptors)
+	SortInterceptors(p.UnaryInterceptors)
+	unaryIx := make([]grpc.UnaryClientInterceptor, len(p.UnaryInterceptors))
+	for i := range p.UnaryInterceptors {
+		unaryIx[i] = p.UnaryInterceptors[i].Interceptor
+	}
+	SortInterceptors(p.StreamInterceptors)
+	streamIx := make([]grpc.StreamClientInterceptor, len(p.StreamInterceptors))
+	for i := range p.StreamInterceptors {
+		streamIx[i] = p.StreamInterceptors[i].Interceptor
+	}
+	opts, r, err := getDialOpts(clientConf, p.Logger, unaryIx, streamIx)
 	if err != nil {
 		return nil, err
 	}

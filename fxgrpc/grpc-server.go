@@ -99,10 +99,10 @@ type GrpcServerParams struct {
 
 	Conf               ServerConfig
 	Logger             *zap.Logger
-	UnaryInterceptors  []grpc.UnaryServerInterceptor  `group:"unary_server_interceptor"`
-	StreamInterceptors []grpc.StreamServerInterceptor `group:"stream_server_interceptor"`
-	Reloader           *reloader.CertReloader         `name:"grpc_server" optional:"true"`
-	ServerOpts         []grpc.ServerOption            `group:"grpc_server_options"`
+	UnaryInterceptors  []*UnaryServerInterceptor  `group:"unary_server_interceptor"`
+	StreamInterceptors []*StreamServerInterceptor `group:"stream_server_interceptor"`
+	Reloader           *reloader.CertReloader     `name:"grpc_server" optional:"true"`
+	ServerOpts         []grpc.ServerOption        `group:"grpc_server_options"`
 }
 
 func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
@@ -120,16 +120,18 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	}
 
 	// Handle server middleware
+	SortInterceptors(p.UnaryInterceptors)
 	unary := []grpc.UnaryServerInterceptor{grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor))}
 	for i := range p.UnaryInterceptors {
 		if p.UnaryInterceptors[i] != nil {
-			unary = append(unary, p.UnaryInterceptors[i])
+			unary = append(unary, p.UnaryInterceptors[i].Interceptor)
 		}
 	}
+	SortInterceptors(p.StreamInterceptors)
 	stream := []grpc.StreamServerInterceptor{grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor))}
 	for i := range p.StreamInterceptors {
 		if p.StreamInterceptors[i] != nil {
-			stream = append(stream, p.StreamInterceptors[i])
+			stream = append(stream, p.StreamInterceptors[i].Interceptor)
 		}
 	}
 	opts = append(opts, grpc.ChainUnaryInterceptor(unary...), grpc.ChainStreamInterceptor(stream...))

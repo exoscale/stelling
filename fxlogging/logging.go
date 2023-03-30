@@ -5,12 +5,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/exoscale/stelling/fxgrpc"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
 
@@ -112,17 +112,21 @@ func ISO8601UTCTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	zapcore.ISO8601TimeEncoder(t, enc)
 }
 
-func NewGrpcServerInterceptors(logger *zap.Logger, opts ...grpc_zap.Option) (grpc.UnaryServerInterceptor, grpc.StreamServerInterceptor) {
+const GrpcInterceptorWeight = 50
+
+func NewGrpcServerInterceptors(logger *zap.Logger, opts ...grpc_zap.Option) (*fxgrpc.UnaryServerInterceptor, *fxgrpc.StreamServerInterceptor) {
 	logOpts := []grpc_zap.Option{
 		grpc_zap.WithLevels(DefaultServerCodeToLevel),
 	}
 	// Append externally supplied options last so they can overwrite our defaults
 	logOpts = append(logOpts, opts...)
 
-	return grpc_zap.UnaryServerInterceptor(logger, logOpts...), grpc_zap.StreamServerInterceptor(logger, logOpts...)
+	unaryIx := &fxgrpc.UnaryServerInterceptor{Weight: GrpcInterceptorWeight, Interceptor: grpc_zap.UnaryServerInterceptor(logger, logOpts...)}
+	streamIx := &fxgrpc.StreamServerInterceptor{Weight: GrpcInterceptorWeight, Interceptor: grpc_zap.StreamServerInterceptor(logger, logOpts...)}
+	return unaryIx, streamIx
 }
 
-func NewGrpcClientInterceptors(logger *zap.Logger, opts ...grpc_zap.Option) (grpc.UnaryClientInterceptor, grpc.StreamClientInterceptor) {
+func NewGrpcClientInterceptors(logger *zap.Logger, opts ...grpc_zap.Option) (*fxgrpc.UnaryClientInterceptor, *fxgrpc.StreamClientInterceptor) {
 	logger = logger.WithOptions(zap.WithCaller(false))
 	logOpts := []grpc_zap.Option{
 		grpc_zap.WithLevels(DefaultClientCodeToLevel),
@@ -130,7 +134,9 @@ func NewGrpcClientInterceptors(logger *zap.Logger, opts ...grpc_zap.Option) (grp
 	// Append externally supplied options last so they can overwrite our defaults
 	logOpts = append(logOpts, opts...)
 
-	return grpc_zap.UnaryClientInterceptor(logger, logOpts...), grpc_zap.StreamClientInterceptor(logger, logOpts...)
+	unaryIx := &fxgrpc.UnaryClientInterceptor{Weight: GrpcInterceptorWeight, Interceptor: grpc_zap.UnaryClientInterceptor(logger, logOpts...)}
+	streamIx := &fxgrpc.StreamClientInterceptor{Weight: GrpcInterceptorWeight, Interceptor: grpc_zap.StreamClientInterceptor(logger, logOpts...)}
+	return unaryIx, streamIx
 }
 
 // NewFxLogger emits an fxevent.Logger that uses the passed in zap logger
