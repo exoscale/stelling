@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/exoscale/stelling/fxgrpc"
+	grpc_logging "github.com/grpc-ecosystem/go-grpc-middleware/logging"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
@@ -18,8 +19,8 @@ import (
 // It also provides the following related items:
 // * Grpc middleware
 // * An adapter to log fx system events
-func NewModule(conf LoggingConfig) fx.Option {
-	return fx.Options(
+func NewModule(conf LoggingConfig, opts ...Option) fx.Option {
+	system := fx.Options(
 		fx.WithLogger(NewFxLogger),
 		fx.Module(
 			"logging",
@@ -35,12 +36,108 @@ func NewModule(conf LoggingConfig) fx.Option {
 					fx.ParamTags(``, `group:"grpc_zap_client_options"`),
 					fx.ResultTags(`group:"unary_client_interceptor"`, `group:"stream_client_interceptor"`),
 				),
+				fx.Annotate(
+					NewGrpcClientPayloadInterceptor,
+					fx.ParamTags("", `optional:"true"`),
+					fx.ResultTags(`group:"unary_client_interceptor"`, `group:"stream_client_interceptor"`),
+				),
+				fx.Annotate(
+					NewGrpcServerPayloadInterceptor,
+					fx.ParamTags("", `optional:"true"`),
+					fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
+				),
 			),
 			fx.Supply(
 				fx.Annotate(conf, fx.As(new(LoggingConfig))),
 			),
 		),
 	)
+	for _, opt := range opts {
+		system = opt.apply(system)
+	}
+	return system
+}
+
+// An Option configures the logging module
+type Option interface {
+	apply(fx.Option) fx.Option
+}
+
+// optionFunc wraps a func so it satisfies the Option interface.
+type optionFunc func(fx.Option) fx.Option
+
+func (f optionFunc) apply(system fx.Option) fx.Option {
+	return f(system)
+}
+
+// WithClientPayloadLoggingDecider sets a custom decider function for logging request/response payloads on the grpc client
+// Should only be specified once
+func WithClientPayloadLoggingDecider(decider grpc_logging.ClientPayloadLoggingDecider) Option {
+	return optionFunc(func(system fx.Option) fx.Option {
+		return fx.Options(
+			system,
+			fx.Provide(func() grpc_logging.ClientPayloadLoggingDecider { return decider }),
+		)
+	})
+}
+
+// WithServerPayloadLoggingDecider sets a custom decider function for logging request/response payloads on the grpc server
+// Should only be specified once
+func WithServerPayloadLoggingDecider(decider grpc_logging.ServerPayloadLoggingDecider) Option {
+	return optionFunc(func(system fx.Option) fx.Option {
+		return fx.Options(
+			system,
+			fx.Provide(func() grpc_logging.ServerPayloadLoggingDecider { return decider }),
+		)
+	})
+}
+
+// WithZapOpt passes a custom option on to the provided zap logger
+// This allows overwriting the default values provided by this module
+// Can be supplied multiple times to insert multiple zap.Option into the system
+// There is no guarantee to the order in which the options are applied
+func WithZapOpt(opt zap.Option) Option {
+	return optionFunc(func(system fx.Option) fx.Option {
+		return fx.Options(
+			system,
+			fx.Provide(fx.Annotate(
+				func() zap.Option { return opt },
+				fx.ResultTags(`group:"zap_opts"`),
+			)),
+		)
+	})
+}
+
+// WithGrpcZapClientOpt passes a custom option on to the provided grpc client interceptor
+// This allows overwriting the default values provided by this module
+// Can be supplied multiple times to insert multiple grpc_zap.Option into the system
+// There is no guarantee to the order in which the options are applied
+func WithGrpcZapClientOpt(opt grpc_zap.Option) Option {
+	return optionFunc(func(system fx.Option) fx.Option {
+		return fx.Options(
+			system,
+			fx.Provide(fx.Annotate(
+				func() grpc_zap.Option { return opt },
+				fx.ResultTags(`group:"grpc_zap_client_options"`),
+			)),
+		)
+	})
+}
+
+// WithGrpcZapServerOpt passes a custom option on to the provided grpc server interceptor
+// This allows overwriting the default values provided by this module
+// Can be supplied multiple times to insert multiple grpc_zap.Option into the system
+// There is no guarantee to the order in which the options are applied
+func WithGrpcZapServerOpt(opt grpc_zap.Option) Option {
+	return optionFunc(func(system fx.Option) fx.Option {
+		return fx.Options(
+			system,
+			fx.Provide(fx.Annotate(
+				func() grpc_zap.Option { return opt },
+				fx.ResultTags(`group:"grpc_zap_server_options"`),
+			)),
+		)
+	})
 }
 
 type LoggingConfig interface {
@@ -136,6 +233,41 @@ func NewGrpcClientInterceptors(logger *zap.Logger, opts ...grpc_zap.Option) (*fx
 
 	unaryIx := &fxgrpc.UnaryClientInterceptor{Weight: GrpcInterceptorWeight, Interceptor: grpc_zap.UnaryClientInterceptor(logger, logOpts...)}
 	streamIx := &fxgrpc.StreamClientInterceptor{Weight: GrpcInterceptorWeight, Interceptor: grpc_zap.StreamClientInterceptor(logger, logOpts...)}
+	return unaryIx, streamIx
+}
+
+func NewGrpcServerPayloadInterceptor(logger *zap.Logger, decider grpc_logging.ServerPayloadLoggingDecider) (*fxgrpc.UnaryServerInterceptor, *fxgrpc.StreamServerInterceptor) {
+	if decider == nil {
+		decider = func(context.Context, string, interface{}) bool {
+			return false
+		}
+	}
+	unaryIx := &fxgrpc.UnaryServerInterceptor{
+		Weight:      GrpcInterceptorWeight + 1,
+		Interceptor: grpc_zap.PayloadUnaryServerInterceptor(logger, decider),
+	}
+	streamIx := &fxgrpc.StreamServerInterceptor{
+		Weight:      GrpcInterceptorWeight + 1,
+		Interceptor: grpc_zap.PayloadStreamServerInterceptor(logger, decider),
+	}
+	return unaryIx, streamIx
+}
+
+func NewGrpcClientPayloadInterceptor(logger *zap.Logger, decider grpc_logging.ClientPayloadLoggingDecider) (*fxgrpc.UnaryClientInterceptor, *fxgrpc.StreamClientInterceptor) {
+	logger = logger.WithOptions(zap.WithCaller(false))
+	if decider == nil {
+		decider = func(context.Context, string) bool {
+			return false
+		}
+	}
+	unaryIx := &fxgrpc.UnaryClientInterceptor{
+		Weight:      GrpcInterceptorWeight + 1,
+		Interceptor: grpc_zap.PayloadUnaryClientInterceptor(logger, decider),
+	}
+	streamIx := &fxgrpc.StreamClientInterceptor{
+		Weight:      GrpcInterceptorWeight + 1,
+		Interceptor: grpc_zap.PayloadStreamClientInterceptor(logger, decider),
+	}
 	return unaryIx, streamIx
 }
 
