@@ -34,6 +34,22 @@ func NewClientModule(conf ClientConfig) fx.Option {
 	)
 }
 
+// NewNamedClientModule Provides a named grpc client
+func NewNamedClientModule(name string, conf ClientConfig) fx.Option {
+	nameTag := fmt.Sprintf("name:\"%s\"", name)
+
+	return fx.Module(
+		name,
+		fx.Provide(
+			func() ClientConfig { return conf },
+			fx.Private,
+		),
+		fx.Provide(
+			fx.Annotate(ProvideGrpcClient, fx.ResultTags(nameTag)),
+		),
+	)
+}
+
 // LazyGrpcClientConn is GrpcClientConn that defers initialization of the connection until Start is called
 type LazyGrpcClientConn struct {
 	conn   *grpc.ClientConn
