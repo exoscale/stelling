@@ -110,7 +110,7 @@ type Client struct {
 	// RootCAFile is the  path to a pem encoded CA bundle used to validate server connections
 	RootCAFile string `validate:"omitempty,file"`
 	// Endpoint is IP or hostname or scheme for the target gRPC server
-	Endpoint string `validate:"required,omitempty"`
+	Endpoint string `validate:"required"`
 }
 
 func (c *Client) GrpcClientConfig() *Client {

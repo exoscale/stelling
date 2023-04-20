@@ -61,7 +61,11 @@ type Server struct {
 	// ClientCAFile is the path to a pem encoded CA cert bundle used to validate clients
 	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
 	// Port is the port the gRPC server will bind to
+	// Deprecated
 	Port int `default:"0" validate:"port"`
+	// Address is the address+port the gRPC server will bind to, as passed to net.Listen
+	// Takes precedence over Port
+	Address string
 }
 
 // Struct used to reflect the type
@@ -166,7 +170,11 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, conf ServerConfig) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			lis, err := net.Listen("tcp", fmt.Sprintf(":%d", conf.GrpcServerConfig().Port))
+			addr := conf.GrpcServerConfig().Address
+			if addr == "" {
+				addr = fmt.Sprintf(":%d", conf.GrpcServerConfig().Port)
+			}
+			lis, err := net.Listen("tcp", addr)
 			if err != nil {
 				return err
 			}
