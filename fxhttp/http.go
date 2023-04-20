@@ -88,7 +88,11 @@ type ServerConfig interface {
 }
 
 type Server struct {
+	// Address is the address+port the gRPC server will bind to, as passed to net.Listen
+	// Takes precedence over Port
+	Address string
 	// Port is the port the http server will bind to
+	// Deprecated
 	Port int `default:"8080" validate:"port"`
 	// TLS indicates whether the http server exposes with TLS
 	TLS bool
@@ -130,8 +134,12 @@ func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
 }
 
 func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, r *reloader.CertReloader) (*http.Server, error) {
+	addr := conf.HttpServerConfig().Address
+	if addr == "" {
+		addr = fmt.Sprintf(":%d", conf.HttpServerConfig().Port)
+	}
 	server := &http.Server{
-		Addr: fmt.Sprintf(":%d", conf.HttpServerConfig().Port),
+		Addr: addr,
 	}
 
 	if conf.HttpServerConfig().TLS {
