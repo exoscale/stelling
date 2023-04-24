@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
@@ -246,6 +247,13 @@ func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []grpc.UnaryClientI
 	opts, _, err := getDialOpts(clientConf, logger, ui, si)
 	if err != nil {
 		return nil, err
+	}
+
+	if pathName, err := os.Executable(); err == nil && pathName != "" {
+		opts = append(
+			opts,
+			grpc.WithUserAgent(filepath.Base(pathName)),
+		)
 	}
 
 	// Add the externally supplied options last: this allows the user to override any options we may have set already
