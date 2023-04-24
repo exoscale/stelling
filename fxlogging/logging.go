@@ -3,15 +3,19 @@ package fxlogging
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/exoscale/stelling/fxgrpc"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 )
 
 // NewModule provides a *zap.Logger to the system
@@ -27,6 +31,11 @@ func NewModule(conf LoggingConfig) fx.Option {
 				fx.Annotate(NewLogger, fx.ParamTags(``, ``, `group:"zap_opts"`)),
 				fx.Annotate(
 					NewGrpcServerInterceptors,
+					fx.ParamTags(``, `group:"grpc_zap_server_options"`),
+					fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
+				),
+				fx.Annotate(
+					NewUserAgentInterceptor,
 					fx.ParamTags(``, `group:"grpc_zap_server_options"`),
 					fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
 				),
@@ -124,6 +133,42 @@ func NewGrpcServerInterceptors(logger *zap.Logger, opts ...grpc_zap.Option) (*fx
 	unaryIx := &fxgrpc.UnaryServerInterceptor{Weight: GrpcInterceptorWeight, Interceptor: grpc_zap.UnaryServerInterceptor(logger, logOpts...)}
 	streamIx := &fxgrpc.StreamServerInterceptor{Weight: GrpcInterceptorWeight, Interceptor: grpc_zap.StreamServerInterceptor(logger, logOpts...)}
 	return unaryIx, streamIx
+}
+
+func NewUserAgentInterceptor() (*fxgrpc.UnaryServerInterceptor, *fxgrpc.StreamServerInterceptor) {
+	var unary grpc.UnaryServerInterceptor = func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			if ua, ok := md["user-agent"]; ok {
+				tags := grpc_ctxtags.Extract(ctx)
+				tags.Set("peer.useragent", strings.Join(ua, ","))
+				grpc_ctxtags.SetInContext(ctx, tags)
+			}
+		}
+
+		return handler(ctx, req)
+	}
+
+	var stream grpc.StreamServerInterceptor = func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		ctx := ss.Context()
+
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			if ua, ok := md["user-agent"]; ok {
+				tags := grpc_ctxtags.Extract(ctx)
+				tags.Set("peer.useragent", strings.Join(ua, ","))
+				grpc_ctxtags.SetInContext(ctx, tags)
+			}
+		}
+
+		return handler(srv, ss)
+	}
+
+	return &fxgrpc.UnaryServerInterceptor{
+			Weight:      GrpcInterceptorWeight - 10,
+			Interceptor: unary,
+		}, &fxgrpc.StreamServerInterceptor{
+			Weight:      GrpcInterceptorWeight - 10,
+			Interceptor: stream,
+		}
 }
 
 func NewGrpcClientInterceptors(logger *zap.Logger, opts ...grpc_zap.Option) (*fxgrpc.UnaryClientInterceptor, *fxgrpc.StreamClientInterceptor) {
