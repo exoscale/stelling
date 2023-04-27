@@ -15,7 +15,6 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"google.golang.org/grpc"
 )
 
 // NewModule provides an opentelemetry TracingProvider to the system
@@ -150,9 +149,11 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 type GrpcServerInterceptorsResult struct {
 	fx.Out
 
-	grpc.UnaryServerInterceptor  `group:"unary_server_interceptor"`
-	grpc.StreamServerInterceptor `group:"stream_server_interceptor"`
+	*fxgrpc.UnaryServerInterceptor  `group:"unary_server_interceptor"`
+	*fxgrpc.StreamServerInterceptor `group:"stream_server_interceptor"`
 }
+
+const GrpcInterceptorWeight = 30
 
 // NewGrpcClientInterceptors returns OpenTelemetry tracing interceptors that can be used as middleware in a gRPC server
 func NewGrpcServerInterceptors(tracerProvider trace.TracerProvider) (GrpcServerInterceptorsResult, error) {
@@ -163,22 +164,28 @@ func NewGrpcServerInterceptors(tracerProvider trace.TracerProvider) (GrpcServerI
 	)
 
 	return GrpcServerInterceptorsResult{
-		UnaryServerInterceptor: otelgrpc.UnaryServerInterceptor(
-			otelgrpc.WithTracerProvider(tracerProvider),
-			otelgrpc.WithPropagators(propagator),
-		),
-		StreamServerInterceptor: otelgrpc.StreamServerInterceptor(
-			otelgrpc.WithTracerProvider(tracerProvider),
-			otelgrpc.WithPropagators(propagator),
-		),
+		UnaryServerInterceptor: &fxgrpc.UnaryServerInterceptor{
+			Weight: GrpcInterceptorWeight,
+			Interceptor: otelgrpc.UnaryServerInterceptor(
+				otelgrpc.WithTracerProvider(tracerProvider),
+				otelgrpc.WithPropagators(propagator),
+			),
+		},
+		StreamServerInterceptor: &fxgrpc.StreamServerInterceptor{
+			Weight: GrpcInterceptorWeight,
+			Interceptor: otelgrpc.StreamServerInterceptor(
+				otelgrpc.WithTracerProvider(tracerProvider),
+				otelgrpc.WithPropagators(propagator),
+			),
+		},
 	}, nil
 }
 
 type GrpcClientInterceptorsResult struct {
 	fx.Out
 
-	grpc.UnaryClientInterceptor  `group:"unary_client_interceptor"`
-	grpc.StreamClientInterceptor `group:"stream_client_interceptor"`
+	*fxgrpc.UnaryClientInterceptor  `group:"unary_client_interceptor"`
+	*fxgrpc.StreamClientInterceptor `group:"stream_client_interceptor"`
 }
 
 // NewGrpcClientInterceptors returns OpenTelemetry tracing interceptors that can be used as middleware in a gRPC client
@@ -189,13 +196,19 @@ func NewGrpcClientInterceptors(tracerProvider trace.TracerProvider) (GrpcClientI
 	)
 
 	return GrpcClientInterceptorsResult{
-		UnaryClientInterceptor: otelgrpc.UnaryClientInterceptor(
-			otelgrpc.WithTracerProvider(tracerProvider),
-			otelgrpc.WithPropagators(propagator),
-		),
-		StreamClientInterceptor: otelgrpc.StreamClientInterceptor(
-			otelgrpc.WithTracerProvider(tracerProvider),
-			otelgrpc.WithPropagators(propagator),
-		),
+		UnaryClientInterceptor: &fxgrpc.UnaryClientInterceptor{
+			Weight: GrpcInterceptorWeight,
+			Interceptor: otelgrpc.UnaryClientInterceptor(
+				otelgrpc.WithTracerProvider(tracerProvider),
+				otelgrpc.WithPropagators(propagator),
+			),
+		},
+		StreamClientInterceptor: &fxgrpc.StreamClientInterceptor{
+			Weight: GrpcInterceptorWeight,
+			Interceptor: otelgrpc.StreamClientInterceptor(
+				otelgrpc.WithTracerProvider(tracerProvider),
+				otelgrpc.WithPropagators(propagator),
+			),
+		},
 	}, nil
 }

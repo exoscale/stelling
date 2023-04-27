@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
-	"google.golang.org/grpc/keepalive"
 )
 
 func NewServerModule(conf ServerConfig) fx.Option {
@@ -68,9 +67,6 @@ type Server struct {
 	Address string
 }
 
-// Struct used to reflect the type
-type Keepalive keepalive.ServerParameters
-
 func (s *Server) GrpcServerConfig() *Server {
 	return s
 }
@@ -91,20 +87,6 @@ func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (k *Keepalive) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if k == nil {
-		return nil
-	}
-
-	enc.AddDuration("max-connection-idle", k.MaxConnectionIdle)
-	enc.AddDuration("max-connection-age", k.MaxConnectionAge)
-	enc.AddDuration("max-connection-age-grace", k.MaxConnectionAgeGrace)
-	enc.AddDuration("time", k.Time)
-	enc.AddDuration("timeout", k.Timeout)
-
-	return nil
-}
-
 func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
 	if !conf.GrpcServerConfig().TLS {
 		return nil
@@ -121,10 +103,10 @@ type GrpcServerParams struct {
 
 	Conf               ServerConfig
 	Logger             *zap.Logger
-	UnaryInterceptors  []grpc.UnaryServerInterceptor  `group:"unary_server_interceptor"`
-	StreamInterceptors []grpc.StreamServerInterceptor `group:"stream_server_interceptor"`
-	Reloader           *reloader.CertReloader         `name:"grpc_server" optional:"true"`
-	ServerOpts         []grpc.ServerOption            `group:"grpc_server_options"`
+	UnaryInterceptors  []*UnaryServerInterceptor  `group:"unary_server_interceptor"`
+	StreamInterceptors []*StreamServerInterceptor `group:"stream_server_interceptor"`
+	Reloader           *reloader.CertReloader     `name:"grpc_server" optional:"true"`
+	ServerOpts         []grpc.ServerOption        `group:"grpc_server_options"`
 }
 
 func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
@@ -142,16 +124,18 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	}
 
 	// Handle server middleware
+	SortInterceptors(p.UnaryInterceptors)
 	unary := []grpc.UnaryServerInterceptor{grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor))}
 	for i := range p.UnaryInterceptors {
 		if p.UnaryInterceptors[i] != nil {
-			unary = append(unary, p.UnaryInterceptors[i])
+			unary = append(unary, p.UnaryInterceptors[i].Interceptor)
 		}
 	}
+	SortInterceptors(p.StreamInterceptors)
 	stream := []grpc.StreamServerInterceptor{grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor))}
 	for i := range p.StreamInterceptors {
 		if p.StreamInterceptors[i] != nil {
-			stream = append(stream, p.StreamInterceptors[i])
+			stream = append(stream, p.StreamInterceptors[i].Interceptor)
 		}
 	}
 	opts = append(opts, grpc.ChainUnaryInterceptor(unary...), grpc.ChainStreamInterceptor(stream...))
