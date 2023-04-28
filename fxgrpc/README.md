@@ -7,6 +7,9 @@ This package provides 2 modules:
 * A grpc server module
 * A grpc client module
 
+It will also install a custom codec that uses [vtprotobuf](https://github.com/planetscale/vtprotobuf)
+optimized (un)marshaling when possible.
+
 ## Server
 
 ### Components 
