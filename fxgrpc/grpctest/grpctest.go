@@ -21,15 +21,17 @@ var Module = fx.Module(
 	),
 )
 
-type GrpcServerParams struct {
+type GrpcParams struct {
 	fx.In
 
-	Lc                 fx.Lifecycle
-	UnaryInterceptors  []grpc.UnaryServerInterceptor  `group:"unary_server_interceptor"`
-	StreamInterceptors []grpc.StreamServerInterceptor `group:"stream_server_interceptor"`
+	Lc                       fx.Lifecycle
+	UnaryServerInterceptors  []grpc.UnaryServerInterceptor  `group:"unary_server_interceptor"`
+	StreamServerInterceptors []grpc.StreamServerInterceptor `group:"stream_server_interceptor"`
+	UnaryClientInterceptors  []grpc.UnaryClientInterceptor  `group:"unary_client_interceptor"`
+	StreamClientInterceptors []grpc.StreamClientInterceptor `group:"stream_client_interceptor"`
 }
 
-func NewGrpc(p GrpcServerParams) (*grpc.Server, grpc.ClientConnInterface) {
+func NewGrpc(p GrpcParams) (*grpc.Server, grpc.ClientConnInterface) {
 	lis := bufconn.Listen(1024 * 1024)
 
 	bufDialer := func(context.Context, string) (net.Conn, error) {
@@ -39,19 +41,21 @@ func NewGrpc(p GrpcServerParams) (*grpc.Server, grpc.ClientConnInterface) {
 		"buffcon",
 		grpc.WithContextDialer(bufDialer),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(p.UnaryClientInterceptors...),
+		grpc.WithChainStreamInterceptor(p.StreamClientInterceptors...),
 	)
 
 	// Handle server middleware
 	unary := []grpc.UnaryServerInterceptor{grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor))}
-	for i := range p.UnaryInterceptors {
-		if p.UnaryInterceptors[i] != nil {
-			unary = append(unary, p.UnaryInterceptors[i])
+	for i := range p.UnaryServerInterceptors {
+		if p.UnaryServerInterceptors[i] != nil {
+			unary = append(unary, p.UnaryServerInterceptors[i])
 		}
 	}
 	stream := []grpc.StreamServerInterceptor{grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor))}
-	for i := range p.StreamInterceptors {
-		if p.StreamInterceptors[i] != nil {
-			stream = append(stream, p.StreamInterceptors[i])
+	for i := range p.StreamServerInterceptors {
+		if p.StreamServerInterceptors[i] != nil {
+			stream = append(stream, p.StreamServerInterceptors[i])
 		}
 	}
 	s := grpc.NewServer(
