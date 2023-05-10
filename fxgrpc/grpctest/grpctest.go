@@ -5,7 +5,6 @@ import (
 	"net"
 
 	"github.com/exoscale/stelling/fxgrpc"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -46,13 +45,13 @@ func NewGrpc(p GrpcParams) (*grpc.Server, grpc.ClientConnInterface) {
 	)
 
 	// Handle server middleware
-	unary := []grpc.UnaryServerInterceptor{grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor))}
+	unary := []grpc.UnaryServerInterceptor{}
 	for i := range p.UnaryServerInterceptors {
 		if p.UnaryServerInterceptors[i] != nil {
 			unary = append(unary, p.UnaryServerInterceptors[i])
 		}
 	}
-	stream := []grpc.StreamServerInterceptor{grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor))}
+	stream := []grpc.StreamServerInterceptor{}
 	for i := range p.StreamServerInterceptors {
 		if p.StreamServerInterceptors[i] != nil {
 			stream = append(stream, p.StreamServerInterceptors[i])
