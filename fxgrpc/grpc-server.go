@@ -126,16 +126,12 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	SortInterceptors(p.UnaryInterceptors)
 	unary := []grpc.UnaryServerInterceptor{}
 	for i := range p.UnaryInterceptors {
-		if p.UnaryInterceptors[i] != nil {
-			unary = append(unary, p.UnaryInterceptors[i].Interceptor)
-		}
+		unary = append(unary, p.UnaryInterceptors[i].Interceptor)
 	}
 	SortInterceptors(p.StreamInterceptors)
 	stream := []grpc.StreamServerInterceptor{}
 	for i := range p.StreamInterceptors {
-		if p.StreamInterceptors[i] != nil {
-			stream = append(stream, p.StreamInterceptors[i].Interceptor)
-		}
+		stream = append(stream, p.StreamInterceptors[i].Interceptor)
 	}
 	opts = append(opts, grpc.ChainUnaryInterceptor(unary...), grpc.ChainStreamInterceptor(stream...))
 
