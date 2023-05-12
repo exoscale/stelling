@@ -240,10 +240,21 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 // NewGrpcClient returns a grpc client connection that is configured with the same conventions as the fx module
 // It is intended to be used for dynamically created, short lived, clients where using fx causes more troubles than benefits
 // Because the client is assumed to be short lived, it will not reload TLS certificates
-func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []grpc.UnaryClientInterceptor, si []grpc.StreamClientInterceptor, dOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []*UnaryClientInterceptor, si []*StreamClientInterceptor, dOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	clientConf := conf.GrpcClientConfig()
 
-	opts, _, err := getDialOpts(clientConf, logger, ui, si)
+	SortInterceptors(ui)
+	unaryIx := make([]grpc.UnaryClientInterceptor, len(ui))
+	for i := range ui {
+		unaryIx[i] = ui[i].Interceptor
+	}
+	SortInterceptors(si)
+	streamIx := make([]grpc.StreamClientInterceptor, len(si))
+	for i := range si {
+		streamIx[i] = si[i].Interceptor
+	}
+
+	opts, _, err := getDialOpts(clientConf, logger, unaryIx, streamIx)
 	if err != nil {
 		return nil, err
 	}

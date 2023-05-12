@@ -8,7 +8,6 @@ import (
 
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
 	zapgrpc "github.com/exoscale/stelling/fxlogging/grpc"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -125,18 +124,14 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 
 	// Handle server middleware
 	SortInterceptors(p.UnaryInterceptors)
-	unary := []grpc.UnaryServerInterceptor{grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor))}
+	unary := []grpc.UnaryServerInterceptor{}
 	for i := range p.UnaryInterceptors {
-		if p.UnaryInterceptors[i] != nil {
-			unary = append(unary, p.UnaryInterceptors[i].Interceptor)
-		}
+		unary = append(unary, p.UnaryInterceptors[i].Interceptor)
 	}
 	SortInterceptors(p.StreamInterceptors)
-	stream := []grpc.StreamServerInterceptor{grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor))}
+	stream := []grpc.StreamServerInterceptor{}
 	for i := range p.StreamInterceptors {
-		if p.StreamInterceptors[i] != nil {
-			stream = append(stream, p.StreamInterceptors[i].Interceptor)
-		}
+		stream = append(stream, p.StreamInterceptors[i].Interceptor)
 	}
 	opts = append(opts, grpc.ChainUnaryInterceptor(unary...), grpc.ChainStreamInterceptor(stream...))
 

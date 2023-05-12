@@ -6,12 +6,11 @@ import (
 	"time"
 
 	"github.com/exoscale/stelling/fxgrpc"
-	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	"github.com/exoscale/stelling/fxlogging/interceptor"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"google.golang.org/grpc/codes"
 )
 
 // NewModule provides a *zap.Logger to the system
@@ -26,13 +25,21 @@ func NewModule(conf LoggingConfig) fx.Option {
 			fx.Provide(
 				fx.Annotate(NewLogger, fx.ParamTags(``, ``, `group:"zap_opts"`)),
 				fx.Annotate(
-					NewGrpcServerInterceptors,
-					fx.ParamTags(``, `group:"grpc_zap_server_options"`),
+					NewGrpcLoggingServerInterceptors,
+					fx.ParamTags(``, `group:"logging_server_interceptor_options"`),
 					fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
 				),
 				fx.Annotate(
-					NewGrpcClientInterceptors,
-					fx.ParamTags(``, `group:"grpc_zap_client_options"`),
+					NewGrpcLoggingClientInterceptors,
+					fx.ParamTags(``, `group:"logging_client_interceptor_options"`),
+					fx.ResultTags(`group:"unary_client_interceptor"`, `group:"stream_client_interceptor"`),
+				),
+				fx.Annotate(
+					NewGrpcInjectLoggerInterceptors,
+					fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
+				),
+				fx.Annotate(
+					NewGrpcInjectPeerInterceptors,
 					fx.ResultTags(`group:"unary_client_interceptor"`, `group:"stream_client_interceptor"`),
 				),
 			),
@@ -112,30 +119,33 @@ func ISO8601UTCTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	zapcore.ISO8601TimeEncoder(t, enc)
 }
 
-const GrpcInterceptorWeight = 50
+const GrpcInterceptorWeight uint = 50
 
-func NewGrpcServerInterceptors(logger *zap.Logger, opts ...grpc_zap.Option) (*fxgrpc.UnaryServerInterceptor, *fxgrpc.StreamServerInterceptor) {
-	logOpts := []grpc_zap.Option{
-		grpc_zap.WithLevels(DefaultServerCodeToLevel),
-	}
-	// Append externally supplied options last so they can overwrite our defaults
-	logOpts = append(logOpts, opts...)
-
-	unaryIx := &fxgrpc.UnaryServerInterceptor{Weight: GrpcInterceptorWeight, Interceptor: grpc_zap.UnaryServerInterceptor(logger, logOpts...)}
-	streamIx := &fxgrpc.StreamServerInterceptor{Weight: GrpcInterceptorWeight, Interceptor: grpc_zap.StreamServerInterceptor(logger, logOpts...)}
+func NewGrpcLoggingServerInterceptors(logger *zap.Logger, opts ...interceptor.Option) (*fxgrpc.UnaryServerInterceptor, *fxgrpc.StreamServerInterceptor) {
+	unaryIx := &fxgrpc.UnaryServerInterceptor{Weight: GrpcInterceptorWeight, Interceptor: interceptor.NewLoggingUnaryServerInterceptor(logger, opts...)}
+	streamIx := &fxgrpc.StreamServerInterceptor{Weight: GrpcInterceptorWeight, Interceptor: interceptor.NewLoggingStreamServerInterceptor(logger, opts...)}
 	return unaryIx, streamIx
 }
 
-func NewGrpcClientInterceptors(logger *zap.Logger, opts ...grpc_zap.Option) (*fxgrpc.UnaryClientInterceptor, *fxgrpc.StreamClientInterceptor) {
+func NewGrpcLoggingClientInterceptors(logger *zap.Logger, opts ...interceptor.Option) (*fxgrpc.UnaryClientInterceptor, *fxgrpc.StreamClientInterceptor) {
 	logger = logger.WithOptions(zap.WithCaller(false))
-	logOpts := []grpc_zap.Option{
-		grpc_zap.WithLevels(DefaultClientCodeToLevel),
-	}
-	// Append externally supplied options last so they can overwrite our defaults
-	logOpts = append(logOpts, opts...)
 
-	unaryIx := &fxgrpc.UnaryClientInterceptor{Weight: GrpcInterceptorWeight, Interceptor: grpc_zap.UnaryClientInterceptor(logger, logOpts...)}
-	streamIx := &fxgrpc.StreamClientInterceptor{Weight: GrpcInterceptorWeight, Interceptor: grpc_zap.StreamClientInterceptor(logger, logOpts...)}
+	unaryIx := &fxgrpc.UnaryClientInterceptor{Weight: GrpcInterceptorWeight, Interceptor: interceptor.NewLoggingUnaryClientInterceptor(logger, opts...)}
+	streamIx := &fxgrpc.StreamClientInterceptor{Weight: GrpcInterceptorWeight, Interceptor: interceptor.NewLoggingStreamClientInterceptor(logger, opts...)}
+	return unaryIx, streamIx
+}
+
+func NewGrpcInjectLoggerInterceptors(logger *zap.Logger) (*fxgrpc.UnaryServerInterceptor, *fxgrpc.StreamServerInterceptor) {
+	weight := GrpcInterceptorWeight - 1
+	unaryIx := &fxgrpc.UnaryServerInterceptor{Weight: weight, Interceptor: interceptor.NewInjectLoggerUnaryServerInterceptor(logger)}
+	streamIx := &fxgrpc.StreamServerInterceptor{Weight: weight, Interceptor: interceptor.NewInjectLoggerStreamServerInterceptor(logger)}
+	return unaryIx, streamIx
+}
+
+func NewGrpcInjectPeerInterceptors() (*fxgrpc.UnaryClientInterceptor, *fxgrpc.StreamClientInterceptor) {
+	weight := GrpcInterceptorWeight - 1
+	unaryIx := &fxgrpc.UnaryClientInterceptor{Weight: weight, Interceptor: interceptor.NewInjectPeerUnaryClientInterceptor()}
+	streamIx := &fxgrpc.StreamClientInterceptor{Weight: weight, Interceptor: interceptor.NewInjectPeerStreamClientInterceptor()}
 	return unaryIx, streamIx
 }
 
@@ -145,88 +155,4 @@ func NewFxLogger(logger *zap.Logger) fxevent.Logger {
 	result := &fxevent.ZapLogger{Logger: logger}
 	result.UseLogLevel(zapcore.DebugLevel)
 	return result
-}
-
-// DefaultServerCodeToLevel maps the grpc response code to a logging level
-func DefaultServerCodeToLevel(code codes.Code) zapcore.Level {
-	switch code {
-	case codes.OK:
-		return zap.InfoLevel
-	case codes.Canceled:
-		return zap.InfoLevel
-	case codes.Unknown:
-		return zap.ErrorLevel
-	case codes.InvalidArgument:
-		return zap.InfoLevel
-	case codes.DeadlineExceeded:
-		return zap.WarnLevel
-	case codes.NotFound:
-		return zap.InfoLevel
-	case codes.AlreadyExists:
-		return zap.DebugLevel
-	case codes.PermissionDenied:
-		return zap.WarnLevel
-	case codes.Unauthenticated:
-		return zap.InfoLevel // unauthenticated requests can happen
-	case codes.ResourceExhausted:
-		return zap.WarnLevel
-	case codes.FailedPrecondition:
-		return zap.WarnLevel
-	case codes.Aborted:
-		return zap.WarnLevel
-	case codes.OutOfRange:
-		return zap.WarnLevel
-	case codes.Unimplemented:
-		return zap.ErrorLevel
-	case codes.Internal:
-		return zap.ErrorLevel
-	case codes.Unavailable:
-		return zap.ErrorLevel
-	case codes.DataLoss:
-		return zap.ErrorLevel
-	default:
-		return zap.ErrorLevel
-	}
-}
-
-// DefaultClientCodeToLevel maps the grpc response code to a logging level
-func DefaultClientCodeToLevel(code codes.Code) zapcore.Level {
-	switch code {
-	case codes.OK:
-		return zap.DebugLevel
-	case codes.Canceled:
-		return zap.DebugLevel
-	case codes.Unknown:
-		return zap.ErrorLevel
-	case codes.InvalidArgument:
-		return zap.InfoLevel
-	case codes.DeadlineExceeded:
-		return zap.WarnLevel
-	case codes.NotFound:
-		return zap.InfoLevel
-	case codes.AlreadyExists:
-		return zap.DebugLevel
-	case codes.PermissionDenied:
-		return zap.WarnLevel
-	case codes.Unauthenticated:
-		return zap.InfoLevel // unauthenticated requests can happen
-	case codes.ResourceExhausted:
-		return zap.WarnLevel
-	case codes.FailedPrecondition:
-		return zap.WarnLevel
-	case codes.Aborted:
-		return zap.WarnLevel
-	case codes.OutOfRange:
-		return zap.WarnLevel
-	case codes.Unimplemented:
-		return zap.ErrorLevel
-	case codes.Internal:
-		return zap.ErrorLevel
-	case codes.Unavailable:
-		return zap.ErrorLevel
-	case codes.DataLoss:
-		return zap.ErrorLevel
-	default:
-		return zap.ErrorLevel
-	}
 }
