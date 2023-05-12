@@ -8,9 +8,10 @@ import (
 )
 
 type interceptorConfig struct {
-	levelFunc     func(codes.Code) zapcore.Level
-	logFilter     otelgrpc.Filter
-	payloadFilter otelgrpc.Filter
+	levelFunc       func(codes.Code) zapcore.Level
+	logFilter       otelgrpc.Filter
+	payloadFilter   otelgrpc.Filter
+	extraFieldsFunc func(logger *zap.Logger, info *otelgrpc.InterceptorInfo, payload any) *zap.Logger
 }
 
 type Option func(*interceptorConfig)
@@ -19,6 +20,16 @@ type Option func(*interceptorConfig)
 func WithLevelFunc(f func(codes.Code) zapcore.Level) Option {
 	return func(c *interceptorConfig) {
 		c.levelFunc = f
+	}
+}
+
+// WithExtraFieldsFunc sets a callback that can be used to configure the logger
+// It's main purpose is to set additional fields based on the rpc info and payload, but
+// any modification can be made
+// The payload here is the payload as would be logged when WithPayloadFilter returns true
+func WithExtraFieldsFunc(f func(*zap.Logger, *otelgrpc.InterceptorInfo, any) *zap.Logger) Option {
+	return func(c *interceptorConfig) {
+		c.extraFieldsFunc = f
 	}
 }
 
@@ -40,9 +51,10 @@ func WithPayloadFilter(f otelgrpc.Filter) Option {
 
 func newInterceptorConfig(opts []Option) *interceptorConfig {
 	conf := &interceptorConfig{
-		levelFunc:     DefaultServerCodeToLevel,
-		logFilter:     defaultFilter,
-		payloadFilter: defaultPayloadFilter,
+		levelFunc:       DefaultServerCodeToLevel,
+		logFilter:       defaultFilter,
+		payloadFilter:   defaultPayloadFilter,
+		extraFieldsFunc: defaultExtraFieldsFunc,
 	}
 
 	for _, opt := range opts {
@@ -50,6 +62,10 @@ func newInterceptorConfig(opts []Option) *interceptorConfig {
 	}
 
 	return conf
+}
+
+func defaultExtraFieldsFunc(logger *zap.Logger, _ *otelgrpc.InterceptorInfo, _ any) *zap.Logger {
+	return logger
 }
 
 func defaultFilter(_ *otelgrpc.InterceptorInfo) bool {

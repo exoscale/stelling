@@ -2,6 +2,8 @@ package interceptor
 
 import (
 	"context"
+	"io"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -19,8 +21,29 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func newUnimplementedRouteGuideServer() pb.RouteGuideServer {
-	return &pb.UnimplementedRouteGuideServer{}
+type loggingRouteGuideServer struct {
+	pb.UnimplementedRouteGuideServer
+}
+
+func newLoggingRouteGuideServer() pb.RouteGuideServer {
+	return &loggingRouteGuideServer{}
+}
+
+func (s *loggingRouteGuideServer) ListFeatures(req *pb.Rectangle, stream pb.RouteGuide_ListFeaturesServer) error {
+	return stream.Send(&pb.Feature{})
+}
+
+func (s *loggingRouteGuideServer) RecordRoute(stream pb.RouteGuide_RecordRouteServer) error {
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return stream.SendAndClose(&pb.RouteSummary{})
 }
 
 func withTestSystem(t *testing.T, cb func(client pb.RouteGuideClient, logs *observer.ObservedLogs), opts ...fx.Option) {
@@ -34,7 +57,7 @@ func withTestSystem(t *testing.T, cb func(client pb.RouteGuideClient, logs *obse
 		grpctest.Module,
 		fx.Supply(logger),
 		fx.Provide(
-			newUnimplementedRouteGuideServer,
+			newLoggingRouteGuideServer,
 			pb.NewRouteGuideClient,
 		),
 		fx.Invoke(pb.RegisterRouteGuideServer),
@@ -91,12 +114,11 @@ func TestLoggingServerInterceptor(t *testing.T) {
 			stream, err := client.ListFeatures(context.Background(), &pb.Rectangle{})
 			require.NoError(t, err)
 			_, err = stream.Recv()
-			require.Error(t, err)
-			require.Equal(t, codes.Unimplemented, status.Code(err))
+			require.NoError(t, err)
 
 			require.Equal(t, 1, logs.Len())
 			log := logs.AllUntimed()[0]
-			require.Equal(t, zapcore.ErrorLevel, log.Level)
+			require.Equal(t, zapcore.InfoLevel, log.Level)
 			require.Equal(t, "finished call", log.Message)
 		}
 		extraOpts := fx.Provide(
@@ -135,12 +157,11 @@ func TestLoggingServerInterceptor(t *testing.T) {
 
 			require.NoError(t, stream.Send(&pb.Point{}))
 			_, err = stream.CloseAndRecv()
-			require.Error(t, err)
-			require.Equal(t, codes.Unimplemented, status.Code(err))
+			require.NoError(t, err)
 
 			require.Equal(t, 1, logs.Len())
 			log := logs.AllUntimed()[0]
-			require.Equal(t, zapcore.ErrorLevel, log.Level)
+			require.Equal(t, zapcore.DebugLevel, log.Level)
 			require.Equal(t, "finished call", log.Message)
 		}
 		extraOpts := fx.Provide(
@@ -203,7 +224,10 @@ func TestLoggingServerInterceptor(t *testing.T) {
 
 	t.Run("Should use custom payloadFilter", func(t *testing.T) {
 		run := func(client pb.RouteGuideClient, logs *observer.ObservedLogs) {
-			_, err := client.GetFeature(context.Background(), &pb.Point{})
+			_, err := client.GetFeature(context.Background(), &pb.Point{
+				Latitude:  12345,
+				Longitude: 12345,
+			})
 			require.Error(t, err)
 			require.Equal(t, codes.Unimplemented, status.Code(err))
 
@@ -212,6 +236,8 @@ func TestLoggingServerInterceptor(t *testing.T) {
 			require.Equal(t, zapcore.ErrorLevel, log.Level)
 			require.Equal(t, "finished call", log.Message)
 			require.Contains(t, log.ContextMap(), "rpc.request.content")
+			// Using a regex because zap.Any will use the String() implementation of the proto field, which is not stable
+			require.Regexp(t, regexp.MustCompile(`latitude:12345[ ]*longitude:12345`), log.ContextMap()["rpc.request.content"])
 		}
 		extraOpts := fx.Provide(
 			func() []Option {
@@ -219,6 +245,105 @@ func TestLoggingServerInterceptor(t *testing.T) {
 					return true
 				}
 				return []Option{WithPayloadFilter(payloadFilter)}
+			},
+			fx.Annotate(
+				NewLoggingUnaryServerInterceptor,
+				fx.ResultTags(`group:"unary_server_interceptor"`),
+			),
+		)
+		withTestSystem(t, run, extraOpts)
+	})
+
+	t.Run("Should log correct payload with serverside stream", func(t *testing.T) {
+		run := func(client pb.RouteGuideClient, logs *observer.ObservedLogs) {
+			stream, err := client.ListFeatures(context.Background(), &pb.Rectangle{
+				Lo: &pb.Point{Latitude: -1, Longitude: -1},
+				Hi: &pb.Point{Latitude: 1, Longitude: 1},
+			})
+			require.NoError(t, err)
+			_, err = stream.Recv()
+			require.NoError(t, err)
+
+			require.Equal(t, 1, logs.Len())
+			log := logs.AllUntimed()[0]
+			require.Equal(t, zapcore.InfoLevel, log.Level)
+			require.Equal(t, "finished call", log.Message)
+			require.Contains(t, log.ContextMap(), "rpc.request.content")
+			// Using a regex because zap.Any will use the String() implementation of the proto field, which is not stable
+			require.Regexp(t, regexp.MustCompile(`lo:{latitude:-1[ ]*longitude:-1}[ ]*hi:{latitude:1[ ]*longitude:1}`), log.ContextMap()["rpc.request.content"])
+		}
+		extraOpts := fx.Provide(
+			func() []Option {
+				payloadFilter := func(_ *otelgrpc.InterceptorInfo) bool {
+					return true
+				}
+				return []Option{WithPayloadFilter(payloadFilter)}
+			},
+			fx.Annotate(
+				NewLoggingStreamServerInterceptor,
+				fx.ResultTags(`group:"stream_server_interceptor"`),
+			),
+		)
+		withTestSystem(t, run, extraOpts)
+	})
+
+	t.Run("Should log correct payload with clientside stream", func(t *testing.T) {
+		run := func(client pb.RouteGuideClient, logs *observer.ObservedLogs) {
+			stream, err := client.RecordRoute(context.Background())
+			require.NoError(t, err)
+
+			require.NoError(t, stream.Send(&pb.Point{Latitude: 12345, Longitude: 12345}))
+			require.NoError(t, stream.Send(&pb.Point{Latitude: 42, Longitude: 42}))
+
+			_, err = stream.CloseAndRecv()
+			require.NoError(t, err)
+
+			require.Equal(t, 1, logs.Len())
+			log := logs.AllUntimed()[0]
+			require.Equal(t, zapcore.DebugLevel, log.Level)
+			require.Equal(t, "finished call", log.Message)
+			require.Contains(t, log.ContextMap(), "rpc.request.content")
+			t.Logf("%T", log.ContextMap()["rpc.request.content"])
+			// Using a regex because zap.Any will use the String() implementation of the proto field, which is not stable
+			require.Regexp(t, regexp.MustCompile(`latitude:12345[ ]*longitude:12345`), log.ContextMap()["rpc.request.content"])
+		}
+		extraOpts := fx.Provide(
+			func() []Option {
+				payloadFilter := func(_ *otelgrpc.InterceptorInfo) bool {
+					return true
+				}
+				return []Option{WithPayloadFilter(payloadFilter)}
+			},
+			fx.Annotate(
+				NewLoggingStreamClientInterceptor,
+				fx.ResultTags(`group:"stream_client_interceptor"`),
+			),
+		)
+		withTestSystem(t, run, extraOpts)
+	})
+
+	// TODO: test bidirectional stream
+	// TODO: test more error cases for logging with streams
+
+	t.Run("Should enrich logger with extraFieldsFunc", func(t *testing.T) {
+		run := func(client pb.RouteGuideClient, logs *observer.ObservedLogs) {
+			_, err := client.GetFeature(context.Background(), &pb.Point{})
+			require.Error(t, err)
+			require.Equal(t, codes.Unimplemented, status.Code(err))
+
+			require.Equal(t, 1, logs.Len())
+			log := logs.AllUntimed()[0]
+			require.Equal(t, zapcore.ErrorLevel, log.Level)
+			require.Equal(t, "finished call", log.Message)
+			require.Contains(t, log.ContextMap(), "enriched")
+			require.True(t, log.ContextMap()["enriched"].(bool))
+		}
+		extraOpts := fx.Provide(
+			func() []Option {
+				extraFieldsFunc := func(logger *zap.Logger, _ *otelgrpc.InterceptorInfo, payload any) *zap.Logger {
+					return logger.With(zap.Bool("enriched", true))
+				}
+				return []Option{WithExtraFieldsFunc(extraFieldsFunc)}
 			},
 			fx.Annotate(
 				NewLoggingUnaryServerInterceptor,

@@ -57,16 +57,16 @@ func splitMethod(fullMethod string) (string, string) {
 	return "unknown", "unknown"
 }
 
-func methodFromInterceptorInfo(info *otelgrpc.InterceptorInfo) string {
+func MethodFromInterceptorInfo(info *otelgrpc.InterceptorInfo) (string, string) {
 	switch info.Type {
 	case otelgrpc.StreamClient, otelgrpc.UnaryClient:
-		return info.Method
+		return splitMethod(info.Method)
 	case otelgrpc.StreamServer:
-		return info.StreamServerInfo.FullMethod
+		return splitMethod(info.StreamServerInfo.FullMethod)
 	case otelgrpc.UnaryServer:
-		return info.UnaryServerInfo.FullMethod
+		return splitMethod(info.UnaryServerInfo.FullMethod)
 	}
-	return "unknown"
+	return "unknown", "unknown"
 }
 
 type reporter struct {
@@ -84,7 +84,7 @@ func (r *reporter) Log(ctx context.Context, payload any, handleErr error) {
 	traceid, _ := traceIdFromContext(ctx)
 
 	// TODO: refactor this using otel.semconv
-	service, method := splitMethod(methodFromInterceptorInfo(r.info))
+	service, method := MethodFromInterceptorInfo(r.info)
 	logger := r.logger.With(
 		zap.String("rpc.system", "grpc"),
 		zap.String("service.name", r.svcName),
@@ -112,10 +112,11 @@ func (r *reporter) Log(ctx context.Context, payload any, handleErr error) {
 	if peerService, ok := peerService(ctx); ok {
 		logger = logger.With(zap.String("peer.service", peerService))
 	}
+	logger = r.conf.extraFieldsFunc(logger, r.info, payload)
 	if payload != nil && r.conf.payloadFilter(r.info) {
 		p, ok := payload.(proto.Message)
 		if !ok {
-			logger.DPanic("payload is not a google.golang.org/protobuf/proto.Message")
+			logger.DPanic("payload is not a google.golang.org/protobuf/proto.Message", zap.Any("msg", payload))
 		} else {
 			logger = logger.With(zap.Any("rpc.request.content", p))
 		}
@@ -168,8 +169,13 @@ func (s *monitoredServerStream) RecvMsg(m any) error {
 	err := s.ServerStream.RecvMsg(m)
 	// We only store the first payload: this is the request for a ServerStream
 	// A dedicated interceptor should be used to log all events on a stream
-	if err != nil && s.payload == nil {
-		s.payload = m
+	if err == nil && s.payload == nil {
+		msg, ok := m.(proto.Message)
+		if ok {
+			// With vtproto the msg pointers can be reused, so let's clone
+			// to ensure we don't write garbage in the log
+			s.payload = proto.Clone(msg)
+		}
 	}
 	return err
 }
@@ -243,13 +249,22 @@ func (s *monitoredClientStream) Context() context.Context {
 }
 
 // This implementation won't log all the errors, but chances are the client code will anyway
+// It will also not log if the stream is finished by canceling the context
 // If we do want to change this, here's some inspiration using a channel to communicate the errors for all stream methods
 // https://github.com/open-telemetry/opentelemetry-go-contrib/blob/instrumentation/google.golang.org/grpc/otelgrpc/v0.41.1/instrumentation/google.golang.org/grpc/otelgrpc/interceptor.go#L128-L298
+// https://github.com/cockroachdb/cockroach/blob/master/pkg/util/tracing/grpcinterceptor/grpc_interceptor.go#L327
+// Another good read on how to reliably handle client streams is:
+// https://github.com/grpc/grpc-go/issues/5324
 
 func (s *monitoredClientStream) SendMsg(m any) error {
 	// Only saving the first message, which we assume is the request
-	if s.payload != nil {
-		s.payload = m
+	if s.payload == nil {
+		msg, ok := m.(proto.Message)
+		if ok {
+			// With vtproto the msg pointers can be reused, so let's clone
+			// to ensure we don't write garbage in the log
+			s.payload = proto.Clone(msg)
+		}
 	}
 	return s.ClientStream.SendMsg(m)
 }
