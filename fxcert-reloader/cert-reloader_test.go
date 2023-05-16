@@ -86,7 +86,15 @@ func TestNewCertReloader(t *testing.T) {
 		reloader, err := NewCertReloader(conf, zap.NewNop())
 		assert.NoError(t, err)
 		if assert.NotNil(t, reloader) {
-			cert, err := reloader.GetCertificate()
+			cert, err := reloader.GetCertificate(nil)
+			assert.NoError(t, err)
+			if assert.NotNil(t, cert) {
+				pCert, err := x509.ParseCertificate(cert.Certificate[0])
+				assert.NoError(t, err)
+				assert.Equal(t, "warp-agent", pCert.Subject.CommonName)
+			}
+
+			cert, err = reloader.GetClientCertificate(nil)
 			assert.NoError(t, err)
 			if assert.NotNil(t, cert) {
 				pCert, err := x509.ParseCertificate(cert.Certificate[0])
@@ -136,9 +144,15 @@ func TestCertReloader(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Assert that we emit the initial cert first
-		cert, err := reloader.GetCertificate()
+		cert, err := reloader.GetCertificate(nil)
 		assert.NoError(t, err)
 		pCert, err := x509.ParseCertificate(cert.Certificate[0])
+		assert.NoError(t, err)
+		assert.Equal(t, "warp-agent", pCert.Subject.CommonName)
+
+		cert, err = reloader.GetClientCertificate(nil)
+		assert.NoError(t, err)
+		pCert, err = x509.ParseCertificate(cert.Certificate[0])
 		assert.NoError(t, err)
 		assert.Equal(t, "warp-agent", pCert.Subject.CommonName)
 
@@ -158,9 +172,15 @@ func TestCertReloader(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 
 		// Assert that we emit the second cert
-		cert2, err := reloader.GetCertificate()
+		cert2, err := reloader.GetCertificate(nil)
 		assert.NoError(t, err)
 		pCert2, err := x509.ParseCertificate(cert2.Certificate[0])
+		assert.NoError(t, err)
+		assert.Equal(t, "server2.example.net", pCert2.Subject.CommonName)
+
+		cert2, err = reloader.GetClientCertificate(nil)
+		assert.NoError(t, err)
+		pCert2, err = x509.ParseCertificate(cert2.Certificate[0])
 		assert.NoError(t, err)
 		assert.Equal(t, "server2.example.net", pCert2.Subject.CommonName)
 
@@ -202,9 +222,15 @@ func TestCertReloader(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Assert that we emit the initial cert first
-		cert, err := reloader.GetCertificate()
+		cert, err := reloader.GetCertificate(nil)
 		assert.NoError(t, err)
 		pCert, err := x509.ParseCertificate(cert.Certificate[0])
+		assert.NoError(t, err)
+		assert.Equal(t, "warp-agent", pCert.Subject.CommonName)
+
+		cert, err = reloader.GetClientCertificate(nil)
+		assert.NoError(t, err)
+		pCert, err = x509.ParseCertificate(cert.Certificate[0])
 		assert.NoError(t, err)
 		assert.Equal(t, "warp-agent", pCert.Subject.CommonName)
 
@@ -220,9 +246,15 @@ func TestCertReloader(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 
 		// Assert that we still emit the initial cert
-		cert2, err := reloader.GetCertificate()
+		cert2, err := reloader.GetCertificate(nil)
 		assert.NoError(t, err)
 		pCert2, err := x509.ParseCertificate(cert2.Certificate[0])
+		assert.NoError(t, err)
+		assert.Equal(t, "warp-agent", pCert2.Subject.CommonName)
+
+		cert2, err = reloader.GetClientCertificate(nil)
+		assert.NoError(t, err)
+		pCert2, err = x509.ParseCertificate(cert2.Certificate[0])
 		assert.NoError(t, err)
 		assert.Equal(t, "warp-agent", pCert2.Subject.CommonName)
 
@@ -265,9 +297,15 @@ func TestCertReloader(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Assert that we emit the initial cert first
-		cert, err := reloader.GetCertificate()
+		cert, err := reloader.GetCertificate(nil)
 		assert.NoError(t, err)
 		pCert, err := x509.ParseCertificate(cert.Certificate[0])
+		assert.NoError(t, err)
+		assert.Equal(t, "warp-agent", pCert.Subject.CommonName)
+
+		cert, err = reloader.GetClientCertificate(nil)
+		assert.NoError(t, err)
+		pCert, err = x509.ParseCertificate(cert.Certificate[0])
 		assert.NoError(t, err)
 		assert.Equal(t, "warp-agent", pCert.Subject.CommonName)
 
@@ -282,9 +320,15 @@ func TestCertReloader(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 
 		// Assert that we still emit the initial cert
-		cert2, err := reloader.GetCertificate()
+		cert2, err := reloader.GetCertificate(nil)
 		assert.NoError(t, err)
 		pCert2, err := x509.ParseCertificate(cert2.Certificate[0])
+		assert.NoError(t, err)
+		assert.Equal(t, "warp-agent", pCert2.Subject.CommonName)
+
+		cert2, err = reloader.GetClientCertificate(nil)
+		assert.NoError(t, err)
+		pCert2, err = x509.ParseCertificate(cert2.Certificate[0])
 		assert.NoError(t, err)
 		assert.Equal(t, "warp-agent", pCert2.Subject.CommonName)
 
