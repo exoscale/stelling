@@ -59,5 +59,7 @@ func ExampleCertReloader_GetClientCertificate() {
 		},
 	}
 
-	httpclient.Get("https://example.com")
+	_ = httpclient
+	// httpclient..Get("https://example.com")
+
 }
