@@ -168,7 +168,7 @@ func MakeClientTLS(c ClientConfig, logger *zap.Logger) (credentials.TransportCre
 		}
 
 		tlsConf := &tls.Config{
-			GetClientCertificate: func(cri *tls.CertificateRequestInfo) (*tls.Certificate, error) { return r.GetCertificate() },
+			GetClientCertificate: r.GetClientCertificate,
 		}
 
 		if conf.RootCAFile != "" {

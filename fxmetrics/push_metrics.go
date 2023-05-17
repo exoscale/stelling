@@ -131,9 +131,7 @@ func httpClient(conf *PushMetrics, reloader *reloader.CertReloader) (*http.Clien
 		InsecureSkipVerify: conf.InsecureConnection,
 	}
 	if reloader != nil {
-		tlsConf.GetClientCertificate = func(cri *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			return reloader.GetCertificate()
-		}
+		tlsConf.GetClientCertificate = reloader.GetClientCertificate
 	}
 	if conf.RootCAFile != "" {
 		certPool, err := x509.SystemCertPool()

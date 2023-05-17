@@ -53,11 +53,17 @@ type CertReloader struct {
 // GetCertificate returns the currently loaded keypair
 // It is meant to be passed into a tls.Config
 // If reloading fails, this method will return the last valid keypair
-func (c *CertReloader) GetCertificate() (*tls.Certificate, error) {
+func (c *CertReloader) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	c.RLock()
 	defer c.RUnlock()
 	// Naively return our cert
 	// Maybe we can try to load if cert is nil
+	return c.cert, nil
+}
+
+func (c *CertReloader) GetClientCertificate(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+	c.RLock()
+	defer c.RUnlock()
 	return c.cert, nil
 }
 
@@ -210,7 +216,7 @@ func ProvideCertReloader(lc fx.Lifecycle, conf *CertReloaderConfig, logger *zap.
 // TODO: expose more TLS options?
 func MakeServerTLS(r *CertReloader, clientCAFile string) (*tls.Config, error) {
 	tlsConf := &tls.Config{
-		GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) { return r.GetCertificate() },
+		GetCertificate: r.GetCertificate,
 	}
 
 	if clientCAFile != "" {
