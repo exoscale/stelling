@@ -16,8 +16,8 @@ func NewInjectLoggerUnaryServerInterceptor(logger *zap.Logger) grpc.UnaryServerI
 		if !ok {
 			ctx = contextWithTraceId(ctx, traceid)
 		}
-		logger = logger.With(zap.String("otlp.trace_id", traceid))
-		ctx = ContextWithLogger(ctx, logger)
+		newLogger := logger.With(zap.String("otlp.trace_id", traceid))
+		ctx = ContextWithLogger(ctx, newLogger)
 
 		return handler(ctx, req)
 	}
@@ -43,8 +43,8 @@ func NewInjectLoggerStreamServerInterceptor(logger *zap.Logger) grpc.StreamServe
 		if !ok {
 			ctx = contextWithTraceId(ctx, traceid)
 		}
-		logger = logger.With(zap.String("otlp.trace_id", traceid))
-		ctx = ContextWithLogger(ctx, logger)
+		newLogger := logger.With(zap.String("otlp.trace_id", traceid))
+		ctx = ContextWithLogger(ctx, newLogger)
 
 		wrappedStream := &wrappedServerStream{ctx: ctx, ServerStream: ss}
 

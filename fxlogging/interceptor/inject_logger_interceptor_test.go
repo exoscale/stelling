@@ -84,12 +84,62 @@ func TestInjectLoggerInterceptor(t *testing.T) {
 				break
 			}
 			require.NoError(t, err)
-
-			logs := observer.TakeAll()
-			require.Len(t, logs, 1)
-			log := logs[0]
-			require.Equal(t, "ListFeatures", log.Message)
-			require.NotEmpty(t, log.ContextMap()["otlp.trace_id"])
 		}
+		logs := observer.TakeAll()
+		require.Len(t, logs, 1)
+		log := logs[0]
+		require.Equal(t, "ListFeatures", log.Message)
+		require.NotEmpty(t, log.ContextMap()["otlp.trace_id"])
+	})
+
+	t.Run("UnaryServerInterceptor should set only a single trace_id", func(t *testing.T) {
+		_, err := client.GetFeature(context.Background(), &pb.Point{})
+		require.NoError(t, err)
+		_, err = client.GetFeature(context.Background(), &pb.Point{})
+		require.NoError(t, err)
+
+		logs := observer.TakeAll()
+		require.Len(t, logs, 2)
+		log := logs[1]
+		require.Equal(t, "GetFeature", log.Message)
+		traceIdFields := []zapcore.Field{}
+		for _, field := range log.Context {
+			if field.Key == "otlp.trace_id" {
+				traceIdFields = append(traceIdFields, field)
+			}
+		}
+		require.Len(t, traceIdFields, 1)
+	})
+
+	t.Run("StreamServerInterceptor should set only a single trace_id", func(t *testing.T) {
+		stream, err := client.ListFeatures(context.Background(), &pb.Rectangle{})
+		require.NoError(t, err)
+		for {
+			_, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+		stream2, err := client.ListFeatures(context.Background(), &pb.Rectangle{})
+		require.NoError(t, err)
+		for {
+			_, err := stream2.Recv()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+		logs := observer.TakeAll()
+		require.Len(t, logs, 2)
+		log := logs[1]
+		require.Equal(t, "ListFeatures", log.Message)
+		traceIdFields := []zapcore.Field{}
+		for _, field := range log.Context {
+			if field.Key == "otlp.trace_id" {
+				traceIdFields = append(traceIdFields, field)
+			}
+		}
+		require.Len(t, traceIdFields, 1)
 	})
 }
