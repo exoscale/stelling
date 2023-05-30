@@ -186,7 +186,7 @@ func TestLoggingServerInterceptor(t *testing.T) {
 		}
 		extraOpts := fx.Provide(
 			func() []Option {
-				codeToLevel := func(code codes.Code) zapcore.Level {
+				codeToLevel := func(_ *otelgrpc.InterceptorInfo, code codes.Code) zapcore.Level {
 					return zapcore.WarnLevel
 				}
 				return []Option{WithLevelFunc(codeToLevel)}
