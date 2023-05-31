@@ -80,7 +80,7 @@ type reporter struct {
 func (r *reporter) Log(ctx context.Context, payload any, handleErr error) {
 	duration := time.Since(r.startTime)
 	code := status.Code(handleErr)
-	level := r.conf.levelFunc(code)
+	level := r.conf.levelFunc(r.info, code)
 	traceid, _ := traceIdFromContext(ctx)
 
 	// TODO: refactor this using otel.semconv

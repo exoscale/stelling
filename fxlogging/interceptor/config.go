@@ -8,7 +8,7 @@ import (
 )
 
 type interceptorConfig struct {
-	levelFunc       func(codes.Code) zapcore.Level
+	levelFunc       func(info *otelgrpc.InterceptorInfo, code codes.Code) zapcore.Level
 	logFilter       otelgrpc.Filter
 	payloadFilter   otelgrpc.Filter
 	extraFieldsFunc func(logger *zap.Logger, info *otelgrpc.InterceptorInfo, payload any) *zap.Logger
@@ -17,7 +17,7 @@ type interceptorConfig struct {
 type Option func(*interceptorConfig)
 
 // WithLevelFunc provides a custom implementation that maps a gRPC status code to a logging level
-func WithLevelFunc(f func(codes.Code) zapcore.Level) Option {
+func WithLevelFunc(f func(*otelgrpc.InterceptorInfo, codes.Code) zapcore.Level) Option {
 	return func(c *interceptorConfig) {
 		c.levelFunc = f
 	}
@@ -76,7 +76,12 @@ func defaultPayloadFilter(_ *otelgrpc.InterceptorInfo) bool {
 	return false
 }
 
-func DefaultServerCodeToLevel(code codes.Code) zapcore.Level {
+func DefaultServerCodeToLevel(info *otelgrpc.InterceptorInfo, code codes.Code) zapcore.Level {
+	service, _ := MethodFromInterceptorInfo(info)
+	if service == "grpc.health.v1.Health" && code == codes.OK {
+		return zap.DebugLevel
+	}
+
 	switch code {
 	case codes.OK:
 		return zap.InfoLevel
@@ -117,7 +122,7 @@ func DefaultServerCodeToLevel(code codes.Code) zapcore.Level {
 	}
 }
 
-func DefaultClientCodeToLevel(code codes.Code) zapcore.Level {
+func DefaultClientCodeToLevel(info *otelgrpc.InterceptorInfo, code codes.Code) zapcore.Level {
 	switch code {
 	case codes.OK:
 		return zap.DebugLevel
