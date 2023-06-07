@@ -7,25 +7,24 @@ import (
 	"time"
 
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
-	http "github.com/exoscale/stelling/fxhttp"
+	fxhttp "github.com/exoscale/stelling/fxhttp"
 	zapgrpc "github.com/exoscale/stelling/fxlogging/grpc"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 )
 
-func NewServerModule(conf ServerConfig) fx.Option {
+func NewServerModule(conf fxhttp.ServerConfig) fx.Option {
 	opts := fx.Options(
-		fx.Supply(fx.Annotate(conf, fx.As(new(ServerConfig)))),
+		fx.Supply(fx.Annotate(conf, fx.As(new(fxhttp.ServerConfig)))),
 		fx.Provide(
 			NewGrpcServer,
 			func(server *grpc.Server) grpc.ServiceRegistrar { return server },
 		),
 	)
-	if conf.GrpcServerConfig().TLS {
+	if conf.HttpServerConfig().TLS {
 		opts = fx.Options(
 			fx.Provide(
 				fx.Annotate(
@@ -46,41 +45,13 @@ func NewServerModule(conf ServerConfig) fx.Option {
 	)
 }
 
-type ServerConfig interface {
-	GrpcServerConfig() *Server
-}
-
-// use type definition (as opposed to eg: type alias)
-// so everything still compiles nicely
-type Server http.Server
-
-func (s *Server) GrpcServerConfig() *Server {
-	return s
-}
-
-func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if s == nil {
-		return nil
-	}
-
-	enc.AddInt("port", s.Port)
-	enc.AddBool("tls", s.TLS)
-	if s.TLS {
-		enc.AddString("cert-file", s.CertFile)
-		enc.AddString("key-file", s.KeyFile)
-		enc.AddString("client-ca-file", s.ClientCAFile)
-	}
-
-	return nil
-}
-
-func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
-	if !conf.GrpcServerConfig().TLS {
+func GetCertReloaderConfig(conf fxhttp.ServerConfig) *reloader.CertReloaderConfig {
+	if !conf.HttpServerConfig().TLS {
 		return nil
 	}
 	return &reloader.CertReloaderConfig{
-		CertFile:       conf.GrpcServerConfig().CertFile,
-		KeyFile:        conf.GrpcServerConfig().KeyFile,
+		CertFile:       conf.HttpServerConfig().CertFile,
+		KeyFile:        conf.HttpServerConfig().KeyFile,
 		ReloadInterval: 10 * time.Second,
 	}
 }
@@ -88,7 +59,7 @@ func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
 type GrpcServerParams struct {
 	fx.In
 
-	Conf               ServerConfig
+	Conf               fxhttp.ServerConfig
 	Logger             *zap.Logger
 	UnaryInterceptors  []*UnaryServerInterceptor  `group:"unary_server_interceptor"`
 	StreamInterceptors []*StreamServerInterceptor `group:"stream_server_interceptor"`
@@ -98,7 +69,7 @@ type GrpcServerParams struct {
 
 func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	opts := []grpc.ServerOption{}
-	serverConf := p.Conf.GrpcServerConfig()
+	serverConf := p.Conf.HttpServerConfig()
 
 	// Handle server TLS
 	if serverConf.TLS {
@@ -134,12 +105,12 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	return grpcServer, nil
 }
 
-func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, conf ServerConfig) {
+func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, conf fxhttp.ServerConfig) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			addr := conf.GrpcServerConfig().Address
+			addr := conf.HttpServerConfig().Address
 			if addr == "" {
-				addr = fmt.Sprintf(":%d", conf.GrpcServerConfig().Port)
+				addr = fmt.Sprintf(":%d", conf.HttpServerConfig().Port)
 			}
 			lis, err := net.Listen("tcp", addr)
 			if err != nil {
