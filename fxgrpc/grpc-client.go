@@ -243,15 +243,13 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []*UnaryClientInterceptor, si []*StreamClientInterceptor, dOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	clientConf := conf.GrpcClientConfig()
 
-	SortInterceptors(ui)
-	unaryIx := make([]grpc.UnaryClientInterceptor, len(ui))
-	for i := range ui {
-		unaryIx[i] = ui[i].Interceptor
+	unaryIx := make([]grpc.UnaryClientInterceptor, 0, len(ui))
+	for _, ix := range SortInterceptors(ui) {
+		unaryIx = append(unaryIx, ix.Interceptor)
 	}
-	SortInterceptors(si)
-	streamIx := make([]grpc.StreamClientInterceptor, len(si))
-	for i := range si {
-		streamIx[i] = si[i].Interceptor
+	streamIx := make([]grpc.StreamClientInterceptor, 0, len(si))
+	for _, ix := range SortInterceptors(si) {
+		streamIx = append(streamIx, ix.Interceptor)
 	}
 
 	opts, _, err := getDialOpts(clientConf, logger, unaryIx, streamIx)
@@ -268,15 +266,13 @@ func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []*UnaryClientInter
 func ProvideGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
 	clientConf := p.Conf.GrpcClientConfig()
 
-	SortInterceptors(p.UnaryInterceptors)
-	unaryIx := make([]grpc.UnaryClientInterceptor, len(p.UnaryInterceptors))
-	for i := range p.UnaryInterceptors {
-		unaryIx[i] = p.UnaryInterceptors[i].Interceptor
+	unaryIx := make([]grpc.UnaryClientInterceptor, 0, len(p.UnaryInterceptors))
+	for _, ix := range SortInterceptors(p.UnaryInterceptors) {
+		unaryIx = append(unaryIx, ix.Interceptor)
 	}
-	SortInterceptors(p.StreamInterceptors)
-	streamIx := make([]grpc.StreamClientInterceptor, len(p.StreamInterceptors))
-	for i := range p.StreamInterceptors {
-		streamIx[i] = p.StreamInterceptors[i].Interceptor
+	streamIx := make([]grpc.StreamClientInterceptor, 0, len(p.StreamInterceptors))
+	for _, ix := range SortInterceptors(p.StreamInterceptors) {
+		streamIx = append(streamIx, ix.Interceptor)
 	}
 	opts, r, err := getDialOpts(clientConf, p.Logger, unaryIx, streamIx)
 	if err != nil {
