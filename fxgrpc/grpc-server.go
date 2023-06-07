@@ -2,7 +2,6 @@ package fxgrpc
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"time"
 
@@ -23,6 +22,7 @@ func NewServerModule(conf fxhttp.ServerConfig) fx.Option {
 			NewGrpcServer,
 			func(server *grpc.Server) grpc.ServiceRegistrar { return server },
 		),
+		fx.Provide(fxhttp.NewListener),
 	)
 	if conf.HttpServerConfig().TLS {
 		opts = fx.Options(
@@ -105,18 +105,10 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	return grpcServer, nil
 }
 
-func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, conf fxhttp.ServerConfig) {
+func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, conf fxhttp.ServerConfig, lis net.Listener) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			addr := conf.HttpServerConfig().Address
-			if addr == "" {
-				addr = fmt.Sprintf(":%d", conf.HttpServerConfig().Port)
-			}
-			lis, err := net.Listen("tcp", addr)
-			if err != nil {
-				return err
-			}
-			logger.Info("Starting gRPC server", zap.Int("port", lis.Addr().(*net.TCPAddr).Port))
+			logger.Info("Starting gRPC server", zap.String("address", lis.Addr().String()))
 			go func() {
 				if err := server.Serve(lis); err != nil && err != grpc.ErrServerStopped {
 					// If err is grpc.ErrServerStopped, it means that

@@ -21,7 +21,7 @@ func Example_server() {
 	}
 
 	conf := &Config{}
-	args := []string{"pprof-server", "--pprof.enabled"}
+	args := []string{"pprof-server", "--pprof.enabled", "-pprof.server.address", "localhost:8080"}
 	if err := sconfig.Load(conf, args); err != nil {
 		fmt.Println(err)
 		return
