@@ -7,6 +7,7 @@ import (
 	"time"
 
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
+	http "github.com/exoscale/stelling/fxhttp"
 	zapgrpc "github.com/exoscale/stelling/fxlogging/grpc"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -49,22 +50,9 @@ type ServerConfig interface {
 	GrpcServerConfig() *Server
 }
 
-type Server struct {
-	// TLS indicates whether the service exposes a TLS endpoint
-	TLS bool
-	// CertFile is the path to the pem encoded TLS certificate
-	CertFile string `validate:"required_if=TLS true,omitempty,file"`
-	// KeyFile is the path to the pem encoded private key of the TLS certificate
-	KeyFile string `validate:"required_if=TLS true,omitempty,file"`
-	// ClientCAFile is the path to a pem encoded CA cert bundle used to validate clients
-	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
-	// Port is the port the gRPC server will bind to
-	// Deprecated
-	Port int `default:"0" validate:"port"`
-	// Address is the address+port the gRPC server will bind to, as passed to net.Listen
-	// Takes precedence over Port
-	Address string
-}
+// use type definition (as opposed to eg: type alias)
+// so everything still compiles nicely
+type Server http.Server
 
 func (s *Server) GrpcServerConfig() *Server {
 	return s
