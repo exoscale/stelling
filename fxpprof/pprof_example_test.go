@@ -9,6 +9,7 @@ import (
 	"time"
 
 	sconfig "github.com/exoscale/stelling/config"
+	"github.com/exoscale/stelling/fxhttp"
 	"github.com/exoscale/stelling/fxpprof"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
@@ -21,7 +22,7 @@ func Example_server() {
 	}
 
 	conf := &Config{}
-	args := []string{"pprof-server", "--pprof.enabled", "-pprof.server.address", "localhost:8080"}
+	args := []string{"pprof-server", "--pprof.enabled", "-pprof.server.address", "localhost:9092"}
 	if err := sconfig.Load(conf, args); err != nil {
 		fmt.Println(err)
 		return
@@ -50,6 +51,7 @@ func Example_server() {
 		fx.WithLogger(func() fxevent.Logger { return fxevent.NopLogger }),
 		fx.Provide(zap.NewNop),
 		fxpprof.NewModule(conf),
+		fx.Supply(fx.Annotate(conf.PprofConfig().Server.HttpServerConfig(), fx.As(new(fxhttp.ServerConfig)))),
 		fx.Invoke(run),
 	)
 	if err := fx.ValidateApp(opts); err != nil {
@@ -75,7 +77,7 @@ func Example_job() {
 	conf := &Config{}
 	// By setting GenerateFiles, we instruct the module to profile the entire
 	// process runtime and output the profiles in the given directory
-	args := []string{"pprof-job", "--pprof.generate-files", tmp}
+	args := []string{"pprof-job", "--pprof.generate-files", tmp, "-pprof.server.address", "localhost:9092"}
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
 	}

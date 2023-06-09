@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	sconfig "github.com/exoscale/stelling/config"
+	"github.com/exoscale/stelling/fxhttp"
 	"github.com/exoscale/stelling/fxmetrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx"
@@ -21,7 +22,7 @@ type Config struct {
 
 func Example() {
 	conf := &Config{}
-	args := []string{"metrics-test", "--metrics.server.address", "localhost:8080"}
+	args := []string{"metrics-test", "--metrics.server.address", "localhost:9091"}
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
 	}
@@ -33,6 +34,7 @@ func Example() {
 			zap.NewNop,
 			provideMetrics,
 		),
+		fx.Supply(fx.Annotate(conf.HttpServerConfig(), fx.As(new(fxhttp.ServerConfig)))),
 		fx.Invoke(registerMetrics),
 		fx.Invoke(run),
 	)
