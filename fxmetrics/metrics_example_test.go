@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	sconfig "github.com/exoscale/stelling/config"
-	"github.com/exoscale/stelling/fxhttp"
 	"github.com/exoscale/stelling/fxmetrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx"
@@ -34,7 +33,6 @@ func Example() {
 			zap.NewNop,
 			provideMetrics,
 		),
-		fx.Supply(fx.Annotate(conf.HttpServerConfig(), fx.As(new(fxhttp.ServerConfig)))),
 		fx.Invoke(registerMetrics),
 		fx.Invoke(run),
 	)
