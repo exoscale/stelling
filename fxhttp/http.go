@@ -4,12 +4,10 @@ package fxhttp
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"time"
 
-	activation "github.com/coreos/go-systemd/activation"
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -148,31 +146,18 @@ func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
 	}
 }
 
-func NewListener(conf ServerConfig) net.Listener {
+func NewListener(conf ServerConfig) (net.Listener, error) {
 	socketName := conf.HttpServerConfig().SocketName
 
 	if socketName != "" {
-		listeners, err := activation.ListenersWithNames()
-		if err != nil {
-			log.Panicf("cannot retrieve listeners: %s", err)
-		}
-		namedListeners := listeners[socketName]
-		if len(namedListeners) != 1 {
-			log.Panicf("Named listener count for %s is %d, expected 1", socketName, len(namedListeners))
-		}
-		listener := namedListeners[0]
-		return listener
+		return namedSocketListener(socketName)
 	} else {
 		addr := conf.HttpServerConfig().Address
 
 		if addr == "" {
 			addr = fmt.Sprintf(":%d", conf.HttpServerConfig().Port)
 		}
-		listener, err := net.Listen("tcp", addr)
-		if err != nil {
-			log.Fatal("listen error:", err)
-		}
-		return listener
+		return net.Listen("tcp", addr)
 	}
 
 }
