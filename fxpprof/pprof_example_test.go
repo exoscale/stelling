@@ -9,7 +9,6 @@ import (
 	"time"
 
 	sconfig "github.com/exoscale/stelling/config"
-	"github.com/exoscale/stelling/fxhttp"
 	"github.com/exoscale/stelling/fxpprof"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
@@ -51,7 +50,6 @@ func Example_server() {
 		fx.WithLogger(func() fxevent.Logger { return fxevent.NopLogger }),
 		fx.Provide(zap.NewNop),
 		fxpprof.NewModule(conf),
-		fx.Supply(fx.Annotate(conf.PprofConfig().Server.HttpServerConfig(), fx.As(new(fxhttp.ServerConfig)))),
 		fx.Invoke(run),
 	)
 	if err := fx.ValidateApp(opts); err != nil {

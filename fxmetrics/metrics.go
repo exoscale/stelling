@@ -20,7 +20,6 @@ func NewModule(conf MetricsConfig) fx.Option {
 	return fx.Module(
 		"metrics",
 		fx.Supply(fx.Annotate(conf, fx.As(new(MetricsConfig)))),
-		fx.Supply(fx.Annotate(conf.MetricsConfig().HttpServerConfig(), fx.As(new(fxhttp.ServerConfig)))),
 		fx.Provide(
 			NewPrometheusRegistry,
 			NewGrpcServerInterceptors,

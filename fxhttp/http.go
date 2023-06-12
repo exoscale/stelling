@@ -56,7 +56,13 @@ func NewNamedModule(name string, conf ServerConfig) fx.Option {
 				fx.ResultTags(nameTag),
 			),
 		),
-		fx.Provide(NewListener),
+		fx.Provide(
+			fx.Annotate(
+				NewListener,
+				fx.ParamTags(nameTag),
+				fx.ResultTags(nameTag),
+			),
+		),
 	)
 	if conf.HttpServerConfig().TLS {
 		opts = fx.Options(
@@ -82,7 +88,7 @@ func NewNamedModule(name string, conf ServerConfig) fx.Option {
 		fx.Invoke(
 			fx.Annotate(
 				StartHttpServer,
-				fx.ParamTags(``, nameTag, ``, nameTag),
+				fx.ParamTags(``, nameTag, ``, nameTag, nameTag),
 			),
 		),
 	)
