@@ -56,6 +56,7 @@ func NewNamedModule(name string, conf ServerConfig) fx.Option {
 				fx.ResultTags(nameTag),
 			),
 		),
+		fx.Provide(NewListener),
 	)
 	if conf.HttpServerConfig().TLS {
 		opts = fx.Options(

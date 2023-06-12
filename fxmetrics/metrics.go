@@ -25,7 +25,6 @@ func NewModule(conf MetricsConfig) fx.Option {
 			NewGrpcServerInterceptors,
 			NewGrpcClientInterceptors,
 		),
-		fx.Provide(fxhttp.NewListener),
 		fx.Invoke(
 			RegisterMetricsHandlers,
 		),

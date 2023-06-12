@@ -37,7 +37,6 @@ func NewModule(conf PprofConfig) fx.Option {
 					fx.ParamTags(`name:"pprof"`),
 				),
 			),
-			fx.Provide(fxhttp.NewListener),
 			// Specify last so the server starts after we register the handlers
 			fxhttp.NewNamedModule("pprof", &conf.PprofConfig().Server),
 		)
