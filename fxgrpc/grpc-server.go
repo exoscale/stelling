@@ -15,6 +15,8 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
+type Server = fxhttp.Server
+
 func NewServerModule(conf fxhttp.ServerConfig) fx.Option {
 	opts := fx.Options(
 		fx.Supply(fx.Annotate(conf, fx.As(new(fxhttp.ServerConfig)))),

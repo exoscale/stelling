@@ -6,7 +6,6 @@ import (
 
 	sconfig "github.com/exoscale/stelling/config"
 	"github.com/exoscale/stelling/fxgrpc"
-	fxhttp "github.com/exoscale/stelling/fxhttp"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 	"go.uber.org/zap"
@@ -15,7 +14,7 @@ import (
 )
 
 type Config struct {
-	fxhttp.Server
+	fxgrpc.Server
 	fxgrpc.Client
 }
 
