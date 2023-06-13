@@ -4,6 +4,7 @@ package fxhttp
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -21,6 +22,7 @@ func NewModule(conf ServerConfig) fx.Option {
 		fx.Provide(
 			fx.Annotate(NewHTTPServer, fx.ParamTags(``, ``, `optional:"true"`)),
 		),
+		fx.Provide(NewListener),
 	)
 	if conf.HttpServerConfig().TLS {
 		opts = fx.Options(
@@ -52,6 +54,13 @@ func NewNamedModule(name string, conf ServerConfig) fx.Option {
 				fx.ResultTags(nameTag),
 			),
 		),
+		fx.Provide(
+			fx.Annotate(
+				NewListener,
+				fx.ParamTags(nameTag),
+				fx.ResultTags(nameTag),
+			),
+		),
 	)
 	if conf.HttpServerConfig().TLS {
 		opts = fx.Options(
@@ -77,7 +86,7 @@ func NewNamedModule(name string, conf ServerConfig) fx.Option {
 		fx.Invoke(
 			fx.Annotate(
 				StartHttpServer,
-				fx.ParamTags(``, nameTag, ``, nameTag),
+				fx.ParamTags(``, nameTag, ``, nameTag, nameTag),
 			),
 		),
 	)
@@ -90,7 +99,11 @@ type ServerConfig interface {
 type Server struct {
 	// Address is the address+port the gRPC server will bind to, as passed to net.Listen
 	// Takes precedence over Port
-	Address string
+	Address string `validate:"required_without=SocketName,excluded_with=SocketName"`
+	// A systemd socket name can also be supplied, but it is mutually exclusive with Address
+	// In order to simplify, only systemd-activated socket with names are allowed, even if it is
+	// just one socket
+	SocketName string `validate:"required_without=Address,excluded_with=Address"`
 	// Port is the port the http server will bind to
 	// Deprecated
 	Port int `default:"8080" validate:"port"`
@@ -133,14 +146,24 @@ func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
 	}
 }
 
+func NewListener(conf ServerConfig) (net.Listener, error) {
+	socketName := conf.HttpServerConfig().SocketName
+
+	if socketName != "" {
+		return namedSocketListener(socketName)
+	} else {
+		addr := conf.HttpServerConfig().Address
+
+		if addr == "" {
+			addr = fmt.Sprintf(":%d", conf.HttpServerConfig().Port)
+		}
+		return net.Listen("tcp", addr)
+	}
+
+}
+
 func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, r *reloader.CertReloader) (*http.Server, error) {
-	addr := conf.HttpServerConfig().Address
-	if addr == "" {
-		addr = fmt.Sprintf(":%d", conf.HttpServerConfig().Port)
-	}
-	server := &http.Server{
-		Addr: addr,
-	}
+	server := &http.Server{}
 
 	if conf.HttpServerConfig().TLS {
 		tlsConf, err := reloader.MakeServerTLS(r, conf.HttpServerConfig().ClientCAFile)
@@ -153,13 +176,13 @@ func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, r *reloader.CertReloader)
 	return server, nil
 }
 
-func StartHttpServer(lc fx.Lifecycle, server *http.Server, logger *zap.Logger, conf ServerConfig) {
+func StartHttpServer(lc fx.Lifecycle, server *http.Server, logger *zap.Logger, conf ServerConfig, lis net.Listener) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			logger.Info("Starting http server", zap.Int("port", conf.HttpServerConfig().Port))
+			logger.Info("Starting http server", zap.String("address", lis.Addr().String()))
 			if conf.HttpServerConfig().TLS {
 				go func() {
-					if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
+					if err := server.ServeTLS(lis, "", ""); err != http.ErrServerClosed {
 						logger.Fatal("Error while serving http", zap.Error(err))
 					} else {
 						logger.Info("Done serving http")
@@ -167,7 +190,7 @@ func StartHttpServer(lc fx.Lifecycle, server *http.Server, logger *zap.Logger, c
 				}()
 			} else {
 				go func() {
-					if err := server.ListenAndServe(); err != http.ErrServerClosed {
+					if err := server.Serve(lis); err != http.ErrServerClosed {
 						logger.Fatal("Error while serving http", zap.Error(err))
 					} else {
 						logger.Info("Done serving http")

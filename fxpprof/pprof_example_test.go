@@ -21,7 +21,7 @@ func Example_server() {
 	}
 
 	conf := &Config{}
-	args := []string{"pprof-server", "--pprof.enabled"}
+	args := []string{"pprof-server", "--pprof.enabled", "-pprof.server.address", "localhost:9092"}
 	if err := sconfig.Load(conf, args); err != nil {
 		fmt.Println(err)
 		return
@@ -75,7 +75,7 @@ func Example_job() {
 	conf := &Config{}
 	// By setting GenerateFiles, we instruct the module to profile the entire
 	// process runtime and output the profiles in the given directory
-	args := []string{"pprof-job", "--pprof.generate-files", tmp}
+	args := []string{"pprof-job", "--pprof.generate-files", tmp, "-pprof.server.address", "localhost:9092"}
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
 	}

@@ -21,7 +21,7 @@ type Config struct {
 
 func Example() {
 	conf := &Config{}
-	args := []string{"metrics-test"}
+	args := []string{"metrics-test", "--metrics.server.address", "localhost:9091"}
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
 	}

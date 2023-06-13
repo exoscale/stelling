@@ -20,7 +20,7 @@ type Config struct {
 
 func Example() {
 	conf := &Config{}
-	args := []string{"http-test", "--server.port", "8080"}
+	args := []string{"http-test", "--server.address", "localhost:8080"}
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
 	}

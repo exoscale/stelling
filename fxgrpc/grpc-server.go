@@ -2,29 +2,31 @@ package fxgrpc
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"time"
 
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
+	fxhttp "github.com/exoscale/stelling/fxhttp"
 	zapgrpc "github.com/exoscale/stelling/fxlogging/grpc"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 )
 
-func NewServerModule(conf ServerConfig) fx.Option {
+type Server = fxhttp.Server
+
+func NewServerModule(conf fxhttp.ServerConfig) fx.Option {
 	opts := fx.Options(
-		fx.Supply(fx.Annotate(conf, fx.As(new(ServerConfig)))),
+		fx.Supply(fx.Annotate(conf, fx.As(new(fxhttp.ServerConfig)))),
 		fx.Provide(
 			NewGrpcServer,
 			func(server *grpc.Server) grpc.ServiceRegistrar { return server },
 		),
+		fx.Provide(fxhttp.NewListener),
 	)
-	if conf.GrpcServerConfig().TLS {
+	if conf.HttpServerConfig().TLS {
 		opts = fx.Options(
 			fx.Provide(
 				fx.Annotate(
@@ -45,54 +47,13 @@ func NewServerModule(conf ServerConfig) fx.Option {
 	)
 }
 
-type ServerConfig interface {
-	GrpcServerConfig() *Server
-}
-
-type Server struct {
-	// TLS indicates whether the service exposes a TLS endpoint
-	TLS bool
-	// CertFile is the path to the pem encoded TLS certificate
-	CertFile string `validate:"required_if=TLS true,omitempty,file"`
-	// KeyFile is the path to the pem encoded private key of the TLS certificate
-	KeyFile string `validate:"required_if=TLS true,omitempty,file"`
-	// ClientCAFile is the path to a pem encoded CA cert bundle used to validate clients
-	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
-	// Port is the port the gRPC server will bind to
-	// Deprecated
-	Port int `default:"0" validate:"port"`
-	// Address is the address+port the gRPC server will bind to, as passed to net.Listen
-	// Takes precedence over Port
-	Address string
-}
-
-func (s *Server) GrpcServerConfig() *Server {
-	return s
-}
-
-func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if s == nil {
-		return nil
-	}
-
-	enc.AddInt("port", s.Port)
-	enc.AddBool("tls", s.TLS)
-	if s.TLS {
-		enc.AddString("cert-file", s.CertFile)
-		enc.AddString("key-file", s.KeyFile)
-		enc.AddString("client-ca-file", s.ClientCAFile)
-	}
-
-	return nil
-}
-
-func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
-	if !conf.GrpcServerConfig().TLS {
+func GetCertReloaderConfig(conf fxhttp.ServerConfig) *reloader.CertReloaderConfig {
+	if !conf.HttpServerConfig().TLS {
 		return nil
 	}
 	return &reloader.CertReloaderConfig{
-		CertFile:       conf.GrpcServerConfig().CertFile,
-		KeyFile:        conf.GrpcServerConfig().KeyFile,
+		CertFile:       conf.HttpServerConfig().CertFile,
+		KeyFile:        conf.HttpServerConfig().KeyFile,
 		ReloadInterval: 10 * time.Second,
 	}
 }
@@ -100,7 +61,7 @@ func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
 type GrpcServerParams struct {
 	fx.In
 
-	Conf               ServerConfig
+	Conf               fxhttp.ServerConfig
 	Logger             *zap.Logger
 	UnaryInterceptors  []*UnaryServerInterceptor  `group:"unary_server_interceptor"`
 	StreamInterceptors []*StreamServerInterceptor `group:"stream_server_interceptor"`
@@ -110,7 +71,7 @@ type GrpcServerParams struct {
 
 func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	opts := []grpc.ServerOption{}
-	serverConf := p.Conf.GrpcServerConfig()
+	serverConf := p.Conf.HttpServerConfig()
 
 	// Handle server TLS
 	if serverConf.TLS {
@@ -144,18 +105,10 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	return grpcServer, nil
 }
 
-func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, conf ServerConfig) {
+func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, conf fxhttp.ServerConfig, lis net.Listener) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			addr := conf.GrpcServerConfig().Address
-			if addr == "" {
-				addr = fmt.Sprintf(":%d", conf.GrpcServerConfig().Port)
-			}
-			lis, err := net.Listen("tcp", addr)
-			if err != nil {
-				return err
-			}
-			logger.Info("Starting gRPC server", zap.Int("port", lis.Addr().(*net.TCPAddr).Port))
+			logger.Info("Starting gRPC server", zap.String("address", lis.Addr().String()))
 			go func() {
 				if err := server.Serve(lis); err != nil && err != grpc.ErrServerStopped {
 					// If err is grpc.ErrServerStopped, it means that

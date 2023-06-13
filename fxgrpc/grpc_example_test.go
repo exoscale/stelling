@@ -28,7 +28,7 @@ func NewRouteGuideServer() pb.RouteGuideServer {
 
 func Example() {
 	conf := &Config{}
-	args := []string{"grpc-test", "--server.port", "8080", "--client.endpoint", "localhost:8080", "--client.insecure-connection"}
+	args := []string{"grpc-test", "--server.address", "localhost:8080", "--client.endpoint", "localhost:8080", "--client.insecure-connection"}
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
 	}
