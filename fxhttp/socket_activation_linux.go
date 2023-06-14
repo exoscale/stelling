@@ -73,7 +73,7 @@ func files(unsetEnv bool) []*os.File {
 }
 
 // ListenersWithNames maps a listener name to a set of net.Listener instances.
-func listenersWithNames() (map[string][]net.Listener, error) {
+func listenersWithNames() map[string][]net.Listener {
 	files := files(true)
 	listeners := map[string][]net.Listener{}
 
@@ -88,23 +88,16 @@ func listenersWithNames() (map[string][]net.Listener, error) {
 			f.Close()
 		}
 	}
-	return listeners, nil
+	return listeners
 }
 
 // caches the systemd-activated fds and their names
 // Returns the listener associated with the arg
 func NamedSocketListener(name string) (net.Listener, error) {
-	var err error
 	if namedListeners == nil {
-		namedListeners, err = listenersWithNames()
-		if err != nil {
-			return nil, fmt.Errorf("cannot retrieve listeners: %w", err)
-		}
+		namedListeners = listenersWithNames()
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve listeners: %w", err)
-	}
 	namedListeners := namedListeners[name]
 	if len(namedListeners) != 1 {
 		return nil, fmt.Errorf("named listener count for %s is %d, expected 1", name, len(namedListeners))
