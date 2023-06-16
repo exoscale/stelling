@@ -24,9 +24,7 @@ func NamedSocketListener(name string) (net.Listener, error) {
 	var err error
 
 	once.Do(func() {
-		if namedListeners == nil {
-			namedListeners, err = activation.ListenersWithNames()
-		}
+		namedListeners, err = activation.ListenersWithNames()
 	})
 	if err != nil {
 		return nil, err
