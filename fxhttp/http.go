@@ -97,13 +97,13 @@ type ServerConfig interface {
 }
 
 type Server struct {
-	// Address is the address+port the gRPC server will bind to, as passed to net.Listen
-	// Takes precedence over Port
-	Address string `validate:"required_without=SocketName,excluded_with=SocketName"`
-	// A systemd socket name can also be supplied, but it is mutually exclusive with Address
+	// A systemd socket name. Takes precedence over Address
 	// In order to simplify, only systemd-activated socket with names are allowed, even if it is
 	// just one socket
-	SocketName string `validate:"required_without=Address,excluded_with=Address"`
+	SocketName string
+	// Address is the address+port the server will bind to, as passed to net.Listen
+	// Takes precedence over Port
+	Address string `default:"localhost:8080"`
 	// Port is the port the http server will bind to
 	// Deprecated
 	Port int `default:"8080" validate:"port"`
@@ -159,7 +159,6 @@ func NewListener(conf ServerConfig) (net.Listener, error) {
 		}
 		return net.Listen("tcp", addr)
 	}
-
 }
 
 func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, r *reloader.CertReloader) (*http.Server, error) {

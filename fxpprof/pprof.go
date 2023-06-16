@@ -60,6 +60,7 @@ type Pprof struct {
 
 func (p *Pprof) ApplyDefaults() {
 	p.Server.Port = 9092
+	p.Server.Address = ":9092"
 }
 
 func (p *Pprof) PprofConfig() *Pprof {
