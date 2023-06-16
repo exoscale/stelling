@@ -11,7 +11,10 @@ import (
 )
 
 // gloval var for the named listeners so we just need to read them once
-var namedListeners map[string][]net.Listener
+var (
+	namedListeners map[string][]net.Listener
+	once           sync.Once
+)
 
 // caches the systemd-activated fds and their names
 // Returns the listener associated with the arg
@@ -19,7 +22,6 @@ func NamedSocketListener(name string) (net.Listener, error) {
 	// we cache the listeners because ListenersWithNames call unsets the FDs and
 	// I guess it also closes them due to syscall.CloseOnExec
 	var err error
-	var once sync.Once
 
 	once.Do(func() {
 		if namedListeners == nil {
