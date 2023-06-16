@@ -75,7 +75,7 @@ func Example_job() {
 	conf := &Config{}
 	// By setting GenerateFiles, we instruct the module to profile the entire
 	// process runtime and output the profiles in the given directory
-	args := []string{"pprof-job", "--pprof.generate-files", tmp, "-pprof.server.address", "localhost:9092"}
+	args := []string{"pprof-job", "--pprof.generate-files", tmp}
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
 	}
