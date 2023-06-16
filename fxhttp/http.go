@@ -150,7 +150,7 @@ func NewListener(conf ServerConfig) (net.Listener, error) {
 	socketName := conf.HttpServerConfig().SocketName
 
 	if socketName != "" {
-		return namedSocketListener(socketName)
+		return NamedSocketListener(socketName)
 	} else {
 		addr := conf.HttpServerConfig().Address
 

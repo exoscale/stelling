@@ -5,16 +5,31 @@ package fxhttp
 import (
 	"fmt"
 	"net"
+	"sync"
 
-	activation "github.com/coreos/go-systemd/activation"
+	"github.com/coreos/go-systemd/activation"
 )
 
-func namedSocketListener(name string) (net.Listener, error) {
-	listeners, err := activation.ListenersWithNames()
+// gloval var for the named listeners so we just need to read them once
+var (
+	namedListeners map[string][]net.Listener
+	once           sync.Once
+)
+
+// caches the systemd-activated fds and their names
+// Returns the listener associated with the arg
+func NamedSocketListener(name string) (net.Listener, error) {
+	// we cache the listeners because ListenersWithNames call unsets the FDs and
+	// I guess it also closes them due to syscall.CloseOnExec
+	var err error
+
+	once.Do(func() {
+		namedListeners, err = activation.ListenersWithNames()
+	})
 	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve listeners: %w", err)
+		return nil, err
 	}
-	namedListeners := listeners[name]
+	namedListeners := namedListeners[name]
 	if len(namedListeners) != 1 {
 		return nil, fmt.Errorf("named listener count for %s is %d, expected 1", name, len(namedListeners))
 	}
