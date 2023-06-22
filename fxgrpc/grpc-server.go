@@ -28,6 +28,7 @@ func NewServerModule(conf fxhttp.ServerConfig) fx.Option {
 	)
 	if conf.HttpServerConfig().TLS {
 		opts = fx.Options(
+			opts,
 			fx.Provide(
 				fx.Annotate(
 					GetCertReloaderConfig,
