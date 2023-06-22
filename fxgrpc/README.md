@@ -31,7 +31,7 @@ The server can further be customized by providing [grpc.ServerOptions](https://p
 ### Configuration
 The module provides the following configuration options:
 
-* `Port`: The port on which the grpc server will bind
+* `Address`: The address + port on which the grpc server will bind
 * `TLS`: A boolean indicating that the server must expose using TLS
 * `CertFile`: Path to the pem encoded server TLS certificate
 * `KeyFile`: Path to the pem encoded private key of the server TLS certificate

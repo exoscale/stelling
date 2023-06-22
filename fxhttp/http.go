@@ -102,11 +102,7 @@ type Server struct {
 	// just one socket
 	SocketName string
 	// Address is the address+port the server will bind to, as passed to net.Listen
-	// Takes precedence over Port
 	Address string `default:"localhost:8080"`
-	// Port is the port the http server will bind to
-	// Deprecated
-	Port int `default:"8080" validate:"port"`
 	// TLS indicates whether the http server exposes with TLS
 	TLS bool
 	// CertFile is the path to the pem encoded TLS certificate
@@ -126,7 +122,6 @@ func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
-	enc.AddInt("port", s.Port)
 	enc.AddBool("tls", s.TLS)
 
 	if s.TLS {
@@ -152,12 +147,7 @@ func NewListener(conf ServerConfig) (net.Listener, error) {
 	if socketName != "" {
 		return NamedSocketListener(socketName)
 	} else {
-		addr := conf.HttpServerConfig().Address
-
-		if addr == "" {
-			addr = fmt.Sprintf(":%d", conf.HttpServerConfig().Port)
-		}
-		return net.Listen("tcp", addr)
+		return net.Listen("tcp", conf.HttpServerConfig().Address)
 	}
 }
 
