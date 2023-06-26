@@ -15,9 +15,6 @@ import (
 )
 
 func NewModule(conf SentryConfig) fx.Option {
-	if conf.SentryConfig().Dsn == "" {
-		return fx.Options()
-	}
 	return fx.Options(
 		fx.Supply(fx.Annotate(conf, fx.As(new(SentryConfig)))),
 		fx.Provide(ProvideSentryClient),
@@ -61,10 +58,6 @@ func (s *Sentry) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 func NewSentryClient(conf SentryConfig) (*sentry.Client, error) {
 	sentryConf := conf.SentryConfig()
-
-	if sentryConf.Dsn == "" {
-		return nil, nil
-	}
 
 	hostname, err := os.Hostname()
 	if err != nil {
