@@ -51,18 +51,13 @@ func testDPanic(logger *zap.Logger) {
 }
 
 func testClient(client *sentry.Client) {
-	// Sentry does not provide a nop-client
-	// When no DSN is given in the config, the module does not create a client
-	// so we have to test for nil here
 	// This is the advanced usage: it is expected that most applications
 	// will only need the zap.DPanic integration which is fully transparent
-	if client != nil {
-		event := sentry.NewEvent()
-		event.Message = "My sentry"
-		event.Timestamp = time.Now()
-		event.Level = sentry.LevelInfo
-		client.CaptureEvent(event, nil, nil)
-	}
+	event := sentry.NewEvent()
+	event.Message = "My sentry"
+	event.Timestamp = time.Now()
+	event.Level = sentry.LevelInfo
+	client.CaptureEvent(event, nil, nil)
 }
 
 func shutdown(sd fx.Shutdowner) {
