@@ -1,6 +1,146 @@
 # Changelog
 
-## Unreleased
+## 0.20.0
+
+The Sentry SDK team is happy to announce the immediate availability of Sentry Go SDK v0.20.0.
+
+Note: this release has some **breaking changes**, which are listed below.
+
+### Breaking Changes
+
+- Remove the following methods: `Scope.SetTransaction()`, `Scope.Transaction()` ([#605](https://github.com/getsentry/sentry-go/pull/605))
+
+  Span.Name should be used instead to access the transaction's name.
+
+  For example, the following [`TracesSampler`](https://docs.sentry.io/platforms/go/configuration/sampling/#setting-a-sampling-function) function should be now written as follows:
+
+  **Before:**
+  ```go
+  TracesSampler: func(ctx sentry.SamplingContext) float64 {
+    hub := sentry.GetHubFromContext(ctx.Span.Context())
+    if hub.Scope().Transaction() == "GET /health" {
+      return 0
+    }
+    return 1
+  },
+  ```
+
+  **After:**
+  ```go
+  TracesSampler: func(ctx sentry.SamplingContext) float64 {
+    if ctx.Span.Name == "GET /health" {
+      return 0
+    }
+    return 1
+  },
+  ```
+
+### Features
+
+- Add `Span.SetContext()` method ([#599](https://github.com/getsentry/sentry-go/pull/599/))
+  - It is recommended to use it instead of `hub.Scope().SetContext` when setting or updating context on transactions.
+- Add `DebugMeta` interface to `Event` and extend `Frame` structure with more fields ([#606](https://github.com/getsentry/sentry-go/pull/606))
+  - More about DebugMeta interface [here](https://develop.sentry.dev/sdk/event-payloads/debugmeta/).
+
+### Bug Fixes
+
+- [otel] Fix missing OpenTelemetry context on some events ([#599](https://github.com/getsentry/sentry-go/pull/599), [#605](https://github.com/getsentry/sentry-go/pull/605))
+  - Fixes ([#596](https://github.com/getsentry/sentry-go/issues/596)).
+- [otel] Better handling for HTTP span attributes ([#610](https://github.com/getsentry/sentry-go/pull/610))
+
+### Misc
+
+- Bump minimum versions: `github.com/kataras/iris/v12` to 12.2.0, `github.com/labstack/echo/v4` to v4.10.0 ([#595](https://github.com/getsentry/sentry-go/pull/595))
+  - Resolves [GO-2022-1144 / CVE-2022-41717](https://deps.dev/advisory/osv/GO-2022-1144), [GO-2023-1495 / CVE-2022-41721](https://deps.dev/advisory/osv/GO-2023-1495), [GO-2022-1059 / CVE-2022-32149](https://deps.dev/advisory/osv/GO-2022-1059).
+- Bump `google.golang.org/protobuf` minimum required version to 1.29.1  ([#604](https://github.com/getsentry/sentry-go/pull/604))
+  - This fixes a potential denial of service issue ([CVE-2023-24535](https://github.com/advisories/GHSA-hw7c-3rfg-p46j)).
+- Exclude the `otel` module when building in GOPATH mode ([#615](https://github.com/getsentry/sentry-go/pull/615))
+
+## 0.19.0
+
+The Sentry SDK team is happy to announce the immediate availability of Sentry Go SDK v0.19.0.
+
+### Features
+
+- Add support for exception mechanism metadata ([#564](https://github.com/getsentry/sentry-go/pull/564/))
+  - More about exception mechanisms [here](https://develop.sentry.dev/sdk/event-payloads/exception/#exception-mechanism).
+
+### Bug Fixes
+- [otel] Use the correct "trace" context when sending a Sentry error ([#580](https://github.com/getsentry/sentry-go/pull/580/))
+
+
+### Misc
+- Drop support for Go 1.17, add support for Go 1.20 ([#563](https://github.com/getsentry/sentry-go/pull/563/))
+  - According to our policy, we're officially supporting the last three minor releases of Go.
+- Switch repository license to MIT ([#583](https://github.com/getsentry/sentry-go/pull/583/))
+  - More about Sentry licensing [here](https://open.sentry.io/licensing/).
+- Bump `golang.org/x/text` minimum required version to 0.3.8 ([#586](https://github.com/getsentry/sentry-go/pull/586))
+  - This fixes [CVE-2022-32149](https://github.com/advisories/GHSA-69ch-w2m2-3vjp) vulnerability.
+
+## 0.18.0
+
+The Sentry SDK team is happy to announce the immediate availability of Sentry Go SDK v0.18.0.
+This release contains initial support for [OpenTelemetry](https://opentelemetry.io/) and various other bug fixes and improvements.
+
+**Note**: This is the last release supporting Go 1.17.
+
+### Features
+
+- Initial support for [OpenTelemetry](https://opentelemetry.io/).
+  You can now send all your OpenTelemetry spans to Sentry.
+
+  Install the `otel` module
+
+  ```bash
+  go get github.com/getsentry/sentry-go \
+         github.com/getsentry/sentry-go/otel
+  ```
+
+  Configure the Sentry and OpenTelemetry SDKs
+
+  ```go
+  import (
+      "go.opentelemetry.io/otel"
+      sdktrace "go.opentelemetry.io/otel/sdk/trace"
+      "github.com/getsentry/sentry-go"
+      "github.com/getsentry/sentry-go/otel"
+      // ...
+  )
+
+  // Initlaize the Sentry SDK
+  sentry.Init(sentry.ClientOptions{
+      Dsn:              "__DSN__",
+      EnableTracing:    true,
+      TracesSampleRate: 1.0,
+  })
+
+  // Set up the Sentry span processor
+  tp := sdktrace.NewTracerProvider(
+      sdktrace.WithSpanProcessor(sentryotel.NewSentrySpanProcessor()),
+      // ...
+  )
+  otel.SetTracerProvider(tp)
+
+  // Set up the Sentry propagator
+  otel.SetTextMapPropagator(sentryotel.NewSentryPropagator())
+  ```
+
+  You can read more about using OpenTelemetry with Sentry in our [docs](https://docs.sentry.io/platforms/go/performance/instrumentation/opentelemetry/).
+
+### Bug Fixes
+
+- Do not freeze the Dynamic Sampling Context when no Sentry values are present in the baggage header ([#532](https://github.com/getsentry/sentry-go/pull/532))
+- Create a frozen Dynamic Sampling Context when calling `span.ToBaggage()` ([#566](https://github.com/getsentry/sentry-go/pull/566))
+- Fix baggage parsing and encoding in vendored otel package ([#568](https://github.com/getsentry/sentry-go/pull/568))
+
+### Misc
+
+- Add `Span.SetDynamicSamplingContext()` ([#539](https://github.com/getsentry/sentry-go/pull/539/))
+- Add various getters for `Dsn` ([#540](https://github.com/getsentry/sentry-go/pull/540))
+- Add `SpanOption::SpanSampled` ([#546](https://github.com/getsentry/sentry-go/pull/546))
+- Add `Span.SetData()` ([#542](https://github.com/getsentry/sentry-go/pull/542))
+- Add `Span.IsTransaction()` ([#543](https://github.com/getsentry/sentry-go/pull/543))
+- Add `Span.GetTransaction()` method ([#558](https://github.com/getsentry/sentry-go/pull/558))
 
 ## 0.17.0
 

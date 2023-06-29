@@ -204,6 +204,22 @@ func NewRequest(r *http.Request) *Request {
 	}
 }
 
+// Mechanism is the mechanism by which an exception was generated and handled.
+type Mechanism struct {
+	Type        string                 `json:"type,omitempty"`
+	Description string                 `json:"description,omitempty"`
+	HelpLink    string                 `json:"help_link,omitempty"`
+	Handled     *bool                  `json:"handled,omitempty"`
+	Data        map[string]interface{} `json:"data,omitempty"`
+}
+
+// SetUnhandled indicates that the exception is an unhandled exception, i.e.
+// from a panic.
+func (m *Mechanism) SetUnhandled() {
+	h := false
+	m.Handled = &h
+}
+
 // Exception specifies an error that occurred.
 type Exception struct {
 	Type       string      `json:"type,omitempty"`  // used as the main issue title
@@ -211,6 +227,7 @@ type Exception struct {
 	Module     string      `json:"module,omitempty"`
 	ThreadID   string      `json:"thread_id,omitempty"`
 	Stacktrace *Stacktrace `json:"stacktrace,omitempty"`
+	Mechanism  *Mechanism  `json:"mechanism,omitempty"`
 }
 
 // SDKMetaData is a struct to stash data which is needed at some point in the SDK's event processing pipeline
@@ -222,6 +239,34 @@ type SDKMetaData struct {
 // Contains information about how the name of the transaction was determined.
 type TransactionInfo struct {
 	Source TransactionSource `json:"source,omitempty"`
+}
+
+// The DebugMeta interface is not used in Golang apps, but may be populated
+// when proxying Events from other platforms, like iOS, Android, and the
+// Web.  (See: https://develop.sentry.dev/sdk/event-payloads/debugmeta/ ).
+type DebugMeta struct {
+	SdkInfo *DebugMetaSdkInfo `json:"sdk_info,omitempty"`
+	Images  []DebugMetaImage  `json:"images,omitempty"`
+}
+
+type DebugMetaSdkInfo struct {
+	SdkName           string `json:"sdk_name,omitempty"`
+	VersionMajor      int    `json:"version_major,omitempty"`
+	VersionMinor      int    `json:"version_minor,omitempty"`
+	VersionPatchlevel int    `json:"version_patchlevel,omitempty"`
+}
+
+type DebugMetaImage struct {
+	Type        string `json:"type,omitempty"`         // all
+	ImageAddr   string `json:"image_addr,omitempty"`   // macho,elf,pe
+	ImageSize   int    `json:"image_size,omitempty"`   // macho,elf,pe
+	DebugID     string `json:"debug_id,omitempty"`     // macho,elf,pe,wasm,sourcemap
+	DebugFile   string `json:"debug_file,omitempty"`   // macho,elf,pe,wasm
+	CodeID      string `json:"code_id,omitempty"`      // macho,elf,pe,wasm
+	CodeFile    string `json:"code_file,omitempty"`    // macho,elf,pe,wasm,sourcemap
+	ImageVmaddr string `json:"image_vmaddr,omitempty"` // macho,elf,pe
+	Arch        string `json:"arch,omitempty"`         // macho,elf,pe
+	UUID        string `json:"uuid,omitempty"`         // proguard
 }
 
 // EventID is a hexadecimal string representing a unique uuid4 for an Event.
@@ -254,6 +299,7 @@ type Event struct {
 	Modules     map[string]string      `json:"modules,omitempty"`
 	Request     *Request               `json:"request,omitempty"`
 	Exception   []Exception            `json:"exception,omitempty"`
+	DebugMeta   *DebugMeta             `json:"debug_meta,omitempty"`
 
 	// The fields below are only relevant for transactions.
 
