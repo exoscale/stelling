@@ -198,9 +198,6 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 	if conf.InsecureConnection {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
-		// We're assuming this is called for a short-lived grpc client
-		// The reloader eagerly loads the cert, which is all we want
-		// We can ignore it for the remainer
 		creds, r, err := MakeClientTLS(conf, logger)
 		if err != nil {
 			return nil, nil, err
@@ -252,6 +249,8 @@ func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []*UnaryClientInter
 		streamIx = append(streamIx, ix.Interceptor)
 	}
 
+	// We assume NewGrpcClient is used for a short lived client
+	// The reloader eagerly loads the cert, so we can ignore it for the remainder
 	opts, _, err := getDialOpts(clientConf, logger, unaryIx, streamIx)
 	if err != nil {
 		return nil, err
