@@ -2,14 +2,14 @@ package migration
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"sync"
 	"testing"
 	"testing/fstest"
 
 	"github.com/stretchr/testify/require"
-	"zombiezen.com/go/sqlite"
-	"zombiezen.com/go/sqlite/sqlitex"
+	_ "modernc.org/sqlite"
 )
 
 func TestNewMigrations(t *testing.T) {
@@ -109,56 +109,31 @@ func TestNewMigrationsFromFS(t *testing.T) {
 	})
 }
 
-func TestParseMigration(t *testing.T) {
-	cases := []struct {
-		input  string
-		output *migration
-		ok     bool
-	}{
-		{input: "", output: nil, ok: false},
-		{input: "random", output: nil, ok: false},
-		{input: "migration.sql", output: nil, ok: false},
-		{input: "00_migration.up.sql", output: nil, ok: false},
-		{input: "01_migration.up.SQL", output: nil, ok: false},
-		{input: "01_migration.UP.sql", output: nil, ok: false},
-		{input: "01.migration.up.sql", output: nil, ok: false},
-		{input: "0001.migration.up.sql", output: nil, ok: false},
-		{input: "migration.up.sql", output: nil, ok: false},
-		{input: "0001_migration.up.sql", output: &migration{pos: 1, up: true, name: "0001_migration.up.sql"}, ok: true},
-		{input: "0121_migration.up.sql", output: &migration{pos: 121, up: true, name: "0121_migration.up.sql"}, ok: true},
-		{input: "01_migration.up.sql", output: &migration{pos: 1, up: true, name: "01_migration.up.sql"}, ok: true},
-		{input: "01_migration.down.sql", output: &migration{pos: 1, up: false, name: "01_migration.down.sql"}, ok: true},
-		{input: "42_migration.up.sql", output: &migration{pos: 42, up: true, name: "42_migration.up.sql"}, ok: true},
-		{input: "01_migration_with_multi.ple-specIAL|characters.up.sql", output: &migration{pos: 1, up: true, name: "01_migration_with_multi.ple-specIAL|characters.up.sql"}, ok: true},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.input, func(t *testing.T) {
-			m, ok := parseMigration(tc.input)
-			require.Equal(t, tc.output, m)
-			require.Equal(t, tc.ok, ok)
-		})
-	}
-}
-
-func testDb(t *testing.T) *sqlite.Conn {
+func testDb(t *testing.T) *sql.DB {
 	t.Helper()
-	conn, err := sqlite.OpenConn(":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = conn.Close() })
-	return conn
+	t.Cleanup(func() { _ = db.Close() })
+	return db
 }
 
-func dbSchema(t *testing.T, conn *sqlite.Conn) []string {
+func dbSchema(t *testing.T, db sqlExecutor) []string {
 	t.Helper()
 
 	statements := []string{}
-	require.NoError(t, sqlitex.ExecuteTransient(conn, "SELECT sql FROM sqlite_schema;", &sqlitex.ExecOptions{
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			statements = append(statements, stmt.ColumnText(0))
-			return nil
-		},
-	}))
+	rows, err := db.QueryContext(
+		context.Background(),
+		"SELECT sql FROM sqlite_schema",
+	)
+	require.NoError(t, err)
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var stmt string
+		require.NoError(t, rows.Scan(&stmt))
+		statements = append(statements, stmt)
+	}
+	require.NoError(t, rows.Err())
 
 	return statements
 }
@@ -169,11 +144,12 @@ func TestEnsureVersionSchema(t *testing.T) {
 			"CREATE TABLE schema_migrations (version uint64, dirty bool)",
 			"CREATE UNIQUE INDEX version_unique ON schema_migrations (version)",
 		}
-		conn := testDb(t)
+		db := testDb(t)
+		ctx := context.Background()
 
-		require.NoError(t, ensureVersionSchema(conn))
+		require.NoError(t, ensureVersionSchema(ctx, db))
 
-		statements := dbSchema(t, conn)
+		statements := dbSchema(t, db)
 
 		require.Equal(t, expected, statements)
 	})
@@ -183,12 +159,13 @@ func TestEnsureVersionSchema(t *testing.T) {
 			"CREATE TABLE schema_migrations (version uint64, dirty bool)",
 			"CREATE UNIQUE INDEX version_unique ON schema_migrations (version)",
 		}
-		conn := testDb(t)
+		db := testDb(t)
+		ctx := context.Background()
 
-		require.NoError(t, ensureVersionSchema(conn))
-		require.NoError(t, ensureVersionSchema(conn))
+		require.NoError(t, ensureVersionSchema(ctx, db))
+		require.NoError(t, ensureVersionSchema(ctx, db))
 
-		statements := dbSchema(t, conn)
+		statements := dbSchema(t, db)
 
 		require.Equal(t, expected, statements)
 	})
@@ -196,33 +173,37 @@ func TestEnsureVersionSchema(t *testing.T) {
 
 func TestDbVersion(t *testing.T) {
 	t.Run("Should return an error if the version table has not been provisioned", func(t *testing.T) {
-		conn := testDb(t)
+		db := testDb(t)
 
-		_, err := dbVersion(conn)
+		_, err := dbVersion(context.Background(), db)
 		require.Error(t, err)
 	})
 
 	t.Run("Should return 0 if no version is set yet", func(t *testing.T) {
-		conn := testDb(t)
-		require.NoError(t, ensureVersionSchema(conn))
+		db := testDb(t)
+		ctx := context.Background()
+		require.NoError(t, ensureVersionSchema(ctx, db))
 
-		version, err := dbVersion(conn)
+		version, err := dbVersion(ctx, db)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), version)
 	})
 
 	t.Run("Should return the current version", func(t *testing.T) {
-		conn := testDb(t)
-		require.NoError(t, ensureVersionSchema(conn))
+		db := testDb(t)
+		ctx := context.Background()
+		require.NoError(t, ensureVersionSchema(ctx, db))
 		expected := uint64(42)
 
-		require.NoError(t, sqlitex.ExecuteTransient(
-			conn,
-			"INSERT INTO schema_migrations (version, dirty) VALUES (?, ?);",
-			&sqlitex.ExecOptions{Args: []any{expected, false}},
-		))
+		_, err := db.ExecContext(
+			ctx,
+			"INSERT INTO schema_migrations (version, dirty) VALUES (?, ?)",
+			expected,
+			false,
+		)
+		require.NoError(t, err)
 
-		version, err := dbVersion(conn)
+		version, err := dbVersion(ctx, db)
 		require.NoError(t, err)
 		require.Equal(t, expected, version)
 	})
@@ -230,18 +211,19 @@ func TestDbVersion(t *testing.T) {
 
 func TestSetDbVersion(t *testing.T) {
 	t.Run("Should return an error if the version table has not been provisioned", func(t *testing.T) {
-		conn := testDb(t)
+		db := testDb(t)
 
-		require.Error(t, setDbVersion(conn, 12))
+		require.Error(t, setDbVersion(context.Background(), db, 12))
 	})
 
 	t.Run("Should set a value that will be returned by dbVersion", func(t *testing.T) {
-		conn := testDb(t)
-		require.NoError(t, ensureVersionSchema(conn))
+		db := testDb(t)
+		ctx := context.Background()
+		require.NoError(t, ensureVersionSchema(ctx, db))
 		expected := uint64(74)
 
-		require.NoError(t, setDbVersion(conn, expected))
-		version, err := dbVersion(conn)
+		require.NoError(t, setDbVersion(ctx, db, expected))
+		version, err := dbVersion(ctx, db)
 		require.NoError(t, err)
 		require.Equal(t, expected, version)
 	})
@@ -261,11 +243,11 @@ func TestMigrationsMigrate(t *testing.T) {
 			"CREATE UNIQUE INDEX version_unique ON schema_migrations (version)",
 			"CREATE TABLE test (name text, value int)",
 		}
-		conn := testDb(t)
+		db := testDb(t)
 
-		require.NoError(t, migrations.Migrate(context.Background(), conn, 1))
+		require.NoError(t, migrations.Migrate(context.Background(), db, 1))
 
-		statements := dbSchema(t, conn)
+		statements := dbSchema(t, db)
 
 		require.Equal(t, expected, statements)
 	})
@@ -291,12 +273,13 @@ func TestMigrationsMigrate(t *testing.T) {
 			"CREATE TABLE test2 (name text, value int)",
 		}
 		targetVersion := uint64(2)
-		conn := testDb(t)
+		db := testDb(t)
+		ctx := context.Background()
 
-		require.NoError(t, migrations.Migrate(context.Background(), conn, targetVersion))
+		require.NoError(t, migrations.Migrate(ctx, db, targetVersion))
 
-		statements := dbSchema(t, conn)
-		version, err := dbVersion(conn)
+		statements := dbSchema(t, db)
+		version, err := dbVersion(ctx, db)
 		require.NoError(t, err)
 
 		require.Equal(t, expected, statements)
@@ -331,21 +314,22 @@ func TestMigrationsMigrate(t *testing.T) {
 			"CREATE TABLE test5 (name text, value int)",
 		}
 		firstVersion := uint64(2)
-		conn := testDb(t)
+		db := testDb(t)
+		ctx := context.Background()
 
-		require.NoError(t, migrations.Migrate(context.Background(), conn, firstVersion))
+		require.NoError(t, migrations.Migrate(ctx, db, firstVersion))
 
-		v1, err := dbVersion(conn)
+		v1, err := dbVersion(ctx, db)
 		require.NoError(t, err)
 		require.Equal(t, firstVersion, v1)
 
 		// The idea is that this will error out if it will try to recreate the tables that
 		// already exist
 		targetVersion := uint64(5)
-		require.NoError(t, migrations.Migrate(context.Background(), conn, targetVersion))
-		v2, err := dbVersion(conn)
+		require.NoError(t, migrations.Migrate(context.Background(), db, targetVersion))
+		v2, err := dbVersion(ctx, db)
 		require.NoError(t, err)
-		statements := dbSchema(t, conn)
+		statements := dbSchema(t, db)
 
 		require.Equal(t, targetVersion, v2)
 		require.Equal(t, expected, statements)
@@ -375,19 +359,20 @@ func TestMigrationsMigrate(t *testing.T) {
 		}
 		targetVersion := uint64(2)
 		highestVersion := uint64(4)
-		conn := testDb(t)
+		db := testDb(t)
+		ctx := context.Background()
 
 		// Let's migrate up to the highest version first
-		require.NoError(t, migrations.Migrate(context.Background(), conn, highestVersion))
-		v3, err := dbVersion(conn)
+		require.NoError(t, migrations.Migrate(ctx, db, highestVersion))
+		v3, err := dbVersion(ctx, db)
 		require.NoError(t, err)
 		require.Equal(t, highestVersion, v3)
 
 		// Now migrate down
-		require.NoError(t, migrations.Migrate(context.Background(), conn, targetVersion))
+		require.NoError(t, migrations.Migrate(ctx, db, targetVersion))
 
-		statements := dbSchema(t, conn)
-		version, err := dbVersion(conn)
+		statements := dbSchema(t, db)
+		version, err := dbVersion(ctx, db)
 		require.NoError(t, err)
 
 		require.Equal(t, expected, statements)
@@ -416,20 +401,21 @@ func TestMigrationsMigrate(t *testing.T) {
 			"CREATE TABLE test3 (name text, value int)",
 		}
 		targetVersion := uint64(3)
-		conn := testDb(t)
+		db := testDb(t)
+		ctx := context.Background()
 
 		// Let's migrate up to the highest version first
-		require.NoError(t, migrations.Migrate(context.Background(), conn, targetVersion))
-		v3, err := dbVersion(conn)
+		require.NoError(t, migrations.Migrate(ctx, db, targetVersion))
+		v3, err := dbVersion(ctx, db)
 		require.NoError(t, err)
 		require.Equal(t, targetVersion, v3)
 
 		// Migrate to the highest version again
-		require.NoError(t, migrations.Migrate(context.Background(), conn, targetVersion))
+		require.NoError(t, migrations.Migrate(ctx, db, targetVersion))
 
-		statements := dbSchema(t, conn)
-		version, err := dbVersion(conn)
-		require.NoError(t, err)
+		statements := dbSchema(t, db)
+		version, err := dbVersion(ctx, db)
+		require.NoError(t, err, statements)
 
 		require.Equal(t, expected, statements)
 		require.Equal(t, targetVersion, version)
@@ -441,9 +427,9 @@ func TestMigrationsMigrate(t *testing.T) {
 		migrations, err := NewMigrations(up, down)
 		require.NoError(t, err)
 
-		conn := testDb(t)
+		db := testDb(t)
 
-		require.EqualError(t, migrations.Migrate(context.Background(), conn, 2), "Target version 2 is higher than max migration version 1")
+		require.EqualError(t, migrations.Migrate(context.Background(), db, 2), "migrate failed: target version 2 is higher than max migration version 1")
 	})
 
 	t.Run("Should error out if db version is higher than max migration version", func(t *testing.T) {
@@ -452,11 +438,12 @@ func TestMigrationsMigrate(t *testing.T) {
 		migrations, err := NewMigrations(up, down)
 		require.NoError(t, err)
 
-		conn := testDb(t)
-		require.NoError(t, ensureVersionSchema(conn))
-		require.NoError(t, setDbVersion(conn, 12))
+		db := testDb(t)
+		ctx := context.Background()
+		require.NoError(t, ensureVersionSchema(ctx, db))
+		require.NoError(t, setDbVersion(ctx, db, 12))
 
-		require.EqualError(t, migrations.Migrate(context.Background(), conn, 2), "Database version 12 is higher than max migration version 2")
+		require.EqualError(t, migrations.Migrate(ctx, db, 2), "migrate failed: database version 12 is higher than max migration version 2")
 
 	})
 
@@ -483,21 +470,22 @@ func TestMigrationsMigrate(t *testing.T) {
 			"CREATE TABLE test2 (name text, value int)",
 			// We expect the creation of table3 to be rolled back
 		}
-		conn := testDb(t)
+		db := testDb(t)
+		ctx := context.Background()
 
 		// Let's migrate up to v2 first
 		firstVersion := uint64(2)
-		require.NoError(t, migrations.Migrate(context.Background(), conn, firstVersion))
-		v1, err := dbVersion(conn)
+		require.NoError(t, migrations.Migrate(ctx, db, firstVersion))
+		v1, err := dbVersion(ctx, db)
 		require.NoError(t, err)
 		require.Equal(t, firstVersion, v1)
 
 		// Migrate to the highest version
 		targetVersion := uint64(4)
-		require.Error(t, migrations.Migrate(context.Background(), conn, targetVersion))
+		require.Error(t, migrations.Migrate(ctx, db, targetVersion))
 
-		statements := dbSchema(t, conn)
-		version, err := dbVersion(conn)
+		statements := dbSchema(t, db)
+		version, err := dbVersion(ctx, db)
 		require.NoError(t, err)
 
 		require.Equal(t, expected, statements)
@@ -543,30 +531,30 @@ func TestMigrationsMigrate(t *testing.T) {
 
 		startChan := make(chan any)
 		wg := &sync.WaitGroup{}
-		work := func(conn *sqlite.Conn) {
+		work := func(db *sql.DB) {
 			defer wg.Done()
-			defer func() { _ = conn.Close() }()
+			defer func() { _ = db.Close() }()
 
 			// Wait for the test to shoot the gun
 			<-startChan
-			require.NoError(t, migrations.Migrate(context.Background(), conn, targetVersion))
+			require.NoError(t, migrations.Migrate(context.Background(), db, targetVersion), "iteration %d")
 		}
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 10; i++ {
 			wg.Add(1)
-			conn, err := sqlite.OpenConn(filepath.Join(dbDir, dbName))
+			db, err := sql.Open("sqlite", filepath.Join(dbDir, dbName)+"?_pragma=busy_timeout(5000)")
 			require.NoError(t, err)
-			go work(conn)
+			go work(db)
 		}
 		close(startChan)
 		wg.Wait()
 
 		// Assert schema
-		conn, err := sqlite.OpenConn(filepath.Join(dbDir, dbName))
+		db, err := sql.Open("sqlite", filepath.Join(dbDir, dbName))
 		require.NoError(t, err)
-		t.Cleanup(func() { _ = conn.Close() })
+		t.Cleanup(func() { _ = db.Close() })
 
-		statements := dbSchema(t, conn)
-		version, err := dbVersion(conn)
+		statements := dbSchema(t, db)
+		version, err := dbVersion(context.Background(), db)
 		require.NoError(t, err)
 
 		require.Equal(t, targetVersion, version)
@@ -595,12 +583,13 @@ func TestMigrationsUp(t *testing.T) {
 		"CREATE TABLE test2 (name text, value int)",
 		"CREATE TABLE test3 (name text, value int)",
 	}
-	conn := testDb(t)
+	db := testDb(t)
+	ctx := context.Background()
 
-	require.NoError(t, migrations.Up(context.Background(), conn))
+	require.NoError(t, migrations.Up(ctx, db))
 
-	statements := dbSchema(t, conn)
-	version, err := dbVersion(conn)
+	statements := dbSchema(t, db)
+	version, err := dbVersion(ctx, db)
 	require.NoError(t, err)
 
 	require.Equal(t, expected, statements)
@@ -625,17 +614,18 @@ func TestMigrationsDown(t *testing.T) {
 		"CREATE TABLE schema_migrations (version uint64, dirty bool)",
 		"CREATE UNIQUE INDEX version_unique ON schema_migrations (version)",
 	}
-	conn := testDb(t)
+	db := testDb(t)
+	ctx := context.Background()
 
-	require.NoError(t, migrations.Up(context.Background(), conn))
-	v1, err := dbVersion(conn)
+	require.NoError(t, migrations.Up(ctx, db))
+	v1, err := dbVersion(ctx, db)
 	require.NoError(t, err)
 	require.Equal(t, uint64(3), v1)
 
-	require.NoError(t, migrations.Down(context.Background(), conn))
+	require.NoError(t, migrations.Down(ctx, db))
 
-	statements := dbSchema(t, conn)
-	version, err := dbVersion(conn)
+	statements := dbSchema(t, db)
+	version, err := dbVersion(ctx, db)
 	require.NoError(t, err)
 
 	require.Equal(t, expected, statements)
