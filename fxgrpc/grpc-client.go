@@ -111,6 +111,8 @@ type Client struct {
 	RootCAFile string `validate:"omitempty,file"`
 	// Endpoint is IP or hostname or scheme for the target gRPC server
 	Endpoint string `validate:"required"`
+	// EnableRecvBufferPool enables the use of grpc buffer pooling in the recv loop
+	EnableRecvBufferPool bool
 }
 
 func (c *Client) GrpcClientConfig() *Client {
@@ -226,8 +228,11 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 		opts,
 		grpc.WithChainUnaryInterceptor(unary...),
 		grpc.WithChainStreamInterceptor(stream...),
-		grpc.WithRecvBufferPool(grpc.NewSharedBufferPool()),
 	)
+
+	if conf.EnableRecvBufferPool {
+		opts = append(opts, grpc.WithRecvBufferPool(grpc.NewSharedBufferPool()))
+	}
 
 	// TODO: move this side effect out into the calling functions?
 	grpclog.SetLoggerV2(zapgrpc.NewLogger(logger))
