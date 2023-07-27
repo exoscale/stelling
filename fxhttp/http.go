@@ -122,6 +122,8 @@ func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
+	enc.AddString("socket-name", s.SocketName)
+	enc.AddString("address", s.Address)
 	enc.AddBool("tls", s.TLS)
 
 	if s.TLS {
