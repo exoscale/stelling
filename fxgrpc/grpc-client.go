@@ -226,6 +226,7 @@ func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientIntercep
 		opts,
 		grpc.WithChainUnaryInterceptor(unary...),
 		grpc.WithChainStreamInterceptor(stream...),
+		grpc.WithRecvBufferPool(grpc.NewSharedBufferPool()),
 	)
 
 	// TODO: move this side effect out into the calling functions?
