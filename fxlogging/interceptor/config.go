@@ -96,7 +96,7 @@ func DefaultServerCodeToLevel(info *otelgrpc.InterceptorInfo, code codes.Code) z
 	case codes.NotFound:
 		return zap.InfoLevel
 	case codes.AlreadyExists:
-		return zap.DebugLevel
+		return zap.WarnLevel
 	case codes.PermissionDenied:
 		return zap.WarnLevel
 	case codes.Unauthenticated:
