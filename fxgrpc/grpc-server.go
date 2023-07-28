@@ -10,6 +10,7 @@ import (
 	zapgrpc "github.com/exoscale/stelling/fxlogging/grpc"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
@@ -42,6 +43,26 @@ type Server struct {
 
 	// EnableRecvBufferPool enables the use of grpc buffer pooling in the recv loop
 	EnableRecvBufferPool bool
+}
+
+func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if s == nil {
+		return nil
+	}
+
+	enc.AddString("socket-name", s.SocketName)
+	enc.AddString("address", s.Address)
+	enc.AddBool("tls", s.TLS)
+
+	if s.TLS {
+		enc.AddString("cert-file", s.CertFile)
+		enc.AddString("key-file", s.KeyFile)
+		enc.AddString("client-ca-file", s.ClientCAFile)
+	}
+
+	enc.AddBool("enable-recv-buffer-pool", s.EnableRecvBufferPool)
+
+	return nil
 }
 
 func (s *Server) GrpcServerConfig() *Server {
