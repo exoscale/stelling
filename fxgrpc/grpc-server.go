@@ -83,12 +83,23 @@ func (s *Server) AsHttpConfig() *fxhttp.Server {
 func NewServerModule(conf Config) fx.Option {
 	opts := fx.Options(
 		fx.Supply(fx.Annotate(conf, fx.As(new(Config)))),
-		fx.Supply(fx.Annotate(conf.AsHttpConfig(), fx.As(new(fxhttp.ServerConfig)))),
+		fx.Supply(
+			fx.Annotate(
+				conf.AsHttpConfig(),
+				fx.As(new(fxhttp.ServerConfig)),
+				fx.ResultTags(`name:"grpc_server"`),
+			),
+		),
 		fx.Provide(
 			NewGrpcServer,
 			func(server *grpc.Server) grpc.ServiceRegistrar { return server },
 		),
-		fx.Provide(fxhttp.NewListener),
+		fx.Provide(
+			fx.Annotate(
+				fxhttp.NewListener,
+				fx.ParamTags(`name:"grpc_server"`),
+			),
+		),
 	)
 	if conf.GrpcServerConfig().TLS {
 		opts = fx.Options(
