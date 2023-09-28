@@ -48,7 +48,7 @@ func Example() {
 		fx.Invoke(
 			pb.RegisterRouteGuideServer,
 			// We explicitly need to invoke this, because ordering matters
-			fxgrpc.StartGrpcServer,
+			fx.Annotate(fxgrpc.StartGrpcServer, fx.ParamTags("", "", "", "", `name:"grpc_server"`)),
 			run,
 		),
 	)
