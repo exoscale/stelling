@@ -98,6 +98,7 @@ func NewServerModule(conf Config) fx.Option {
 			fx.Annotate(
 				fxhttp.NewListener,
 				fx.ParamTags(`name:"grpc_server"`),
+				fx.ResultTags(`name:"grpc_server"`),
 			),
 		),
 	)
