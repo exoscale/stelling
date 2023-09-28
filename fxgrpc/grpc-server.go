@@ -194,7 +194,6 @@ type GrpcServerStartParams struct {
 	Lis    net.Listener `name:"grpc_server"`
 }
 
-// func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, conf Config, lis net.Listener) {
 func StartGrpcServer(p GrpcServerStartParams) {
 	lc := p.Lc
 	logger := p.Logger
