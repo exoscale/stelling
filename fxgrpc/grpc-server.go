@@ -188,11 +188,9 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 
 type GrpcServerStartParams struct {
 	fx.In
-
 	Lc     fx.Lifecycle
 	Logger *zap.Logger
 	Server *grpc.Server
-	Conf   Config
 	Lis    net.Listener `name:"grpc_server"`
 }
 
@@ -201,7 +199,6 @@ func StartGrpcServer(p GrpcServerStartParams) {
 	lc := p.Lc
 	logger := p.Logger
 	server := p.Server
-	// conf := p.conf
 	lis := p.Lis
 
 	lc.Append(fx.Hook{
