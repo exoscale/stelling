@@ -186,7 +186,24 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	return grpcServer, nil
 }
 
-func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, conf Config, lis net.Listener) {
+type GrpcServerStartParams struct {
+	fx.In
+
+	Lc     fx.Lifecycle
+	Logger *zap.Logger
+	Server *grpc.Server
+	Conf   Config
+	Lis    net.Listener `name:"grpc_server"`
+}
+
+// func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, conf Config, lis net.Listener) {
+func StartGrpcServer(p GrpcServerStartParams) {
+	lc := p.Lc
+	logger := p.Logger
+	server := p.Server
+	// conf := p.conf
+	lis := p.Lis
+
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			logger.Info("Starting gRPC server", zap.String("address", lis.Addr().String()))
