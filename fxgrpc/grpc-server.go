@@ -98,6 +98,7 @@ func NewServerModule(conf Config) fx.Option {
 			fx.Annotate(
 				fxhttp.NewListener,
 				fx.ParamTags(`name:"grpc_server"`),
+				fx.ResultTags(`name:"grpc_server"`),
 			),
 		),
 	)
@@ -185,7 +186,20 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	return grpcServer, nil
 }
 
-func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, server *grpc.Server, conf Config, lis net.Listener) {
+type GrpcServerStartParams struct {
+	fx.In
+	Lc     fx.Lifecycle
+	Logger *zap.Logger
+	Server *grpc.Server
+	Lis    net.Listener `name:"grpc_server"`
+}
+
+func StartGrpcServer(p GrpcServerStartParams) {
+	lc := p.Lc
+	logger := p.Logger
+	server := p.Server
+	lis := p.Lis
+
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			logger.Info("Starting gRPC server", zap.String("address", lis.Addr().String()))
