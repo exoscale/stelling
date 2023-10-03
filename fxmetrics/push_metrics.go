@@ -18,6 +18,8 @@ import (
 )
 
 func NewPushModule(conf PushMetricsConfig) fx.Option {
+	nameTag := `name:"metrics_pusher"`
+
 	opts := fx.Options(
 		fx.Supply(fx.Annotate(conf, fx.As(new(PushMetricsConfig)))),
 		fx.Provide(
@@ -42,7 +44,15 @@ func NewPushModule(conf PushMetricsConfig) fx.Option {
 			opts = fx.Options(
 				opts,
 				fx.Provide(
-					fx.Annotate(GetCertReloaderConfig, fx.ResultTags(`name:"metrics_pusher"`)),
+					fx.Annotate(
+						GetCertReloaderConfig,
+						fx.ResultTags(nameTag),
+					),
+					fx.Annotate(
+						reloader.ProvideCertReloader,
+						fx.ParamTags(``, nameTag, ``),
+						fx.ResultTags(nameTag),
+					),
 				),
 			)
 		}
@@ -143,7 +153,7 @@ func httpClient(conf *PushMetrics, reloader *reloader.CertReloader) (*http.Clien
 			return nil, err
 		}
 		if ok := certPool.AppendCertsFromPEM(ca); !ok {
-			return nil, fmt.Errorf("Failed to parse RootCAFile: %s", conf.RootCAFile)
+			return nil, fmt.Errorf("failed to parse RootCAFile: %s", conf.RootCAFile)
 		}
 		tlsConf.RootCAs = certPool
 	}
