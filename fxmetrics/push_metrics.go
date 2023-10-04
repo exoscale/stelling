@@ -90,6 +90,8 @@ type PushMetrics struct {
 	// PushInterval is the frequency with which metrics are pushed
 	// If the PushInterval is set to 0, metrics will only be pushed when the system stops
 	PushInterval time.Duration `default:"15s"`
+	// ExtraLabels will add each key as a label with the corresponding value in all produced metrics
+	ExtraLabels map[string]string
 }
 
 func (m *PushMetrics) PushMetricsConfig() *PushMetrics {
@@ -172,6 +174,10 @@ func ProvideMetricsPusher(lc fx.Lifecycle, conf PushMetricsConfig, reloader *rel
 
 	if pConf.GroupingLabelKey != "" {
 		pusher = pusher.Grouping(pConf.GroupingLabelKey, pConf.GroupingLabelValue)
+	}
+
+	for name, value := range pConf.ExtraLabels {
+		pusher = pusher.Grouping(name, value)
 	}
 
 	if pConf.PushInterval == 0 {
