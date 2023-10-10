@@ -184,7 +184,7 @@ func ProvideMetricsPusher(lc fx.Lifecycle, conf PushMetricsConfig, reloader *rel
 		lc.Append(fx.Hook{
 			OnStop: func(ctx context.Context) error {
 				logger.Debug("Pushing final metrics")
-				return pusher.Add()
+				return pusher.Push()
 			},
 		})
 	} else {
