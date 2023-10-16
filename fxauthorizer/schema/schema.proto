@@ -1,0 +1,100 @@
+syntax = "proto3";
+
+package exoscale.rpc.authorizer.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/exoscale/stelling/fxauthorizer/schema";
+
+message TLS {
+  uint64 version = 1;
+  uint64 serial_number = 2;
+  TLSName issuer = 3;
+  TLSName subject = 4;
+  google.protobuf.Timestamp not_before = 5;
+  google.protobuf.Timestamp not_after = 6;
+  bool is_ca = 7;
+  // SAN values
+  repeated string dns_names = 8;
+  repeated string email_addresses = 9;
+  repeated string ip_addresses = 10;
+  repeated string uris = 11;
+}
+
+message TLSName {
+  repeated string country = 1;
+  repeated string organization = 2;
+  repeated string organizational_unit = 3;
+  repeated string locality = 4;
+  repeated string province = 5;
+  repeated string street_address = 6;
+  repeated string postal_code = 7;
+  string serial_number = 8;
+  string common_name = 9;
+}
+
+message JWT {
+  string subject = 1;
+  string email = 2;
+  bool email_verified = 3;
+  repeated string groups = 4;
+  string issuer = 5;
+  repeated string audience = 6;
+  google.protobuf.Timestamp issued_at = 7;
+  google.protobuf.Timestamp expiry = 8;
+}
+
+message HeaderValues {
+  repeated string value = 1;
+}
+
+message GrpcRequest {
+  // The GRPC service name: eg grpc.health.v1.Health
+  string service = 1;
+  // The method name, eg Check
+  string method = 2;
+  // The GRPC request metadata. Key values have been made canonical
+  // by golangs net/http.CanonicalHeaderKey
+  map<string, HeaderValues> headers = 3;
+  // The TLS information. May be absent for non TLS protected requests.
+  TLS tls = 4;
+  // The jwt passed into the request. May be absent.
+  JWT jwt = 5;
+}
+
+message HttpRequest {
+  // The HTTP request method, such as `GET`, `POST`
+  string method = 1;
+
+  // The HTTP request headers. Header names are made canonical
+  // by golangs net/http.CanonicalHeaderKey
+  map<string, string> headers = 2;
+
+  // The HTTP URL path
+  string path = 3;
+
+  // The HTTP request `Host`
+  string host = 4;
+
+  // The HTTP URL scheme, such as `http` or `https`
+  string scheme = 5;
+
+  // The HTTP URL query in the format of `name1=value1&name2=value2`, as it
+  // appears in the first line of the HTTP request. No decoding is performed
+  // TODO: maybe decode this for ease of use in the CEL rule?
+  string query = 6;
+
+  // The HTTP request size in bytes. If unkown, it will be -1
+  int64 size = 7;
+
+  // The network protocol used with the request, such as "http/1.1"
+  // "spdy/3", "h2", "h2c", "webrtc", "tcp", "udp", "quick", See
+  // https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids
+  string protocol = 8;
+
+  // The TLS information. May be absent for non TLS protected requests.
+  TLS tls = 9;
+
+  // The jwt passed into the request. May be absent.
+  JWT jwt = 10;
+}
