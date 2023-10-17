@@ -334,3 +334,18 @@ func BenchmarkCelAuthorizerCheck(b *testing.B) {
 		authorizer.Check(ctx, "ExtentService", "WriteExtent") //nolint:errcheck
 	}
 }
+
+func BenchmarkCelAuthorizerCheckConcurrent(b *testing.B) {
+	rule := "request.service == \"gprc.health.v1.Health\" || request.tls.subject.common_name == \"root-api.root-api.pod\""
+	cert := makeCert(b, "root-api.root-api.pod")
+	authorizer, err := NewCelAuthorizer(rule)
+	require.NoError(b, err)
+
+	b.RunParallel(func(pb *testing.PB) {
+		authInfo := credentials.TLSInfo{State: tls.ConnectionState{PeerCertificates: []*x509.Certificate{cert}}}
+		ctx := peer.NewContext(context.Background(), &peer.Peer{AuthInfo: authInfo})
+		for pb.Next() {
+			authorizer.Check(ctx, "ExtentService", "WriteExtent") //nolint:errcheck
+		}
+	})
+}
