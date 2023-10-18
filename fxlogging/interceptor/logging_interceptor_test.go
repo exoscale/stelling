@@ -265,6 +265,8 @@ func TestLoggingServerInterceptor(t *testing.T) {
 			require.NoError(t, err)
 			_, err = stream.Recv()
 			require.NoError(t, err)
+			_, err = stream.Recv()
+			require.Error(t, err)
 
 			require.Equal(t, 1, logs.Len())
 			log := logs.AllUntimed()[0]
