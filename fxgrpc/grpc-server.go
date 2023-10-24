@@ -38,11 +38,6 @@ type Server struct {
 	KeyFile string `validate:"required_if=TLS true,omitempty,file"`
 	// ClientCAFile is the path to a pem encoded CA cert bundle used to validate clients
 	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
-
-	// -imported
-
-	// EnableRecvBufferPool enables the use of grpc buffer pooling in the recv loop
-	EnableRecvBufferPool bool
 }
 
 func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
@@ -59,8 +54,6 @@ func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddString("key-file", s.KeyFile)
 		enc.AddString("client-ca-file", s.ClientCAFile)
 	}
-
-	enc.AddBool("enable-recv-buffer-pool", s.EnableRecvBufferPool)
 
 	return nil
 }
@@ -173,10 +166,6 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 
 	// Add the externally supplied options last: this allows the user to override any options we may have set already
 	opts = append(opts, p.ServerOpts...)
-
-	if serverConf.EnableRecvBufferPool {
-		opts = append(opts, grpc.RecvBufferPool(grpc.NewSharedBufferPool()))
-	}
 
 	// Set our logger as the logger used by the gRPC framework
 	grpclog.SetLoggerV2(zapgrpc.NewLogger(p.Logger))
