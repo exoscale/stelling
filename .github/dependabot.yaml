@@ -1,0 +1,21 @@
+version: 2
+updates:
+- package-ecosystem: gomod
+  directory: /
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: github.com/getsentry/sentry-go
+  groups:
+    all:
+      patterns:
+        - "*"
+- package-ecosystem: "github-actions"
+  directory: /
+  schedule:
+    interval: weekly
+  groups:
+    all:
+      patterns:
+        - "*"
