@@ -31,7 +31,7 @@ type Sentry struct {
 	// Sentry integration is disabled if this is empty
 	Dsn string
 	// Environment is reported as the 'environment' tag in any sentry events
-	Environment string `default:"prod" validate:"oneof=dev lab preprod prod"`
+	Environment string `default:"prod"`
 	// Debug controls whether sentry emits debugs logs about its own actions
 	Debug bool
 	// Process is the name of the current process, will be reported in the 'process' tag
