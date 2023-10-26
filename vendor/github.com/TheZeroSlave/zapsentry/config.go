@@ -22,7 +22,7 @@ type Configuration struct {
 	DisableStacktrace bool
 
 	// Level is the minimal level of sentry.Event(s).
-	Level zapcore.Level
+	Level zapcore.LevelEnabler
 
 	// EnableBreadcrumbs enables use of sentry.Breadcrumb(s).
 	// This feature works only when you explicitly passed new scope.
@@ -32,7 +32,7 @@ type Configuration struct {
 	// Breadcrumb specifies an application event that occurred before a Sentry event.
 	// NewCore fails if BreadcrumbLevel is greater than Level.
 	// The field is ignored, if EnableBreadcrumbs is not set.
-	BreadcrumbLevel zapcore.Level
+	BreadcrumbLevel zapcore.LevelEnabler
 
 	// MaxBreadcrumbs is the maximum number of breadcrumb events to keep.
 	// Leave it zero or set to negative for a reasonable default value.
@@ -45,4 +45,8 @@ type Configuration struct {
 	// Hub overrides the sentry.CurrentHub value.
 	// See sentry.Hub docs for more detail.
 	Hub *sentry.Hub
+
+	// FrameMatcher allows to ignore some frames of the stack trace.
+	// this is particularly useful when you want to ignore for instances frames from convenience wrappers
+	FrameMatcher FrameMatcher
 }
