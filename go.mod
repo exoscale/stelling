@@ -8,8 +8,8 @@ require (
 	github.com/exoscale/multiconfig v0.0.0-20230125174416-7beaf41f3d8e
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/getsentry/sentry-go v0.20.0 // Do not upgrade this version: anything higher is not compatible with our hosted instance
-	github.com/go-logr/zapr v1.2.4
-	github.com/go-playground/validator/v10 v10.15.5
+	github.com/go-logr/zapr v1.3.0
+	github.com/go-playground/validator/v10 v10.16.0
 	github.com/golang/protobuf v1.5.3
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/oklog/ulid/v2 v2.1.0
@@ -33,7 +33,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.7.0
 	github.com/google/cel-go v0.18.1
 	gopkg.in/square/go-jose.v2 v2.6.0
-	modernc.org/sqlite v1.26.0
+	modernc.org/sqlite v1.27.0
 )
 
 require (
@@ -48,7 +48,7 @@ require (
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
-	github.com/go-logr/logr v1.2.4 // indirect
+	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
@@ -87,9 +87,9 @@ require (
 	lukechampine.com/uint128 v1.2.0 // indirect
 	modernc.org/cc/v3 v3.40.0 // indirect
 	modernc.org/ccgo/v3 v3.16.13 // indirect
-	modernc.org/libc v1.24.1 // indirect
-	modernc.org/mathutil v1.5.0 // indirect
-	modernc.org/memory v1.6.0 // indirect
+	modernc.org/libc v1.29.0 // indirect
+	modernc.org/mathutil v1.6.0 // indirect
+	modernc.org/memory v1.7.2 // indirect
 	modernc.org/opt v0.1.3 // indirect
 	modernc.org/strutil v1.1.3 // indirect
 	modernc.org/token v1.0.1 // indirect
