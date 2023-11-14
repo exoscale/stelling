@@ -30,6 +30,22 @@ type StreamServerInterceptor struct {
 	Interceptor grpc.StreamServerInterceptor
 }
 
+func WithUnaryClientInterceptors(ui []*UnaryClientInterceptor) grpc.DialOption {
+	unaryIx := make([]grpc.UnaryClientInterceptor, 0, len(ui))
+	for _, ix := range SortInterceptors(ui) {
+		unaryIx = append(unaryIx, ix.Interceptor)
+	}
+	return grpc.WithChainUnaryInterceptor(unaryIx...)
+}
+
+func WithStreamClientInterceptors(ui []*StreamClientInterceptor) grpc.DialOption {
+	streamIx := make([]grpc.StreamClientInterceptor, 0, len(ui))
+	for _, ix := range SortInterceptors(ui) {
+		streamIx = append(streamIx, ix.Interceptor)
+	}
+	return grpc.WithChainStreamInterceptor(streamIx...)
+}
+
 type WeightedInterceptor interface {
 	GetWeight() uint
 }
