@@ -146,6 +146,11 @@ type GrpcClientParams struct {
 
 func MakeClientTLS(c ClientConfig, logger *zap.Logger) (credentials.TransportCredentials, *reloader.CertReloader, error) {
 	conf := c.GrpcClientConfig()
+
+	if conf.InsecureConnection {
+		return insecure.NewCredentials(), nil, nil
+	}
+
 	if conf.RootCAFile != "" && conf.CertFile == "" {
 		creds, err := credentials.NewClientTLSFromFile(conf.RootCAFile, "")
 		return creds, nil, err
@@ -191,49 +196,6 @@ func MakeClientTLS(c ClientConfig, logger *zap.Logger) (credentials.TransportCre
 	return nil, nil, nil
 }
 
-func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientInterceptor, si []grpc.StreamClientInterceptor) ([]grpc.DialOption, *reloader.CertReloader, error) {
-	opts := []grpc.DialOption{}
-	var creloader *reloader.CertReloader
-
-	if conf.InsecureConnection {
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	} else {
-		creds, r, err := MakeClientTLS(conf, logger)
-		if err != nil {
-			return nil, nil, err
-		}
-		// TLS is default, but we may not need any clients or ca certs
-		if creds != nil {
-			opts = append(opts, grpc.WithTransportCredentials(creds))
-		}
-		creloader = r
-	}
-
-	// Handle client middleware
-	unary := []grpc.UnaryClientInterceptor{}
-	for i := range ui {
-		if ui[i] != nil {
-			unary = append(unary, ui[i])
-		}
-	}
-	stream := []grpc.StreamClientInterceptor{}
-	for i := range si {
-		if si[i] != nil {
-			stream = append(stream, si[i])
-		}
-	}
-	opts = append(
-		opts,
-		grpc.WithChainUnaryInterceptor(unary...),
-		grpc.WithChainStreamInterceptor(stream...),
-	)
-
-	// TODO: move this side effect out into the calling functions?
-	grpclog.SetLoggerV2(zapgrpc.NewLogger(logger))
-
-	return opts, creloader, nil
-}
-
 // NewGrpcClient returns a grpc client connection that is configured with the same conventions as the fx module
 // It is intended to be used for dynamically created, short lived, clients where using fx causes more troubles than benefits
 // Because the client is assumed to be short lived, it will not reload TLS certificates
@@ -249,13 +211,21 @@ func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []*UnaryClientInter
 		streamIx = append(streamIx, ix.Interceptor)
 	}
 
+	// Ensure we use passed in logger to capture grpc framework logs
+	grpclog.SetLoggerV2(zapgrpc.NewLogger(logger))
+
 	// We assume NewGrpcClient is used for a short lived client
 	// The reloader eagerly loads the cert, so we can ignore it for the remainder
-	opts, _, err := getDialOpts(clientConf, logger, unaryIx, streamIx)
+	creds, _, err := MakeClientTLS(clientConf, logger)
 	if err != nil {
 		return nil, err
 	}
 
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(creds),
+		grpc.WithChainUnaryInterceptor(unaryIx...),
+		grpc.WithChainStreamInterceptor(streamIx...),
+	}
 	// Add the externally supplied options last: this allows the user to override any options we may have set already
 	opts = append(opts, dOpts...)
 
@@ -273,17 +243,25 @@ func ProvideGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
 	for _, ix := range SortInterceptors(p.StreamInterceptors) {
 		streamIx = append(streamIx, ix.Interceptor)
 	}
-	opts, r, err := getDialOpts(clientConf, p.Logger, unaryIx, streamIx)
+
+	// Ensure we use passed in logger to capture grpc framework logs
+	grpclog.SetLoggerV2(zapgrpc.NewLogger(p.Logger))
+
+	creds, r, err := MakeClientTLS(clientConf, p.Logger)
 	if err != nil {
 		return nil, err
 	}
-
-	// Add the externally supplied options last: this allows the user to override any options we may have set already
-	opts = append(opts, p.ClientOpts...)
-
 	if r != nil {
 		p.Lc.Append(fx.Hook{OnStart: r.Start, OnStop: r.Stop})
 	}
+
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(creds),
+		grpc.WithChainUnaryInterceptor(unaryIx...),
+		grpc.WithChainStreamInterceptor(streamIx...),
+	}
+	// Add the externally supplied options last: this allows the user to override any options we may have set already
+	opts = append(opts, p.ClientOpts...)
 
 	conn := NewLazyGrpcClientConn(clientConf.Endpoint, opts...)
 
