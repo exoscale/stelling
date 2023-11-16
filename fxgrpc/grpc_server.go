@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/grpclog"
 )
 
 type Config interface {
@@ -94,6 +93,7 @@ func NewServerModule(conf Config) fx.Option {
 				fx.ResultTags(`name:"grpc_server"`),
 			),
 		),
+		fx.Invoke(zapgrpc.SetGrpcLogger),
 	)
 	if conf.GrpcServerConfig().TLS {
 		opts = fx.Options(
@@ -132,7 +132,6 @@ type GrpcServerParams struct {
 	fx.In
 
 	Conf               Config
-	Logger             *zap.Logger
 	UnaryInterceptors  []*UnaryServerInterceptor  `group:"unary_server_interceptor"`
 	StreamInterceptors []*StreamServerInterceptor `group:"stream_server_interceptor"`
 	Reloader           *reloader.CertReloader     `name:"grpc_server" optional:"true"`
@@ -166,9 +165,6 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 
 	// Add the externally supplied options last: this allows the user to override any options we may have set already
 	opts = append(opts, p.ServerOpts...)
-
-	// Set our logger as the logger used by the gRPC framework
-	grpclog.SetLoggerV2(zapgrpc.NewLogger(p.Logger))
 
 	grpcServer := grpc.NewServer(opts...)
 

@@ -18,7 +18,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/grpclog"
 )
 
 // TODO: refactor constructors in terms of DialOptions
@@ -31,6 +30,7 @@ func NewClientModule(conf ClientConfig) fx.Option {
 		"grpc-client",
 		fx.Supply(fx.Annotate(conf, fx.As(new(ClientConfig)))),
 		fx.Provide(ProvideGrpcClient),
+		fx.Invoke(zapgrpc.SetGrpcLogger),
 	)
 }
 
@@ -47,6 +47,7 @@ func NewNamedClientModule(name string, conf ClientConfig) fx.Option {
 		fx.Provide(
 			fx.Annotate(ProvideGrpcClient, fx.ResultTags(nameTag)),
 		),
+		fx.Invoke(zapgrpc.SetGrpcLogger),
 	)
 }
 
@@ -200,9 +201,6 @@ func MakeClientTLS(c ClientConfig, logger *zap.Logger) (credentials.TransportCre
 // It is intended to be used for dynamically created, short lived, clients where using fx causes more troubles than benefits
 // Because the client is assumed to be short lived, it will not reload TLS certificates
 func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []*UnaryClientInterceptor, si []*StreamClientInterceptor, dOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	// Ensure we use passed in logger to capture grpc framework logs
-	grpclog.SetLoggerV2(zapgrpc.NewLogger(logger))
-
 	// We assume NewGrpcClient is used for a short lived client
 	// The reloader eagerly loads the cert, so we can ignore it for the remainder
 	creds, _, err := MakeClientTLS(conf, logger)
@@ -222,9 +220,6 @@ func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []*UnaryClientInter
 }
 
 func ProvideGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
-	// Ensure we use passed in logger to capture grpc framework logs
-	grpclog.SetLoggerV2(zapgrpc.NewLogger(p.Logger))
-
 	creds, r, err := MakeClientTLS(p.Conf, p.Logger)
 	if err != nil {
 		return nil, err
