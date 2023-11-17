@@ -153,15 +153,11 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	}
 
 	// Handle server middleware
-	unary := []grpc.UnaryServerInterceptor{}
-	for _, ix := range SortInterceptors(p.UnaryInterceptors) {
-		unary = append(unary, ix.Interceptor)
-	}
-	stream := []grpc.StreamServerInterceptor{}
-	for _, ix := range SortInterceptors(p.StreamInterceptors) {
-		stream = append(stream, ix.Interceptor)
-	}
-	opts = append(opts, grpc.ChainUnaryInterceptor(unary...), grpc.ChainStreamInterceptor(stream...))
+	opts = append(
+		opts,
+		UnaryServerInterceptors(p.UnaryInterceptors),
+		StreamServerInterceptors(p.StreamInterceptors),
+	)
 
 	// Add the externally supplied options last: this allows the user to override any options we may have set already
 	opts = append(opts, p.ServerOpts...)
