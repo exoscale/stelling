@@ -6,6 +6,7 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc/grpclog"
 )
 
 // See https://github.com/grpc/grpc-go/blob/v1.35.0/grpclog/loggerv2.go#L77-L86
@@ -124,4 +125,14 @@ func sprintln(args []interface{}) string {
 	s := fmt.Sprintln(args...)
 	// Drop the new line character added by Sprintln
 	return s[:len(s)-1]
+}
+
+// SetGrpcLogger installs the given logger as the logger for the grpc framework
+// It is intended to be used as an fx.Invoke function
+// The underlying SetLoggerV2 is not mutex protected, but fx runs Invoke functions
+// synchronously in the order in which they are defined, sidestepping the issue.
+// Because fx also ensures the logger is a singleton, this is safe to run multiple
+// times: we can embed this function in multiple modules without risk
+func SetGrpcLogger(logger *zap.Logger) {
+	grpclog.SetLoggerV2(NewLogger(logger))
 }

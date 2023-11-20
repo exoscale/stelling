@@ -18,7 +18,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/grpclog"
 )
 
 // TODO: refactor constructors in terms of DialOptions
@@ -31,6 +30,7 @@ func NewClientModule(conf ClientConfig) fx.Option {
 		"grpc-client",
 		fx.Supply(fx.Annotate(conf, fx.As(new(ClientConfig)))),
 		fx.Provide(ProvideGrpcClient),
+		fx.Invoke(zapgrpc.SetGrpcLogger),
 	)
 }
 
@@ -47,6 +47,7 @@ func NewNamedClientModule(name string, conf ClientConfig) fx.Option {
 		fx.Provide(
 			fx.Annotate(ProvideGrpcClient, fx.ResultTags(nameTag)),
 		),
+		fx.Invoke(zapgrpc.SetGrpcLogger),
 	)
 }
 
@@ -146,6 +147,11 @@ type GrpcClientParams struct {
 
 func MakeClientTLS(c ClientConfig, logger *zap.Logger) (credentials.TransportCredentials, *reloader.CertReloader, error) {
 	conf := c.GrpcClientConfig()
+
+	if conf.InsecureConnection {
+		return insecure.NewCredentials(), nil, nil
+	}
+
 	if conf.RootCAFile != "" && conf.CertFile == "" {
 		creds, err := credentials.NewClientTLSFromFile(conf.RootCAFile, "")
 		return creds, nil, err
@@ -191,101 +197,46 @@ func MakeClientTLS(c ClientConfig, logger *zap.Logger) (credentials.TransportCre
 	return nil, nil, nil
 }
 
-func getDialOpts(conf *Client, logger *zap.Logger, ui []grpc.UnaryClientInterceptor, si []grpc.StreamClientInterceptor) ([]grpc.DialOption, *reloader.CertReloader, error) {
-	opts := []grpc.DialOption{}
-	var creloader *reloader.CertReloader
-
-	if conf.InsecureConnection {
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	} else {
-		creds, r, err := MakeClientTLS(conf, logger)
-		if err != nil {
-			return nil, nil, err
-		}
-		// TLS is default, but we may not need any clients or ca certs
-		if creds != nil {
-			opts = append(opts, grpc.WithTransportCredentials(creds))
-		}
-		creloader = r
-	}
-
-	// Handle client middleware
-	unary := []grpc.UnaryClientInterceptor{}
-	for i := range ui {
-		if ui[i] != nil {
-			unary = append(unary, ui[i])
-		}
-	}
-	stream := []grpc.StreamClientInterceptor{}
-	for i := range si {
-		if si[i] != nil {
-			stream = append(stream, si[i])
-		}
-	}
-	opts = append(
-		opts,
-		grpc.WithChainUnaryInterceptor(unary...),
-		grpc.WithChainStreamInterceptor(stream...),
-	)
-
-	// TODO: move this side effect out into the calling functions?
-	grpclog.SetLoggerV2(zapgrpc.NewLogger(logger))
-
-	return opts, creloader, nil
-}
-
 // NewGrpcClient returns a grpc client connection that is configured with the same conventions as the fx module
 // It is intended to be used for dynamically created, short lived, clients where using fx causes more troubles than benefits
 // Because the client is assumed to be short lived, it will not reload TLS certificates
 func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []*UnaryClientInterceptor, si []*StreamClientInterceptor, dOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	clientConf := conf.GrpcClientConfig()
-
-	unaryIx := make([]grpc.UnaryClientInterceptor, 0, len(ui))
-	for _, ix := range SortInterceptors(ui) {
-		unaryIx = append(unaryIx, ix.Interceptor)
-	}
-	streamIx := make([]grpc.StreamClientInterceptor, 0, len(si))
-	for _, ix := range SortInterceptors(si) {
-		streamIx = append(streamIx, ix.Interceptor)
-	}
-
 	// We assume NewGrpcClient is used for a short lived client
 	// The reloader eagerly loads the cert, so we can ignore it for the remainder
-	opts, _, err := getDialOpts(clientConf, logger, unaryIx, streamIx)
+	creds, _, err := MakeClientTLS(conf, logger)
 	if err != nil {
 		return nil, err
 	}
 
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(creds),
+		WithUnaryClientInterceptors(ui),
+		WithStreamClientInterceptors(si),
+	}
 	// Add the externally supplied options last: this allows the user to override any options we may have set already
 	opts = append(opts, dOpts...)
 
-	return grpc.Dial(clientConf.Endpoint, opts...)
+	return grpc.Dial(conf.GrpcClientConfig().Endpoint, opts...)
 }
 
 func ProvideGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
-	clientConf := p.Conf.GrpcClientConfig()
-
-	unaryIx := make([]grpc.UnaryClientInterceptor, 0, len(p.UnaryInterceptors))
-	for _, ix := range SortInterceptors(p.UnaryInterceptors) {
-		unaryIx = append(unaryIx, ix.Interceptor)
-	}
-	streamIx := make([]grpc.StreamClientInterceptor, 0, len(p.StreamInterceptors))
-	for _, ix := range SortInterceptors(p.StreamInterceptors) {
-		streamIx = append(streamIx, ix.Interceptor)
-	}
-	opts, r, err := getDialOpts(clientConf, p.Logger, unaryIx, streamIx)
+	creds, r, err := MakeClientTLS(p.Conf, p.Logger)
 	if err != nil {
 		return nil, err
 	}
-
-	// Add the externally supplied options last: this allows the user to override any options we may have set already
-	opts = append(opts, p.ClientOpts...)
-
 	if r != nil {
 		p.Lc.Append(fx.Hook{OnStart: r.Start, OnStop: r.Stop})
 	}
 
-	conn := NewLazyGrpcClientConn(clientConf.Endpoint, opts...)
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(creds),
+		WithUnaryClientInterceptors(p.UnaryInterceptors),
+		WithStreamClientInterceptors(p.StreamInterceptors),
+	}
+	// Add the externally supplied options last: this allows the user to override any options we may have set already
+	opts = append(opts, p.ClientOpts...)
+
+	conn := NewLazyGrpcClientConn(p.Conf.GrpcClientConfig().Endpoint, opts...)
 
 	p.Lc.Append(fx.Hook{
 		OnStart: conn.Start,

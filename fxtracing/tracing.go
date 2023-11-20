@@ -53,6 +53,16 @@ func (t *Tracing) TracingConfig() *Tracing {
 	return t
 }
 
+func (t *Tracing) GrpcClientConfig() *fxgrpc.Client {
+	return &fxgrpc.Client{
+		InsecureConnection: t.InsecureConnection,
+		CertFile:           t.CertFile,
+		KeyFile:            t.KeyFile,
+		RootCAFile:         t.RootCAFile,
+		Endpoint:           t.Endpoint,
+	}
+}
+
 func (t *Tracing) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if t == nil {
 		return nil
@@ -103,26 +113,18 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 
 	opts := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(tracingConf.Endpoint)}
 
-	if tracingConf.InsecureConnection {
-		opts = append(opts, otlptracegrpc.WithInsecure())
-	} else {
-		clientConf := &fxgrpc.Client{
-			CertFile:   tracingConf.CertFile,
-			KeyFile:    tracingConf.KeyFile,
-			RootCAFile: tracingConf.RootCAFile,
-		}
-		creds, r, err := fxgrpc.MakeClientTLS(
-			clientConf,
-			logger,
-		)
-		if err != nil {
-			return nil, err
-		}
-		if r != nil {
-			lc.Append(fx.Hook{OnStart: r.Start, OnStop: r.Stop})
-		}
-		opts = append(opts, otlptracegrpc.WithTLSCredentials(creds))
+	creds, r, err := fxgrpc.MakeClientTLS(
+		tracingConf,
+		logger,
+	)
+	if err != nil {
+		return nil, err
 	}
+	if r != nil {
+		lc.Append(fx.Hook{OnStart: r.Start, OnStop: r.Stop})
+	}
+	opts = append(opts, otlptracegrpc.WithTLSCredentials(creds))
+
 	exporter := otlptracegrpc.NewUnstarted(opts...)
 
 	// TODO: configure sampling here
