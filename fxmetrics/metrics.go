@@ -83,6 +83,14 @@ func RegisterMetricsHandlers(p RegisterParams) {
 	p.Server.Handler = mux
 }
 
+type GrpcServerInterceptorParams struct {
+	fx.In
+
+	Conf         MetricsConfig
+	Reg          *prometheus.Registry
+	HistogramOps []grpc_prometheus.HistogramOption `optional:"true"`
+}
+
 type GrpcServerInterceptorsResult struct {
 	fx.Out
 
@@ -93,14 +101,15 @@ type GrpcServerInterceptorsResult struct {
 
 const GrpcInterceptorWeight = 60
 
-func NewGrpcServerInterceptors(reg *prometheus.Registry, conf MetricsConfig) (GrpcServerInterceptorsResult, error) {
+func NewGrpcServerInterceptors(p GrpcServerInterceptorParams) (GrpcServerInterceptorsResult, error) {
 	serverMetrics := grpc_prometheus.NewServerMetrics()
-	if err := reg.Register(serverMetrics); err != nil {
+	if p.Conf.MetricsConfig().Histograms {
+		serverMetrics.EnableHandlingTimeHistogram(p.HistogramOps...)
+	}
+	if err := p.Reg.Register(serverMetrics); err != nil {
 		return GrpcServerInterceptorsResult{}, err
 	}
-	if conf.MetricsConfig().Histograms {
-		serverMetrics.EnableHandlingTimeHistogram()
-	}
+
 	return GrpcServerInterceptorsResult{
 		UnaryServerInterceptor: &fxgrpc.UnaryServerInterceptor{
 			Weight:      GrpcInterceptorWeight,
