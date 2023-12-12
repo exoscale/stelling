@@ -26,11 +26,11 @@ require (
 	google.golang.org/grpc v1.59.0
 	google.golang.org/grpc/examples v0.0.0-20230215194445-0f02ca5cc927
 	google.golang.org/protobuf v1.31.0
-	zombiezen.com/go/sqlite v0.13.1
+	zombiezen.com/go/sqlite v1.0.0
 )
 
 require (
-	github.com/coreos/go-oidc/v3 v3.8.0
+	github.com/coreos/go-oidc/v3 v3.9.0
 	github.com/google/cel-go v0.18.2
 	gopkg.in/square/go-jose.v2 v2.6.0
 	modernc.org/sqlite v1.27.0
@@ -47,7 +47,7 @@ require (
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.1 // indirect
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
