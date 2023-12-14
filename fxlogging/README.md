@@ -25,6 +25,14 @@ with the name `logging_server_interceptor_options` and `logging_client_intercept
 This allows customization of the grpc code to log level mapping and passing in a custom decider for when
 requests or their payloads should be logged.
 
+All logs emitted by the fx system itself are also logged via the zap Logger. By default all events are logged
+at Debug level, errors are logged at Error level.
+These levels can be configured by injecting an `fxlogger.Option` using the "fxlogger_opts" value group into the system.
+
+```go
+fx.Supply(fx.Annotate(fxlogger.WithLogLevel(zapcore.InfoLevel), fx.ResultTags(`group:"fxlogger_opts"`)))
+```
+
 ## Configuration file
 At the moment the configuration for the logger only has a single option: `mode`:
 
