@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/exoscale/stelling/fxgrpc"
+	"github.com/exoscale/stelling/fxlogging/fxlogger"
 	"github.com/exoscale/stelling/fxlogging/interceptor"
 	"go.uber.org/fx"
-	"go.uber.org/fx/fxevent"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -19,7 +19,7 @@ import (
 // * An adapter to log fx system events
 func NewModule(conf LoggingConfig) fx.Option {
 	return fx.Options(
-		fx.WithLogger(NewFxLogger),
+		fx.WithLogger(fxlogger.NewFxLogger),
 		fx.Module(
 			"logging",
 			fx.Provide(
@@ -147,12 +147,4 @@ func NewGrpcInjectPeerInterceptors() (*fxgrpc.UnaryClientInterceptor, *fxgrpc.St
 	unaryIx := &fxgrpc.UnaryClientInterceptor{Weight: weight, Interceptor: interceptor.NewInjectPeerUnaryClientInterceptor()}
 	streamIx := &fxgrpc.StreamClientInterceptor{Weight: weight, Interceptor: interceptor.NewInjectPeerStreamClientInterceptor()}
 	return unaryIx, streamIx
-}
-
-// NewFxLogger emits an fxevent.Logger that uses the passed in zap logger
-// The fxevent.Logger is used to write out the log messages produces by the fx framework
-func NewFxLogger(logger *zap.Logger) fxevent.Logger {
-	result := &fxevent.ZapLogger{Logger: logger}
-	result.UseLogLevel(zapcore.DebugLevel)
-	return result
 }
