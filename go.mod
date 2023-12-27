@@ -3,7 +3,7 @@ module github.com/exoscale/stelling
 go 1.20
 
 require (
-	github.com/TheZeroSlave/zapsentry v1.20.0
+	github.com/TheZeroSlave/zapsentry v1.20.1
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/exoscale/multiconfig v0.0.0-20230125174416-7beaf41f3d8e
 	github.com/fsnotify/fsnotify v1.7.0
@@ -23,9 +23,9 @@ require (
 	go.opentelemetry.io/otel/trace v1.11.2
 	go.uber.org/fx v1.20.1
 	go.uber.org/zap v1.26.0
-	google.golang.org/grpc v1.60.0
+	google.golang.org/grpc v1.60.1
 	google.golang.org/grpc/examples v0.0.0-20230215194445-0f02ca5cc927
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.32.0
 	zombiezen.com/go/sqlite v1.0.0
 )
 
