@@ -1,7 +1,6 @@
 package migrationx
 
 import (
-	"context"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -263,7 +262,7 @@ func TestMigrationsMigrate(t *testing.T) {
 		}
 		conn := testDb(t)
 
-		require.NoError(t, migrations.Migrate(context.Background(), conn, 1))
+		require.NoError(t, migrations.Migrate(conn, 1))
 
 		statements := dbSchema(t, conn)
 
@@ -293,7 +292,7 @@ func TestMigrationsMigrate(t *testing.T) {
 		targetVersion := uint64(2)
 		conn := testDb(t)
 
-		require.NoError(t, migrations.Migrate(context.Background(), conn, targetVersion))
+		require.NoError(t, migrations.Migrate(conn, targetVersion))
 
 		statements := dbSchema(t, conn)
 		version, err := dbVersion(conn)
@@ -333,7 +332,7 @@ func TestMigrationsMigrate(t *testing.T) {
 		firstVersion := uint64(2)
 		conn := testDb(t)
 
-		require.NoError(t, migrations.Migrate(context.Background(), conn, firstVersion))
+		require.NoError(t, migrations.Migrate(conn, firstVersion))
 
 		v1, err := dbVersion(conn)
 		require.NoError(t, err)
@@ -342,7 +341,7 @@ func TestMigrationsMigrate(t *testing.T) {
 		// The idea is that this will error out if it will try to recreate the tables that
 		// already exist
 		targetVersion := uint64(5)
-		require.NoError(t, migrations.Migrate(context.Background(), conn, targetVersion))
+		require.NoError(t, migrations.Migrate(conn, targetVersion))
 		v2, err := dbVersion(conn)
 		require.NoError(t, err)
 		statements := dbSchema(t, conn)
@@ -378,13 +377,13 @@ func TestMigrationsMigrate(t *testing.T) {
 		conn := testDb(t)
 
 		// Let's migrate up to the highest version first
-		require.NoError(t, migrations.Migrate(context.Background(), conn, highestVersion))
+		require.NoError(t, migrations.Migrate(conn, highestVersion))
 		v3, err := dbVersion(conn)
 		require.NoError(t, err)
 		require.Equal(t, highestVersion, v3)
 
 		// Now migrate down
-		require.NoError(t, migrations.Migrate(context.Background(), conn, targetVersion))
+		require.NoError(t, migrations.Migrate(conn, targetVersion))
 
 		statements := dbSchema(t, conn)
 		version, err := dbVersion(conn)
@@ -419,13 +418,13 @@ func TestMigrationsMigrate(t *testing.T) {
 		conn := testDb(t)
 
 		// Let's migrate up to the highest version first
-		require.NoError(t, migrations.Migrate(context.Background(), conn, targetVersion))
+		require.NoError(t, migrations.Migrate(conn, targetVersion))
 		v3, err := dbVersion(conn)
 		require.NoError(t, err)
 		require.Equal(t, targetVersion, v3)
 
 		// Migrate to the highest version again
-		require.NoError(t, migrations.Migrate(context.Background(), conn, targetVersion))
+		require.NoError(t, migrations.Migrate(conn, targetVersion))
 
 		statements := dbSchema(t, conn)
 		version, err := dbVersion(conn)
@@ -443,7 +442,7 @@ func TestMigrationsMigrate(t *testing.T) {
 
 		conn := testDb(t)
 
-		require.EqualError(t, migrations.Migrate(context.Background(), conn, 2), "migrate failed: target version 2 is higher than max migration version 1")
+		require.EqualError(t, migrations.Migrate(conn, 2), "migrate failed: target version 2 is higher than max migration version 1")
 	})
 
 	t.Run("Should error out if db version is higher than max migration version", func(t *testing.T) {
@@ -456,7 +455,7 @@ func TestMigrationsMigrate(t *testing.T) {
 		require.NoError(t, ensureVersionSchema(conn))
 		require.NoError(t, setDbVersion(conn, 12))
 
-		require.EqualError(t, migrations.Migrate(context.Background(), conn, 2), "migrate failed: database version 12 is higher than max migration version 2")
+		require.EqualError(t, migrations.Migrate(conn, 2), "migrate failed: database version 12 is higher than max migration version 2")
 
 	})
 
@@ -487,14 +486,14 @@ func TestMigrationsMigrate(t *testing.T) {
 
 		// Let's migrate up to v2 first
 		firstVersion := uint64(2)
-		require.NoError(t, migrations.Migrate(context.Background(), conn, firstVersion))
+		require.NoError(t, migrations.Migrate(conn, firstVersion))
 		v1, err := dbVersion(conn)
 		require.NoError(t, err)
 		require.Equal(t, firstVersion, v1)
 
 		// Migrate to the highest version
 		targetVersion := uint64(4)
-		require.Error(t, migrations.Migrate(context.Background(), conn, targetVersion))
+		require.Error(t, migrations.Migrate(conn, targetVersion))
 
 		statements := dbSchema(t, conn)
 		version, err := dbVersion(conn)
@@ -549,7 +548,7 @@ func TestMigrationsMigrate(t *testing.T) {
 
 			// Wait for the test to shoot the gun
 			<-startChan
-			require.NoError(t, migrations.Migrate(context.Background(), conn, targetVersion))
+			require.NoError(t, migrations.Migrate(conn, targetVersion))
 		}
 		for i := 0; i < 3; i++ {
 			wg.Add(1)
@@ -597,7 +596,7 @@ func TestMigrationsUp(t *testing.T) {
 	}
 	conn := testDb(t)
 
-	require.NoError(t, migrations.Up(context.Background(), conn))
+	require.NoError(t, migrations.Up(conn))
 
 	statements := dbSchema(t, conn)
 	version, err := dbVersion(conn)
@@ -627,12 +626,12 @@ func TestMigrationsDown(t *testing.T) {
 	}
 	conn := testDb(t)
 
-	require.NoError(t, migrations.Up(context.Background(), conn))
+	require.NoError(t, migrations.Up(conn))
 	v1, err := dbVersion(conn)
 	require.NoError(t, err)
 	require.Equal(t, uint64(3), v1)
 
-	require.NoError(t, migrations.Down(context.Background(), conn))
+	require.NoError(t, migrations.Down(conn))
 
 	statements := dbSchema(t, conn)
 	version, err := dbVersion(conn)

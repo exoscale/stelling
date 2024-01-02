@@ -1,7 +1,6 @@
 package migrationx
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"io/fs"
@@ -163,16 +162,16 @@ func readString(fsys fs.FS, subpath string, filename string) (string, error) {
 	return content.String(), nil
 }
 
-func (m *Migrations) Up(ctx context.Context, conn *sqlite.Conn) (err error) {
+func (m *Migrations) Up(conn *sqlite.Conn) (err error) {
 	targetVersion := uint64(len(m.UpScripts))
-	return m.Migrate(ctx, conn, targetVersion)
+	return m.Migrate(conn, targetVersion)
 }
 
-func (m *Migrations) Down(ctx context.Context, conn *sqlite.Conn) (err error) {
-	return m.Migrate(ctx, conn, 0)
+func (m *Migrations) Down(conn *sqlite.Conn) (err error) {
+	return m.Migrate(conn, 0)
 }
 
-func (m *Migrations) Migrate(ctx context.Context, conn *sqlite.Conn, targetVersion uint64) (err error) {
+func (m *Migrations) Migrate(conn *sqlite.Conn, targetVersion uint64) (err error) {
 	defer sqlitex.Save(conn)(&err)
 
 	if uint64(len(m.UpScripts)) < targetVersion {

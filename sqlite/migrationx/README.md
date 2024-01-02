@@ -46,6 +46,6 @@ func Up(ctx context.Context, pool *sqlitex.Pool) error {
     return err
   }
 
-  return m.Up(ctx, conn)
+  return m.Up(conn)
 }
 ```
