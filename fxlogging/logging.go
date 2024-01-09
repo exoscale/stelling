@@ -50,6 +50,38 @@ func NewModule(conf LoggingConfig) fx.Option {
 	)
 }
 
+// NewModule provides a *zap.Logger to the system
+// It also provides the following related items:
+// * Grpc middleware (but no client logger interceptor)
+// * An adapter to log fx system events
+func NewModuleWithoutClientInterceptor(conf LoggingConfig) fx.Option {
+	return fx.Options(
+		fx.WithLogger(fxlogger.NewFxLogger),
+		fx.Module(
+			"logging",
+			fx.Provide(
+				fx.Annotate(NewLogger, fx.ParamTags(``, ``, `group:"zap_opts"`)),
+				fx.Annotate(
+					NewGrpcLoggingServerInterceptors,
+					fx.ParamTags(``, `group:"logging_server_interceptor_options"`),
+					fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
+				),
+				fx.Annotate(
+					NewGrpcInjectLoggerInterceptors,
+					fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
+				),
+				fx.Annotate(
+					NewGrpcInjectPeerInterceptors,
+					fx.ResultTags(`group:"unary_client_interceptor"`, `group:"stream_client_interceptor"`),
+				),
+			),
+			fx.Supply(
+				fx.Annotate(conf, fx.As(new(LoggingConfig))),
+			),
+		),
+	)
+}
+
 type LoggingConfig interface {
 	LoggingConfig() *Logging
 }
