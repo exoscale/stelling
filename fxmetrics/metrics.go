@@ -3,7 +3,6 @@ package fxmetrics
 
 import (
 	"net/http"
-	"regexp"
 
 	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/exoscale/stelling/fxhttp"
@@ -158,7 +157,7 @@ func NewPrometheusRegistry(conf MetricsConfig) (*prometheus.Registry, error) {
 	err := reg.Register(
 		collectors.NewGoCollector(
 			collectors.WithGoCollectorRuntimeMetrics(
-				collectors.GoRuntimeMetricsRule{Matcher: regexp.MustCompile("/.*")},
+				collectors.MetricsAll,
 			),
 		),
 	)
