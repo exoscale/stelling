@@ -3,6 +3,7 @@ package fxmetrics
 
 import (
 	"net/http"
+	"regexp"
 
 	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/exoscale/stelling/fxhttp"
@@ -154,7 +155,14 @@ func NewGrpcClientInterceptors(reg *prometheus.Registry) (GrpcClientInterceptors
 func NewPrometheusRegistry(conf MetricsConfig) (*prometheus.Registry, error) {
 	reg := prometheus.NewRegistry()
 
-	if err := reg.Register(collectors.NewGoCollector()); err != nil {
+	err := reg.Register(
+		collectors.NewGoCollector(
+			collectors.WithGoCollectorRuntimeMetrics(
+				collectors.GoRuntimeMetricsRule{Matcher: regexp.MustCompile("/.*")},
+			),
+		),
+	)
+	if err != nil {
 		return nil, err
 	}
 	opts := collectors.ProcessCollectorOpts{
