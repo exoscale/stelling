@@ -9,7 +9,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/getsentry/sentry-go v0.20.0 // Do not upgrade this version: anything higher is not compatible with our hosted instance
 	github.com/go-logr/zapr v1.3.0
-	github.com/go-playground/validator/v10 v10.16.0
+	github.com/go-playground/validator/v10 v10.17.0
 	github.com/golang/protobuf v1.5.3
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/oklog/ulid/v2 v2.1.0
@@ -26,7 +26,7 @@ require (
 	google.golang.org/grpc v1.60.1
 	google.golang.org/grpc/examples v0.0.0-20230215194445-0f02ca5cc927
 	google.golang.org/protobuf v1.32.0
-	zombiezen.com/go/sqlite v1.0.0
+	zombiezen.com/go/sqlite v1.1.0
 )
 
 require (
@@ -77,7 +77,7 @@ require (
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.13.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
-	golang.org/x/text v0.13.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.6.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20231002182017-d307bd883b97 // indirect
