@@ -154,7 +154,14 @@ func NewGrpcClientInterceptors(reg *prometheus.Registry) (GrpcClientInterceptors
 func NewPrometheusRegistry(conf MetricsConfig) (*prometheus.Registry, error) {
 	reg := prometheus.NewRegistry()
 
-	if err := reg.Register(collectors.NewGoCollector()); err != nil {
+	err := reg.Register(
+		collectors.NewGoCollector(
+			collectors.WithGoCollectorRuntimeMetrics(
+				collectors.MetricsAll,
+			),
+		),
+	)
+	if err != nil {
 		return nil, err
 	}
 	opts := collectors.ProcessCollectorOpts{
