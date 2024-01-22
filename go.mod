@@ -31,7 +31,7 @@ require (
 
 require (
 	github.com/coreos/go-oidc/v3 v3.9.0
-	github.com/google/cel-go v0.18.2
+	github.com/google/cel-go v0.19.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	modernc.org/sqlite v1.28.0
 )
