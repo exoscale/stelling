@@ -63,7 +63,24 @@ func StreamServerInterceptors(si []*StreamServerInterceptor) grpc.ServerOption {
 }
 
 type WeightedInterceptor interface {
+	IsNil() bool
 	GetWeight() uint
+}
+
+func (i *UnaryClientInterceptor) IsNil() bool {
+	return i == nil
+}
+
+func (i *UnaryServerInterceptor) IsNil() bool {
+	return i == nil
+}
+
+func (i *StreamClientInterceptor) IsNil() bool {
+	return i == nil
+}
+
+func (i *StreamServerInterceptor) IsNil() bool {
+	return i == nil
 }
 
 func (i *UnaryClientInterceptor) GetWeight() uint {
@@ -101,7 +118,7 @@ func SortInterceptors[T WeightedInterceptor](list []T) []T {
 	}
 	// Remove any nil elements, disregarding order
 	for i := 0; i < len(iList); i++ {
-		if iList[i] == nil {
+		if iList[i].IsNil() {
 			iList[i] = iList[0]
 			iList = iList[1:]
 		}
