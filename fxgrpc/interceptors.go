@@ -118,7 +118,7 @@ func SortInterceptors[T WeightedInterceptor](list []T) []T {
 	}
 	// Remove any nil elements, disregarding order
 	for i := 0; i < len(iList); i++ {
-		if iList[i].IsNil() {
+		if iList[i] == nil || iList[i].IsNil() {
 			iList[i] = iList[0]
 			iList = iList[1:]
 		}

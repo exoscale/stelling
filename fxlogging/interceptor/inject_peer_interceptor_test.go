@@ -6,6 +6,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/exoscale/stelling/fxgrpc/grpctest"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/fx"
@@ -75,11 +76,15 @@ func TestInjectPeerInterceptor(t *testing.T) {
 			newInjectPeerRouteGuideServer,
 			pb.NewRouteGuideClient,
 			fx.Annotate(
-				NewInjectPeerUnaryClientInterceptor,
+				func() *fxgrpc.UnaryClientInterceptor {
+					return &fxgrpc.UnaryClientInterceptor{Weight: 42, Interceptor: NewInjectPeerUnaryClientInterceptor()}
+				},
 				fx.ResultTags(`group:"unary_client_interceptor"`),
 			),
 			fx.Annotate(
-				NewInjectPeerStreamClientInterceptor,
+				func() *fxgrpc.StreamClientInterceptor {
+					return &fxgrpc.StreamClientInterceptor{Weight: 42, Interceptor: NewInjectPeerStreamClientInterceptor()}
+				},
 				fx.ResultTags(`group:"stream_client_interceptor"`),
 			),
 		),
