@@ -5,6 +5,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/exoscale/stelling/fxgrpc/grpctest"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/fx"
@@ -49,11 +50,15 @@ func TestInjectLoggerInterceptor(t *testing.T) {
 			newInjectLoggerRouteGuideServer,
 			pb.NewRouteGuideClient,
 			fx.Annotate(
-				NewInjectLoggerUnaryServerInterceptor,
+				func(logger *zap.Logger) *fxgrpc.UnaryServerInterceptor {
+					return &fxgrpc.UnaryServerInterceptor{Weight: 42, Interceptor: NewInjectLoggerUnaryServerInterceptor(logger)}
+				},
 				fx.ResultTags(`group:"unary_server_interceptor"`),
 			),
 			fx.Annotate(
-				NewInjectLoggerStreamServerInterceptor,
+				func(logger *zap.Logger) *fxgrpc.StreamServerInterceptor {
+					return &fxgrpc.StreamServerInterceptor{Weight: 42, Interceptor: NewInjectLoggerStreamServerInterceptor(logger)}
+				},
 				fx.ResultTags(`group:"stream_server_interceptor"`),
 			),
 		),

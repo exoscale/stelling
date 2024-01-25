@@ -24,10 +24,10 @@ type GrpcParams struct {
 	fx.In
 
 	Lc                       fx.Lifecycle
-	UnaryServerInterceptors  []grpc.UnaryServerInterceptor  `group:"unary_server_interceptor"`
-	StreamServerInterceptors []grpc.StreamServerInterceptor `group:"stream_server_interceptor"`
-	UnaryClientInterceptors  []grpc.UnaryClientInterceptor  `group:"unary_client_interceptor"`
-	StreamClientInterceptors []grpc.StreamClientInterceptor `group:"stream_client_interceptor"`
+	UnaryServerInterceptors  []*fxgrpc.UnaryServerInterceptor  `group:"unary_server_interceptor"`
+	StreamServerInterceptors []*fxgrpc.StreamServerInterceptor `group:"stream_server_interceptor"`
+	UnaryClientInterceptors  []*fxgrpc.UnaryClientInterceptor  `group:"unary_client_interceptor"`
+	StreamClientInterceptors []*fxgrpc.StreamClientInterceptor `group:"stream_client_interceptor"`
 }
 
 func NewGrpc(p GrpcParams) (*grpc.Server, grpc.ClientConnInterface) {
@@ -40,26 +40,14 @@ func NewGrpc(p GrpcParams) (*grpc.Server, grpc.ClientConnInterface) {
 		"buffcon",
 		grpc.WithContextDialer(bufDialer),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithChainUnaryInterceptor(p.UnaryClientInterceptors...),
-		grpc.WithChainStreamInterceptor(p.StreamClientInterceptors...),
+		fxgrpc.WithUnaryClientInterceptors(p.UnaryClientInterceptors),
+		fxgrpc.WithStreamClientInterceptors(p.StreamClientInterceptors),
 	)
 
 	// Handle server middleware
-	unary := []grpc.UnaryServerInterceptor{}
-	for i := range p.UnaryServerInterceptors {
-		if p.UnaryServerInterceptors[i] != nil {
-			unary = append(unary, p.UnaryServerInterceptors[i])
-		}
-	}
-	stream := []grpc.StreamServerInterceptor{}
-	for i := range p.StreamServerInterceptors {
-		if p.StreamServerInterceptors[i] != nil {
-			stream = append(stream, p.StreamServerInterceptors[i])
-		}
-	}
 	s := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(unary...),
-		grpc.ChainStreamInterceptor(stream...),
+		fxgrpc.UnaryServerInterceptors(p.UnaryServerInterceptors),
+		fxgrpc.StreamServerInterceptors(p.StreamServerInterceptors),
 	)
 
 	p.Lc.Append(fx.Hook{

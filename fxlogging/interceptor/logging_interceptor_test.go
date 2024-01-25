@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/exoscale/stelling/fxgrpc/grpctest"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -102,7 +103,9 @@ func TestLoggingServerInterceptor(t *testing.T) {
 		}
 		extraOpts := fx.Provide(
 			fx.Annotate(
-				NewLoggingUnaryServerInterceptor,
+				func(logger *zap.Logger, opts ...Option) *fxgrpc.UnaryServerInterceptor {
+					return &fxgrpc.UnaryServerInterceptor{Weight: 42, Interceptor: NewLoggingUnaryServerInterceptor(logger, opts...)}
+				},
 				fx.ResultTags(`group:"unary_server_interceptor"`),
 			),
 		)
@@ -125,7 +128,9 @@ func TestLoggingServerInterceptor(t *testing.T) {
 		}
 		extraOpts := fx.Provide(
 			fx.Annotate(
-				NewLoggingStreamServerInterceptor,
+				func(logger *zap.Logger, opts ...Option) *fxgrpc.StreamServerInterceptor {
+					return &fxgrpc.StreamServerInterceptor{Weight: 42, Interceptor: NewLoggingStreamServerInterceptor(logger, opts...)}
+				},
 				fx.ResultTags(`group:"stream_server_interceptor"`),
 			),
 		)
@@ -145,7 +150,9 @@ func TestLoggingServerInterceptor(t *testing.T) {
 		}
 		extraOpts := fx.Provide(
 			fx.Annotate(
-				NewLoggingUnaryClientInterceptor,
+				func(logger *zap.Logger, opts ...Option) *fxgrpc.UnaryClientInterceptor {
+					return &fxgrpc.UnaryClientInterceptor{Weight: 42, Interceptor: NewLoggingUnaryClientInterceptor(logger, opts...)}
+				},
 				fx.ResultTags(`group:"unary_client_interceptor"`),
 			),
 		)
@@ -168,7 +175,9 @@ func TestLoggingServerInterceptor(t *testing.T) {
 		}
 		extraOpts := fx.Provide(
 			fx.Annotate(
-				NewLoggingStreamClientInterceptor,
+				func(logger *zap.Logger, opts ...Option) *fxgrpc.StreamClientInterceptor {
+					return &fxgrpc.StreamClientInterceptor{Weight: 42, Interceptor: NewLoggingStreamClientInterceptor(logger, opts...)}
+				},
 				fx.ResultTags(`group:"stream_client_interceptor"`),
 			),
 		)
@@ -194,7 +203,9 @@ func TestLoggingServerInterceptor(t *testing.T) {
 				return []Option{WithLevelFunc(codeToLevel)}
 			},
 			fx.Annotate(
-				NewLoggingUnaryServerInterceptor,
+				func(logger *zap.Logger, opts ...Option) *fxgrpc.UnaryServerInterceptor {
+					return &fxgrpc.UnaryServerInterceptor{Weight: 42, Interceptor: NewLoggingUnaryServerInterceptor(logger, opts...)}
+				},
 				fx.ResultTags(`group:"unary_server_interceptor"`),
 			),
 		)
@@ -217,7 +228,9 @@ func TestLoggingServerInterceptor(t *testing.T) {
 				return []Option{WithLogFilter(logFilter)}
 			},
 			fx.Annotate(
-				NewLoggingUnaryServerInterceptor,
+				func(logger *zap.Logger, opts ...Option) *fxgrpc.UnaryServerInterceptor {
+					return &fxgrpc.UnaryServerInterceptor{Weight: 42, Interceptor: NewLoggingUnaryServerInterceptor(logger, opts...)}
+				},
 				fx.ResultTags(`group:"unary_server_interceptor"`),
 			),
 		)
@@ -249,7 +262,9 @@ func TestLoggingServerInterceptor(t *testing.T) {
 				return []Option{WithPayloadFilter(payloadFilter)}
 			},
 			fx.Annotate(
-				NewLoggingUnaryServerInterceptor,
+				func(logger *zap.Logger, opts ...Option) *fxgrpc.UnaryServerInterceptor {
+					return &fxgrpc.UnaryServerInterceptor{Weight: 42, Interceptor: NewLoggingUnaryServerInterceptor(logger, opts...)}
+				},
 				fx.ResultTags(`group:"unary_server_interceptor"`),
 			),
 		)
@@ -284,7 +299,9 @@ func TestLoggingServerInterceptor(t *testing.T) {
 				return []Option{WithPayloadFilter(payloadFilter)}
 			},
 			fx.Annotate(
-				NewLoggingStreamServerInterceptor,
+				func(logger *zap.Logger, opts ...Option) *fxgrpc.StreamServerInterceptor {
+					return &fxgrpc.StreamServerInterceptor{Weight: 42, Interceptor: NewLoggingStreamServerInterceptor(logger, opts...)}
+				},
 				fx.ResultTags(`group:"stream_server_interceptor"`),
 			),
 		)
@@ -319,7 +336,9 @@ func TestLoggingServerInterceptor(t *testing.T) {
 				return []Option{WithPayloadFilter(payloadFilter)}
 			},
 			fx.Annotate(
-				NewLoggingStreamClientInterceptor,
+				func(logger *zap.Logger, opts ...Option) *fxgrpc.StreamClientInterceptor {
+					return &fxgrpc.StreamClientInterceptor{Weight: 42, Interceptor: NewLoggingStreamClientInterceptor(logger, opts...)}
+				},
 				fx.ResultTags(`group:"stream_client_interceptor"`),
 			),
 		)
@@ -350,7 +369,9 @@ func TestLoggingServerInterceptor(t *testing.T) {
 				return []Option{WithExtraFieldsFunc(extraFieldsFunc)}
 			},
 			fx.Annotate(
-				NewLoggingUnaryServerInterceptor,
+				func(logger *zap.Logger, opts ...Option) *fxgrpc.UnaryServerInterceptor {
+					return &fxgrpc.UnaryServerInterceptor{Weight: 42, Interceptor: NewLoggingUnaryServerInterceptor(logger, opts...)}
+				},
 				fx.ResultTags(`group:"unary_server_interceptor"`),
 			),
 		)
