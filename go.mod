@@ -30,6 +30,7 @@ require (
 
 require (
 	github.com/coreos/go-oidc/v3 v3.9.0
+	github.com/getsentry/sentry-go v0.26.0
 	github.com/google/cel-go v0.19.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	modernc.org/sqlite v1.28.0
@@ -46,7 +47,6 @@ require (
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
-	github.com/getsentry/sentry-go v0.26.0 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.1 // indirect
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
