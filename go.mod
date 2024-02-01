@@ -7,7 +7,6 @@ require (
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/exoscale/multiconfig v0.0.0-20230125174416-7beaf41f3d8e
 	github.com/fsnotify/fsnotify v1.7.0
-	github.com/getsentry/sentry-go v0.20.0 // Do not upgrade this version: anything higher is not compatible with our hosted instance
 	github.com/go-logr/zapr v1.3.0
 	github.com/go-playground/validator/v10 v10.17.0
 	github.com/golang/protobuf v1.5.3
@@ -31,6 +30,7 @@ require (
 
 require (
 	github.com/coreos/go-oidc/v3 v3.9.0
+	github.com/getsentry/sentry-go v0.26.0
 	github.com/google/cel-go v0.19.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	modernc.org/sqlite v1.28.0
@@ -76,7 +76,7 @@ require (
 	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/net v0.18.0 // indirect
 	golang.org/x/oauth2 v0.14.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.6.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
