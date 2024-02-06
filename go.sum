@@ -610,5 +610,5 @@ modernc.org/z v1.7.3 h1:zDJf6iHjrnB+WRD88stbXokugjyc0/pB91ri1gO6LZY=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
-zombiezen.com/go/sqlite v1.1.0 h1:2BIABTFCE221++xR90rV0mE6T5gFF8o0MUcKDNUrIVc=
-zombiezen.com/go/sqlite v1.1.0/go.mod h1:rZEFEJSoeXeiwuAb6HugOJLhtDabl+EekT92DCEKOb0=
+zombiezen.com/go/sqlite v1.1.1 h1:Zhqg3qZJUsAat5aY2NizmcTQ411DtRsJ7q59Hn77MTo=
+zombiezen.com/go/sqlite v1.1.1/go.mod h1:rZEFEJSoeXeiwuAb6HugOJLhtDabl+EekT92DCEKOb0=

@@ -25,7 +25,7 @@ require (
 	google.golang.org/grpc v1.61.0
 	google.golang.org/grpc/examples v0.0.0-20230215194445-0f02ca5cc927
 	google.golang.org/protobuf v1.32.0
-	zombiezen.com/go/sqlite v1.1.0
+	zombiezen.com/go/sqlite v1.1.1
 )
 
 require (
