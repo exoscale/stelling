@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -87,7 +88,7 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 	otel.SetLogger(zapr.NewLogger(logger))
 
 	if !tracingConf.Enabled {
-		return trace.NewNoopTracerProvider(), nil
+		return noop.NewTracerProvider(), nil
 	}
 
 	// If tracing is enabled without an endpoint print traces to stdout
@@ -165,17 +166,22 @@ func NewGrpcServerInterceptors(tracerProvider trace.TracerProvider) (GrpcServerI
 		propagation.TraceContext{},
 	)
 
+	// We explicitly rely on the deprecated interceptor implementation
+	// The new implementation relies on a stats.Handler which is incompatible
+	// with receive buffer reuse: https://github.com/grpc/grpc-go/blob/master/experimental/experimental.go#L40-L42
+	// The receive buffer reuse is important for our performance sensitive use cases
+
 	return GrpcServerInterceptorsResult{
 		UnaryServerInterceptor: &fxgrpc.UnaryServerInterceptor{
 			Weight: GrpcInterceptorWeight,
-			Interceptor: otelgrpc.UnaryServerInterceptor(
+			Interceptor: otelgrpc.UnaryServerInterceptor( //nolint:staticcheck
 				otelgrpc.WithTracerProvider(tracerProvider),
 				otelgrpc.WithPropagators(propagator),
 			),
 		},
 		StreamServerInterceptor: &fxgrpc.StreamServerInterceptor{
 			Weight: GrpcInterceptorWeight,
-			Interceptor: otelgrpc.StreamServerInterceptor(
+			Interceptor: otelgrpc.StreamServerInterceptor( //nolint:staticcheck
 				otelgrpc.WithTracerProvider(tracerProvider),
 				otelgrpc.WithPropagators(propagator),
 			),
@@ -197,17 +203,22 @@ func NewGrpcClientInterceptors(tracerProvider trace.TracerProvider) (GrpcClientI
 		propagation.TraceContext{},
 	)
 
+	// We explicitly rely on the deprecated interceptor implementation
+	// The new implementation relies on a stats.Handler which is incompatible
+	// with receive buffer reuse: https://github.com/grpc/grpc-go/blob/master/experimental/experimental.go#L40-L42
+	// The receive buffer reuse is important for our performance sensitive use cases
+
 	return GrpcClientInterceptorsResult{
 		UnaryClientInterceptor: &fxgrpc.UnaryClientInterceptor{
 			Weight: GrpcInterceptorWeight,
-			Interceptor: otelgrpc.UnaryClientInterceptor(
+			Interceptor: otelgrpc.UnaryClientInterceptor( //nolint:staticcheck
 				otelgrpc.WithTracerProvider(tracerProvider),
 				otelgrpc.WithPropagators(propagator),
 			),
 		},
 		StreamClientInterceptor: &fxgrpc.StreamClientInterceptor{
 			Weight: GrpcInterceptorWeight,
-			Interceptor: otelgrpc.StreamClientInterceptor(
+			Interceptor: otelgrpc.StreamClientInterceptor( //nolint:staticcheck
 				otelgrpc.WithTracerProvider(tracerProvider),
 				otelgrpc.WithPropagators(propagator),
 			),
