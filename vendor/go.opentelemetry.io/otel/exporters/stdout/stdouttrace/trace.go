@@ -93,7 +93,7 @@ func (e *Exporter) ExportSpans(ctx context.Context, spans []trace.ReadOnlySpan) 
 	return nil
 }
 
-// Shutdown is called to stop the exporter, it preforms no action.
+// Shutdown is called to stop the exporter, it performs no action.
 func (e *Exporter) Shutdown(ctx context.Context) error {
 	e.stoppedMu.Lock()
 	e.stopped = true
@@ -107,7 +107,7 @@ func (e *Exporter) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-// MarshalLog is the marshaling function used by the logging system to represent this exporter.
+// MarshalLog is the marshaling function used by the logging system to represent this Exporter.
 func (e *Exporter) MarshalLog() interface{} {
 	return struct {
 		Type           string

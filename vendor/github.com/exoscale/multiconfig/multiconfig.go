@@ -116,7 +116,7 @@ func (d *DefaultLoader) MustValidate(conf interface{}) {
 }
 
 // fieldSet sets field value from the given string value. It converts the
-// string value in a sane way and is usefulf or environment variables or flags
+// string value in a sane way and is useful for environment variables or flags
 // which are by nature in string types.
 func fieldSet(field *structs.Field, v string) error {
 	switch f := field.Value().(type) {
