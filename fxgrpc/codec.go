@@ -3,12 +3,12 @@ package fxgrpc
 import (
 	"fmt"
 
-	// use the original golang/protobuf package we can continue serializing
+	// use the v2 proto package we can continue serializing
 	// messages from our dependencies that don't use vtproto
-	"github.com/golang/protobuf/proto" //nolint
-
 	"google.golang.org/grpc/encoding"
 	_ "google.golang.org/grpc/encoding/proto"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/protoadapt"
 )
 
 // Name is the name registered for the proto compressor.
@@ -27,8 +27,8 @@ func (vtprotoCodec) Marshal(v interface{}) ([]byte, error) {
 		return vt.MarshalVT()
 	}
 
-	vv, ok := v.(proto.Message)
-	if !ok {
+	vv := messageV2Of(v)
+	if vv == nil {
 		return nil, fmt.Errorf("failed to marshal, message is %T, want proto.Message", v)
 	}
 	return proto.Marshal(vv)
@@ -40,11 +40,22 @@ func (vtprotoCodec) Unmarshal(data []byte, v interface{}) error {
 		return vt.UnmarshalVT(data)
 	}
 
-	vv, ok := v.(proto.Message)
-	if !ok {
+	vv := messageV2Of(v)
+	if vv == nil {
 		return fmt.Errorf("failed to unmarshal, message is %T, want proto.Message", v)
 	}
 	return proto.Unmarshal(data, vv)
+}
+
+func messageV2Of(v any) proto.Message {
+	switch v := v.(type) {
+	case protoadapt.MessageV1:
+		return protoadapt.MessageV2Of(v)
+	case protoadapt.MessageV2:
+		return v
+	}
+
+	return nil
 }
 
 func (vtprotoCodec) Name() string {

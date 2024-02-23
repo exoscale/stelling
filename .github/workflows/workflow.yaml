@@ -19,6 +19,8 @@ jobs:
           go-version-file: 'go.mod'
           check-latest: true
       - run: go test ./... -cover -race
+      - run: go test ./... -cover -race
+        working-directory: ./examples/
   lint:
     name: lint
     runs-on: ubuntu-latest
