@@ -22,18 +22,18 @@ require (
 	go.opentelemetry.io/otel/trace v1.24.0
 	go.uber.org/fx v1.20.1
 	go.uber.org/zap v1.27.0
-	google.golang.org/grpc v1.62.0
+	google.golang.org/grpc v1.62.1
 	google.golang.org/grpc/examples v0.0.0-20230215194445-0f02ca5cc927
-	google.golang.org/protobuf v1.32.0
+	google.golang.org/protobuf v1.33.0
 	zombiezen.com/go/sqlite v1.1.2
 )
 
 require (
 	github.com/coreos/go-oidc/v3 v3.9.0
 	github.com/getsentry/sentry-go v0.27.0
-	github.com/google/cel-go v0.20.0
+	github.com/google/cel-go v0.20.1
 	gopkg.in/square/go-jose.v2 v2.6.0
-	modernc.org/sqlite v1.29.2
+	modernc.org/sqlite v1.29.3
 )
 
 require (
