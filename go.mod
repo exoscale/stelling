@@ -20,7 +20,7 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.24.0
 	go.opentelemetry.io/otel/sdk v1.24.0
 	go.opentelemetry.io/otel/trace v1.24.0
-	go.uber.org/fx v1.20.1
+	go.uber.org/fx v1.21.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.62.1
 	google.golang.org/grpc/examples v0.0.0-20230215194445-0f02ca5cc927
@@ -33,7 +33,7 @@ require (
 	github.com/getsentry/sentry-go v0.27.0
 	github.com/google/cel-go v0.20.1
 	gopkg.in/square/go-jose.v2 v2.6.0
-	modernc.org/sqlite v1.29.3
+	modernc.org/sqlite v1.29.5
 )
 
 require (
@@ -67,7 +67,6 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.24.0 // indirect
 	go.opentelemetry.io/otel/metric v1.24.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.1.0 // indirect
-	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/dig v1.17.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.19.0 // indirect

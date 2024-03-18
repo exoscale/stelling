@@ -504,6 +504,17 @@ func (s *stmt) exec(ctx context.Context, args []driver.NamedValue) (r driver.Res
 	}
 
 	defer func() {
+		if pstmt != 0 {
+			// ensure stmt finalized.
+			e := s.c.finalize(pstmt)
+
+			if err == nil && e != nil {
+				// prioritize original
+				// returned error.
+				err = e
+			}
+		}
+
 		if ctx != nil && atomic.LoadInt32(&done) != 0 {
 			r, err = nil, ctx.Err()
 		}
@@ -553,7 +564,12 @@ func (s *stmt) exec(ctx context.Context, args []driver.NamedValue) (r driver.Res
 			return nil
 		}()
 
-		if e := s.c.finalize(pstmt); e != nil && err == nil {
+		e := s.c.finalize(pstmt)
+		pstmt = 0 // done with
+
+		if err == nil && e != nil {
+			// prioritize original
+			// returned error.
 			err = e
 		}
 
@@ -603,6 +619,17 @@ func (s *stmt) query(ctx context.Context, args []driver.NamedValue) (r driver.Ro
 	var allocs []uintptr
 
 	defer func() {
+		if pstmt != 0 {
+			// ensure stmt finalized.
+			e := s.c.finalize(pstmt)
+
+			if err == nil && e != nil {
+				// prioritize original
+				// returned error.
+				err = e
+			}
+		}
+
 		if ctx != nil && atomic.LoadInt32(&done) != 0 {
 			r, err = nil, ctx.Err()
 		} else if r == nil && err == nil {
@@ -673,7 +700,13 @@ func (s *stmt) query(ctx context.Context, args []driver.NamedValue) (r driver.Ro
 			}
 			return nil
 		}()
-		if e := s.c.finalize(pstmt); e != nil && err == nil {
+
+		e := s.c.finalize(pstmt)
+		pstmt = 0 // done with
+
+		if err == nil && e != nil {
+			// prioritize original
+			// returned error.
 			err = e
 		}
 
