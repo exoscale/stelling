@@ -42,13 +42,14 @@ editor:
 	gofmt -l -s -w . 2>&1 | tee log-editor
 	go test -c -o /dev/null 2>&1 | tee -a log-editor
 	go build -v  -o /dev/null ./... 2>&1 | tee -a log-editor
-	go build -o /dev/null migrate.go
+	go build -o /dev/null vendor_libsqlite3.go
 
 test:
 	go test -v -timeout 24h 2>&1 | tee log-test
 	
 vendor:
 	go run vendor_libsqlite3.go && make build_all_targets
+	make build_all_targets
 
 work:
 	rm -f go.work*
