@@ -1,7 +1,7 @@
 github.com/BurntSushi/toml v1.3.2 h1:o7IhLm0Msx3BaB+n3Ag7L8EVlByGnpq14C4YWiu/gL8=
 github.com/BurntSushi/toml v1.3.2/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbicEuybxQ=
-github.com/TheZeroSlave/zapsentry v1.20.2 h1:llgC91ZJdoU/OzGxYpUlEhKinf65mw9hJ2KkZ7+cGIk=
-github.com/TheZeroSlave/zapsentry v1.20.2/go.mod h1:D1YMfSuu6xnkhwFXxrronesmsiyDhIqo+86I3Ok+r64=
+github.com/TheZeroSlave/zapsentry v1.22.0 h1:9Q3r5XbN9A7AyIgvS/sNA3ZwiH5PpeJz7pvyrrqGZCU=
+github.com/TheZeroSlave/zapsentry v1.22.0/go.mod h1:D1YMfSuu6xnkhwFXxrronesmsiyDhIqo+86I3Ok+r64=
 github.com/antlr4-go/antlr/v4 v4.13.0 h1:lxCg3LAv+EUK6t1i0y1V6/SLeUi0eKEKdhQAlS8TVTI=
 github.com/antlr4-go/antlr/v4 v4.13.0/go.mod h1:pfChB/xh/Unjila75QW7+VU4TSnWnnk9UTnmpPaOR2g=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
@@ -222,5 +222,5 @@ modernc.org/strutil v1.2.0 h1:agBi9dp1I+eOnxXeiZawM8F4LawKv4NzGWSaLfyeNZA=
 modernc.org/strutil v1.2.0/go.mod h1:/mdcBmfOibveCTBxUl5B5l6W+TTH1FXPLHZE6bTosX0=
 modernc.org/token v1.1.0 h1:Xl7Ap9dKaEs5kLoOQeQmPWevfnk/DM5qcLcYlA8ys6Y=
 modernc.org/token v1.1.0/go.mod h1:UGzOrNV1mAFSEB63lOFHIpNRUVMvYTc6yu1SMY/XTDM=
-zombiezen.com/go/sqlite v1.1.2 h1:faRIy8qc5Yvt/ZM9xv6zgufo8PI2rnPWIif2VTy8+uw=
-zombiezen.com/go/sqlite v1.1.2/go.mod h1:yRl27//s/9aXU3RWs8uFQwjkTG9gYNGEls6+6SvrclY=
+zombiezen.com/go/sqlite v1.2.0 h1:jja0Ubpzpl6bjr/bSaPyvafHO+extoDJJXIaqXT7VOU=
+zombiezen.com/go/sqlite v1.2.0/go.mod h1:yRl27//s/9aXU3RWs8uFQwjkTG9gYNGEls6+6SvrclY=

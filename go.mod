@@ -3,7 +3,7 @@ module github.com/exoscale/stelling
 go 1.21
 
 require (
-	github.com/TheZeroSlave/zapsentry v1.20.2
+	github.com/TheZeroSlave/zapsentry v1.22.0
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/exoscale/multiconfig v0.0.0-20230329142724-71ec8bdb4f80
 	github.com/fsnotify/fsnotify v1.7.0
@@ -25,7 +25,7 @@ require (
 	google.golang.org/grpc v1.62.1
 	google.golang.org/grpc/examples v0.0.0-20230215194445-0f02ca5cc927
 	google.golang.org/protobuf v1.33.0
-	zombiezen.com/go/sqlite v1.1.2
+	zombiezen.com/go/sqlite v1.2.0
 )
 
 require (

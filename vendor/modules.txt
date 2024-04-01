@@ -2,7 +2,7 @@
 ## explicit; go 1.16
 github.com/BurntSushi/toml
 github.com/BurntSushi/toml/internal
-# github.com/TheZeroSlave/zapsentry v1.20.2
+# github.com/TheZeroSlave/zapsentry v1.22.0
 ## explicit; go 1.17
 github.com/TheZeroSlave/zapsentry
 # github.com/antlr4-go/antlr/v4 v4.13.0
@@ -483,7 +483,7 @@ modernc.org/strutil
 # modernc.org/token v1.1.0
 ## explicit
 modernc.org/token
-# zombiezen.com/go/sqlite v1.1.2
+# zombiezen.com/go/sqlite v1.2.0
 ## explicit; go 1.20
 zombiezen.com/go/sqlite
 zombiezen.com/go/sqlite/sqlitex
