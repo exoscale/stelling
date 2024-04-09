@@ -1904,6 +1904,21 @@ type ExecQuerierContext interface {
 	driver.QueryerContext
 }
 
+// Commit releases all resources associated with the Backup object but does not
+// close the destination database connection.
+//
+// The destination database connection is returned to the caller or an error if raised.
+// It is the responsibility of the caller to handle the connection closure.
+func (b *Backup) Commit() (driver.Conn, error) {
+	rc := sqlite3.Xsqlite3_backup_finish(b.srcConn.tls, b.pBackup)
+
+	if rc == sqlite3.SQLITE_OK {
+		return b.dstConn, nil
+	} else {
+		return nil, b.srcConn.errstr(rc)
+	}
+}
+
 // ConnectionHookFn function type for a connection hook on the Driver. Connection
 // hooks are called after the connection has been set up.
 type ConnectionHookFn func(

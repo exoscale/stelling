@@ -30,19 +30,22 @@ type GrpcParams struct {
 	StreamClientInterceptors []*fxgrpc.StreamClientInterceptor `group:"stream_client_interceptor"`
 }
 
-func NewGrpc(p GrpcParams) (*grpc.Server, grpc.ClientConnInterface) {
+func NewGrpc(p GrpcParams) (*grpc.Server, grpc.ClientConnInterface, error) {
 	lis := bufconn.Listen(1024 * 1024)
 
 	bufDialer := func(context.Context, string) (net.Conn, error) {
 		return lis.Dial()
 	}
-	conn := fxgrpc.NewLazyGrpcClientConn(
-		"buffcon",
+	conn, err := grpc.NewClient(
+		"passthrough://buffcon",
 		grpc.WithContextDialer(bufDialer),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		fxgrpc.WithUnaryClientInterceptors(p.UnaryClientInterceptors),
 		fxgrpc.WithStreamClientInterceptors(p.StreamClientInterceptors),
 	)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// Handle server middleware
 	s := grpc.NewServer(
@@ -61,14 +64,5 @@ func NewGrpc(p GrpcParams) (*grpc.Server, grpc.ClientConnInterface) {
 		},
 	})
 
-	p.Lc.Append(fx.Hook{
-		OnStart: func(c context.Context) error {
-			return conn.Start(c)
-		},
-		OnStop: func(c context.Context) error {
-			return conn.Stop(c)
-		},
-	})
-
-	return s, conn
+	return s, conn, err
 }
