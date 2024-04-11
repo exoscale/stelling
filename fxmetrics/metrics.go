@@ -102,25 +102,25 @@ type GrpcServerInterceptorsResult struct {
 const GrpcInterceptorWeight = 60
 
 func NewGrpcServerInterceptors(p GrpcServerInterceptorParams) (GrpcServerInterceptorsResult, error) {
-	opts2 := []grpc_prometheus.ServerMetricsOption{}
+	opts := []grpc_prometheus.ServerMetricsOption{}
 	if p.Conf.MetricsConfig().Histograms {
-		opts2 = append(opts2, grpc_prometheus.WithServerHandlingTimeHistogram(p.HistogramOps...))
+		opts = append(opts, grpc_prometheus.WithServerHandlingTimeHistogram(p.HistogramOps...))
 	}
-	serverMetrics2 := grpc_prometheus.NewServerMetrics(opts2...)
-	if err := p.Reg.Register(serverMetrics2); err != nil {
+	serverMetrics := grpc_prometheus.NewServerMetrics(opts...)
+	if err := p.Reg.Register(serverMetrics); err != nil {
 		return GrpcServerInterceptorsResult{}, err
 	}
 
 	return GrpcServerInterceptorsResult{
 		UnaryServerInterceptor: &fxgrpc.UnaryServerInterceptor{
 			Weight:      GrpcInterceptorWeight,
-			Interceptor: serverMetrics2.UnaryServerInterceptor(),
+			Interceptor: serverMetrics.UnaryServerInterceptor(),
 		},
 		StreamServerInterceptor: &fxgrpc.StreamServerInterceptor{
 			Weight:      GrpcInterceptorWeight,
-			Interceptor: serverMetrics2.StreamServerInterceptor(),
+			Interceptor: serverMetrics.StreamServerInterceptor(),
 		},
-		ServerMetrics: serverMetrics2,
+		ServerMetrics: serverMetrics,
 	}, nil
 }
 
