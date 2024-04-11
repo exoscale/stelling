@@ -124,8 +124,8 @@ func NewGrpcServerInterceptors(p GrpcServerInterceptorParams) (GrpcServerInterce
 	}, nil
 }
 
-func InitializeGrpcServerMetrics(metrics2 *grpc_prometheus.ServerMetrics, server *grpc.Server) {
-	metrics2.InitializeMetrics(server)
+func InitializeGrpcServerMetrics(metrics *grpc_prometheus.ServerMetrics, server *grpc.Server) {
+	metrics.InitializeMetrics(server)
 }
 
 type GrpcClientInterceptorsResult struct {
