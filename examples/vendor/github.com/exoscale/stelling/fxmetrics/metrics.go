@@ -6,7 +6,7 @@ import (
 
 	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/exoscale/stelling/fxhttp"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -102,29 +102,30 @@ type GrpcServerInterceptorsResult struct {
 const GrpcInterceptorWeight = 60
 
 func NewGrpcServerInterceptors(p GrpcServerInterceptorParams) (GrpcServerInterceptorsResult, error) {
-	serverMetrics := grpc_prometheus.NewServerMetrics()
+	opts2 := []grpc_prometheus.ServerMetricsOption{}
 	if p.Conf.MetricsConfig().Histograms {
-		serverMetrics.EnableHandlingTimeHistogram(p.HistogramOps...)
+		opts2 = append(opts2, grpc_prometheus.WithServerHandlingTimeHistogram(p.HistogramOps...))
 	}
-	if err := p.Reg.Register(serverMetrics); err != nil {
+	serverMetrics2 := grpc_prometheus.NewServerMetrics(opts2...)
+	if err := p.Reg.Register(serverMetrics2); err != nil {
 		return GrpcServerInterceptorsResult{}, err
 	}
 
 	return GrpcServerInterceptorsResult{
 		UnaryServerInterceptor: &fxgrpc.UnaryServerInterceptor{
 			Weight:      GrpcInterceptorWeight,
-			Interceptor: serverMetrics.UnaryServerInterceptor(),
+			Interceptor: serverMetrics2.UnaryServerInterceptor(),
 		},
 		StreamServerInterceptor: &fxgrpc.StreamServerInterceptor{
 			Weight:      GrpcInterceptorWeight,
-			Interceptor: serverMetrics.StreamServerInterceptor(),
+			Interceptor: serverMetrics2.StreamServerInterceptor(),
 		},
-		ServerMetrics: serverMetrics,
+		ServerMetrics: serverMetrics2,
 	}, nil
 }
 
-func InitializeGrpcServerMetrics(metrics *grpc_prometheus.ServerMetrics, server *grpc.Server) {
-	metrics.InitializeMetrics(server)
+func InitializeGrpcServerMetrics(metrics2 *grpc_prometheus.ServerMetrics, server *grpc.Server) {
+	metrics2.InitializeMetrics(server)
 }
 
 type GrpcClientInterceptorsResult struct {
@@ -136,6 +137,7 @@ type GrpcClientInterceptorsResult struct {
 
 func NewGrpcClientInterceptors(reg *prometheus.Registry) (GrpcClientInterceptorsResult, error) {
 	clientMetrics := grpc_prometheus.NewClientMetrics()
+
 	if err := reg.Register(clientMetrics); err != nil {
 		return GrpcClientInterceptorsResult{}, err
 	}

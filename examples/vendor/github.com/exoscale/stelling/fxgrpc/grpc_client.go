@@ -2,10 +2,8 @@
 package fxgrpc
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -49,52 +47,6 @@ func NewNamedClientModule(name string, conf ClientConfig) fx.Option {
 		),
 		fx.Invoke(zapgrpc.SetGrpcLogger),
 	)
-}
-
-// LazyGrpcClientConn is GrpcClientConn that defers initialization of the connection until Start is called
-type LazyGrpcClientConn struct {
-	conn   *grpc.ClientConn
-	target string
-	opts   []grpc.DialOption
-}
-
-func NewLazyGrpcClientConn(target string, opts ...grpc.DialOption) *LazyGrpcClientConn {
-	return &LazyGrpcClientConn{
-		target: target,
-		opts:   opts,
-	}
-}
-
-func (c *LazyGrpcClientConn) Invoke(ctx context.Context, method string, args interface{}, reply interface{}, opts ...grpc.CallOption) error {
-	if c.conn == nil {
-		return errors.New("LazyGrpcClientConn has not been started yet")
-	}
-	return c.conn.Invoke(ctx, method, args, reply, opts...)
-}
-
-func (c *LazyGrpcClientConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-	if c.conn == nil {
-		return nil, errors.New("LazyGrpcClientConn has not been started yet")
-	}
-	return c.conn.NewStream(ctx, desc, method, opts...)
-}
-
-// Start initializes the grpc TCP connection
-func (c *LazyGrpcClientConn) Start(ctx context.Context) error {
-	conn, err := grpc.DialContext(ctx, c.target, c.opts...)
-	if err != nil {
-		return err
-	}
-	c.conn = conn
-	return nil
-}
-
-// Stop closes the grpc TCP connection
-func (c *LazyGrpcClientConn) Stop(ctx context.Context) error {
-	if c.conn == nil {
-		return errors.New("LazyGrpcClientConn has not been started yet")
-	}
-	return c.conn.Close()
 }
 
 type ClientConfig interface {
@@ -216,7 +168,7 @@ func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []*UnaryClientInter
 	// Add the externally supplied options last: this allows the user to override any options we may have set already
 	opts = append(opts, dOpts...)
 
-	return grpc.Dial(conf.GrpcClientConfig().Endpoint, opts...)
+	return grpc.NewClient(conf.GrpcClientConfig().Endpoint, opts...)
 }
 
 func ProvideGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
@@ -236,12 +188,5 @@ func ProvideGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
 	// Add the externally supplied options last: this allows the user to override any options we may have set already
 	opts = append(opts, p.ClientOpts...)
 
-	conn := NewLazyGrpcClientConn(p.Conf.GrpcClientConfig().Endpoint, opts...)
-
-	p.Lc.Append(fx.Hook{
-		OnStart: conn.Start,
-		OnStop:  conn.Stop,
-	})
-
-	return conn, nil
+	return grpc.NewClient(p.Conf.GrpcClientConfig().Endpoint, opts...)
 }
