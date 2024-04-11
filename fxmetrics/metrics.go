@@ -137,7 +137,6 @@ type GrpcClientInterceptorsResult struct {
 
 func NewGrpcClientInterceptors(reg *prometheus.Registry) (GrpcClientInterceptorsResult, error) {
 	clientMetrics := grpc_prometheus.NewClientMetrics()
-
 	if err := reg.Register(clientMetrics); err != nil {
 		return GrpcClientInterceptorsResult{}, err
 	}
