@@ -1,7 +1,15 @@
 version: 2
+registries:
+  github:
+    type: git
+    url: https://github.com
+    username: x-access-token
+    password: ${{ secrets.GH_TOKEN }}
 updates:
 - package-ecosystem: gomod
-  directory: /
+  registries:
+  - github
+  directory: /blobd
   schedule:
     interval: weekly
   open-pull-requests-limit: 10
