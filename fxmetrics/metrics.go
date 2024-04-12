@@ -6,7 +6,7 @@ import (
 
 	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/exoscale/stelling/fxhttp"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -102,10 +102,11 @@ type GrpcServerInterceptorsResult struct {
 const GrpcInterceptorWeight = 60
 
 func NewGrpcServerInterceptors(p GrpcServerInterceptorParams) (GrpcServerInterceptorsResult, error) {
-	serverMetrics := grpc_prometheus.NewServerMetrics()
+	opts := []grpc_prometheus.ServerMetricsOption{}
 	if p.Conf.MetricsConfig().Histograms {
-		serverMetrics.EnableHandlingTimeHistogram(p.HistogramOps...)
+		opts = append(opts, grpc_prometheus.WithServerHandlingTimeHistogram(p.HistogramOps...))
 	}
+	serverMetrics := grpc_prometheus.NewServerMetrics(opts...)
 	if err := p.Reg.Register(serverMetrics); err != nil {
 		return GrpcServerInterceptorsResult{}, err
 	}

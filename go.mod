@@ -10,7 +10,6 @@ require (
 	github.com/go-logr/zapr v1.3.0
 	github.com/go-playground/validator/v10 v10.19.0
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/oklog/ulid/v2 v2.1.0
 	github.com/prometheus/client_golang v1.19.0
 	github.com/stretchr/testify v1.9.0
@@ -32,6 +31,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.10.0
 	github.com/getsentry/sentry-go v0.27.0
 	github.com/google/cel-go v0.20.1
+	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.1-0.20240408211847-daf5ccf8a182
 	gopkg.in/square/go-jose.v2 v2.6.0
 	modernc.org/sqlite v1.29.6
 )
@@ -53,6 +53,7 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.0-rc.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.1 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
