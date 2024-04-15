@@ -2,17 +2,23 @@ package fxmetrics
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/exoscale/stelling/fxgrpc"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/noop"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+
+	dto "github.com/prometheus/client_model/go"
 )
 
 func NewOtlpModule(conf OtlpMetricsConfig) fx.Option {
@@ -109,11 +115,18 @@ func NewOtlpMeterProvider(lc fx.Lifecycle, conf OtlpMetricsConfig, logger *zap.L
 		sdkmetric.WithInterval(otlpConf.PushInterval),
 	)
 
-	lc.Append(fx.Hook{OnStop: reader.Shutdown})
+	lc.Append(fx.Hook{OnStop: func(ctx context.Context) error {
+		return reader.Shutdown(ctx)
+	}})
 
 	provider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(reader),
 	)
+
+	// Attach golang runtime metrics directly
+	lc.Append(fx.Hook{OnStart: func(_ context.Context) error {
+		return runtime.Start(runtime.WithMeterProvider(provider))
+	}})
 
 	return provider, nil
 }
@@ -181,4 +194,44 @@ func NewOtlpGrpcClientInterceptors(p OtlpGrpcClientInterceptorParams) (OtlpGrpcC
 			Interceptor: otelgrpc.StreamClientInterceptor(opts...), //nolint:staticcheck
 		},
 	}, nil
+}
+
+// Helpers
+
+func FromGaugeVec(vec *prometheus.GaugeVec) metric.Float64Callback {
+	return func(ctx context.Context, io metric.Float64Observer) error {
+		grp := sync.WaitGroup{}
+		defer grp.Wait()
+
+		metrics := make(chan prometheus.Metric)
+		grp.Add(1)
+		go func() {
+			defer grp.Done()
+			vec.Collect(metrics)
+			close(metrics)
+		}()
+
+		for mymetric := range metrics {
+			protometric := dto.Metric{}
+			if err := mymetric.Write(&protometric); err != nil {
+				// TODO: take a logger here & display the errors
+				continue
+			}
+
+			attributes := []attribute.KeyValue{}
+			for _, label := range protometric.Label {
+				if label.Name != nil && label.Value != nil {
+					attributes = append(attributes,
+						attribute.String(*label.Name, *label.Value),
+					)
+				}
+			}
+
+			if value := protometric.Gauge.Value; value != nil {
+				io.Observe(*value, metric.WithAttributes(attributes...))
+			}
+		}
+
+		return nil
+	}
 }
