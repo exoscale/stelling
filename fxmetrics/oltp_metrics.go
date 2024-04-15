@@ -30,7 +30,6 @@ func NewOtlpModule(conf OtlpMetricsConfig) fx.Option {
 type OtlpMetricsConfig interface {
 	OtlpMetricsConfig() *OtlpMetrics
 	MetricsConfig() *Metrics
-	// GrpcClientConfig() *fxgrpc.Client
 }
 
 type OtlpMetrics struct {
