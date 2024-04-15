@@ -19,7 +19,7 @@ func NewOtlpModule(conf OtlpMetricsConfig) fx.Option {
 	return fx.Options(
 		fx.Supply(fx.Annotate(conf, fx.As(new(OtlpMetricsConfig)))),
 		fx.Provide(
-			NewOtlpRegistry,
+			NewOtlpMeterProvider,
 			NewOtlpGrpcServerInterceptors,
 			NewOtlpGrpcClientInterceptors,
 			func(conf OtlpMetricsConfig) MetricsConfig { return conf },
@@ -78,7 +78,7 @@ func (om *OtlpMetrics) GrpcClientConfig() *fxgrpc.Client {
 	}
 }
 
-func NewOtlpRegistry(lc fx.Lifecycle, conf OtlpMetricsConfig, logger *zap.Logger) (metric.MeterProvider, error) {
+func NewOtlpMeterProvider(lc fx.Lifecycle, conf OtlpMetricsConfig, logger *zap.Logger) (metric.MeterProvider, error) {
 	otlpConf := conf.OtlpMetricsConfig()
 
 	if !otlpConf.Enabled {
