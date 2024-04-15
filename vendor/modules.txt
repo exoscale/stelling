@@ -175,6 +175,9 @@ github.com/stretchr/testify/require
 ## explicit; go 1.21
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc/internal
+# go.opentelemetry.io/contrib/instrumentation/runtime v0.50.0
+## explicit; go 1.21
+go.opentelemetry.io/contrib/instrumentation/runtime
 # go.opentelemetry.io/otel v1.25.0
 ## explicit; go 1.21
 go.opentelemetry.io/otel
