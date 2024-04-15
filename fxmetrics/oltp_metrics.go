@@ -214,7 +214,7 @@ func FromGaugeVec(vec *prometheus.GaugeVec) metric.Float64Callback {
 		for mymetric := range metrics {
 			protometric := dto.Metric{}
 			if err := mymetric.Write(&protometric); err != nil {
-				// TODO: take a logger here & display the errors
+				// TODO: take a logger here & display the errors?
 				continue
 			}
 
