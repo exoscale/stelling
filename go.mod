@@ -21,7 +21,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.25.0
 	go.uber.org/fx v1.21.0
 	go.uber.org/zap v1.27.0
-	google.golang.org/grpc v1.63.0
+	google.golang.org/grpc v1.63.2
 	google.golang.org/grpc/examples v0.0.0-20230215194445-0f02ca5cc927
 	google.golang.org/protobuf v1.33.0
 	zombiezen.com/go/sqlite v1.2.0
