@@ -7,7 +7,6 @@ import (
 	"github.com/exoscale/stelling/fxgrpc"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -79,38 +78,6 @@ func (om *OtlpMetrics) GrpcClientConfig() *fxgrpc.Client {
 	}
 }
 
-func (om *OtlpMetrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if om == nil {
-		return nil
-	}
-
-	/*
-		enc.AddBool("enabled", om.Enabled)
-		if om.Enabled {
-			enc.AddBool("histograms", om.Histograms)
-			enc.AddString("process-name", om.ProcessName)
-
-			enc.AddString("endpoint", om.Endpoint)
-			enc.AddBool("insecure-connection", om.InsecureConnection)
-			if !om.InsecureConnection {
-				enc.AddString("cert-file", om.CertFile)
-				enc.AddString("key-file", om.KeyFile)
-				enc.AddString("root-ca-file", om.RootCAFile)
-			}
-		}*/
-
-	enc.AddBool("foo-enabled", om.Enabled)
-	enc.AddBool("foo-histograms", om.Histograms)
-	enc.AddString("foo-process-name", om.ProcessName)
-	enc.AddString("foo-endpoint", om.Endpoint)
-	enc.AddBool("foo-insecure-connection", om.InsecureConnection)
-	enc.AddString("foo-cert-file", om.CertFile)
-	enc.AddString("foo-key-file", om.KeyFile)
-	enc.AddString("foo-root-ca-file", om.RootCAFile)
-
-	return nil
-}
-
 func NewOtlpRegistry(lc fx.Lifecycle, conf OtlpMetricsConfig, logger *zap.Logger) (metric.MeterProvider, error) {
 	otlpConf := conf.OtlpMetricsConfig()
 
@@ -168,10 +135,8 @@ type OtlpGrpcServerInterceptorResult struct {
 
 func NewOtlpGrpcServerInterceptors(p OtlpGrpcServerInterceptorParams) (OtlpGrpcServerInterceptorResult, error) {
 	opts := []otelgrpc.Option{}
-	if p.OtlpMetricsConfig.OtlpMetricsConfig().Histograms {
-		// It looks like this is enabled by default & we can't disable those with otel.
-		// TODO: check by comparing the generated metrics
-	}
+
+	// Not checking `p.OtlpMetricsConfig.OtlpMetricsConfig().Histograms`, the histograms are always enabled with this SDK
 
 	opts = append(opts, otelgrpc.WithMeterProvider(p.MeterProvider))
 
@@ -203,10 +168,7 @@ type OtlpGrpcClientInterceptorResult struct {
 
 func NewOtlpGrpcClientInterceptors(p OtlpGrpcClientInterceptorParams) (OtlpGrpcClientInterceptorResult, error) {
 	opts := []otelgrpc.Option{}
-	if p.OtlpMetricsConfig.OtlpMetricsConfig().Histograms {
-		// It looks like this is enabled by default & we can't disable those with otel.
-		// TODO: check by comparing the generated metrics
-	}
+	// Not checking `p.OtlpMetricsConfig.OtlpMetricsConfig().Histograms`, the histograms are always enabled with this SDK
 
 	opts = append(opts, otelgrpc.WithMeterProvider(p.MeterProvider))
 

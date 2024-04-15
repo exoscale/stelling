@@ -68,6 +68,7 @@ func createSystem(conf *config.Config) fx.Option {
 		// In case the system uses grpc, it will wire up middleware and expose grpc
 		// metrics, such as request counts
 		fxmetrics.NewOtlpModule(conf),
+		fxmetrics.NewModule(conf),
 		// fxtracing adds a trace.TraceProvider to the system: this can be used to create
 		// top-level spans
 		// In case the system uses grpc, middleware will be wired up that traces each request
