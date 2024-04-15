@@ -67,7 +67,7 @@ func createSystem(conf *config.Config) fx.Option {
 		// It also starts its own http-server to expose the prometheus endpoint
 		// In case the system uses grpc, it will wire up middleware and expose grpc
 		// metrics, such as request counts
-		fxmetrics.NewModule(conf),
+		fxmetrics.NewOtlpModule(conf),
 		// fxtracing adds a trace.TraceProvider to the system: this can be used to create
 		// top-level spans
 		// In case the system uses grpc, middleware will be wired up that traces each request
