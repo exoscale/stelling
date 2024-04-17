@@ -2,17 +2,23 @@ package fxmetrics
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/exoscale/stelling/fxgrpc"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/noop"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+
+	dto "github.com/prometheus/client_model/go"
 )
 
 func NewOtlpModule(conf OtlpMetricsConfig) fx.Option {
@@ -22,60 +28,26 @@ func NewOtlpModule(conf OtlpMetricsConfig) fx.Option {
 			NewOtlpMeterProvider,
 			NewOtlpGrpcServerInterceptors,
 			NewOtlpGrpcClientInterceptors,
-			func(conf OtlpMetricsConfig) MetricsConfig { return conf },
 		),
 	)
 }
 
 type OtlpMetricsConfig interface {
 	OtlpMetricsConfig() *OtlpMetrics
-	MetricsConfig() *Metrics
-	// GrpcClientConfig() *fxgrpc.Client
 }
 
 type OtlpMetrics struct {
 	// Enabled allows otlp metrics support to be toggled on and off
 	Enabled bool
-
-	// indicates whether grpc metrics middleware exports Histograms or not
-	Histograms bool `default:"false"`
-	// ProcessName is used as a prefix for certain metrics that can clash
-	ProcessName string
-
-	// InsecureConnection indicates whether TLS needs to be disabled
-	InsecureConnection bool
-	// CertFile is the path to the pem encoded TLS certificate
-	CertFile string `validate:"required_if=Enabled true InsecureConnection false,omitempty,file"`
-	// KeyFile is the path to the pem encoded private key of the TLS certificate
-	KeyFile string `validate:"required_if=Enabled true InsecureConnection false,omitempty,file"`
-	// RootCAFile is the  path to a pem encoded CA bundle used to validate connections
-	RootCAFile string `validate:"required_if=Enabled true InsecureConnection false,omitempty,file"`
-	// Endpoint is the address + port where the collector can be reached
-	Endpoint string `validate:"required_if=Enabled true InsecureConnection false,omitempty,hostname_port"`
-
 	// PushInterval is the frequency with which metrics are pushed
 	PushInterval time.Duration `default:"15s"`
+
+	// GrpcClient is the client used to talk to the collector
+	GrpcClient fxgrpc.Client `validate:"required_with=Enabled,omitempty"`
 }
 
 func (om *OtlpMetrics) OtlpMetricsConfig() *OtlpMetrics {
 	return om
-}
-
-func (om *OtlpMetrics) MetricsConfig() *Metrics {
-	return &Metrics{
-		Histograms:  om.Histograms,
-		ProcessName: om.ProcessName,
-	}
-}
-
-func (om *OtlpMetrics) GrpcClientConfig() *fxgrpc.Client {
-	return &fxgrpc.Client{
-		InsecureConnection: om.InsecureConnection,
-		CertFile:           om.CertFile,
-		KeyFile:            om.KeyFile,
-		RootCAFile:         om.RootCAFile,
-		Endpoint:           om.Endpoint,
-	}
 }
 
 func NewOtlpMeterProvider(lc fx.Lifecycle, conf OtlpMetricsConfig, logger *zap.Logger) (metric.MeterProvider, error) {
@@ -87,7 +59,7 @@ func NewOtlpMeterProvider(lc fx.Lifecycle, conf OtlpMetricsConfig, logger *zap.L
 		return provider, nil
 	}
 
-	creds, r, err := fxgrpc.MakeClientTLS(otlpConf, logger)
+	creds, r, err := fxgrpc.MakeClientTLS(&otlpConf.GrpcClient, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +68,7 @@ func NewOtlpMeterProvider(lc fx.Lifecycle, conf OtlpMetricsConfig, logger *zap.L
 	}
 
 	opts := []otlpmetricgrpc.Option{
-		otlpmetricgrpc.WithEndpoint(otlpConf.Endpoint),
+		otlpmetricgrpc.WithEndpoint(otlpConf.GrpcClient.Endpoint),
 		otlpmetricgrpc.WithTLSCredentials(creds),
 	}
 
@@ -110,11 +82,18 @@ func NewOtlpMeterProvider(lc fx.Lifecycle, conf OtlpMetricsConfig, logger *zap.L
 		sdkmetric.WithInterval(otlpConf.PushInterval),
 	)
 
-	lc.Append(fx.Hook{OnStop: reader.Shutdown})
+	lc.Append(fx.Hook{OnStop: func(ctx context.Context) error {
+		return reader.Shutdown(ctx)
+	}})
 
 	provider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(reader),
 	)
+
+	// Attach golang runtime metrics directly
+	lc.Append(fx.Hook{OnStart: func(_ context.Context) error {
+		return runtime.Start(runtime.WithMeterProvider(provider))
+	}})
 
 	return provider, nil
 }
@@ -134,11 +113,9 @@ type OtlpGrpcServerInterceptorResult struct {
 }
 
 func NewOtlpGrpcServerInterceptors(p OtlpGrpcServerInterceptorParams) (OtlpGrpcServerInterceptorResult, error) {
-	opts := []otelgrpc.Option{}
-
-	// Not checking `p.OtlpMetricsConfig.OtlpMetricsConfig().Histograms`, the histograms are always enabled with this SDK
-
-	opts = append(opts, otelgrpc.WithMeterProvider(p.MeterProvider))
+	opts := []otelgrpc.Option{
+		otelgrpc.WithMeterProvider(p.MeterProvider),
+	}
 
 	return OtlpGrpcServerInterceptorResult{
 		UnaryServerInterceptor: &fxgrpc.UnaryServerInterceptor{
@@ -167,10 +144,9 @@ type OtlpGrpcClientInterceptorResult struct {
 }
 
 func NewOtlpGrpcClientInterceptors(p OtlpGrpcClientInterceptorParams) (OtlpGrpcClientInterceptorResult, error) {
-	opts := []otelgrpc.Option{}
-	// Not checking `p.OtlpMetricsConfig.OtlpMetricsConfig().Histograms`, the histograms are always enabled with this SDK
-
-	opts = append(opts, otelgrpc.WithMeterProvider(p.MeterProvider))
+	opts := []otelgrpc.Option{
+		otelgrpc.WithMeterProvider(p.MeterProvider),
+	}
 
 	return OtlpGrpcClientInterceptorResult{
 		UnaryClientInterceptor: &fxgrpc.UnaryClientInterceptor{
@@ -182,4 +158,44 @@ func NewOtlpGrpcClientInterceptors(p OtlpGrpcClientInterceptorParams) (OtlpGrpcC
 			Interceptor: otelgrpc.StreamClientInterceptor(opts...), //nolint:staticcheck
 		},
 	}, nil
+}
+
+// Helpers
+
+func FromGaugeVec(vec *prometheus.GaugeVec) metric.Float64Callback {
+	return func(ctx context.Context, io metric.Float64Observer) error {
+		grp := sync.WaitGroup{}
+		defer grp.Wait()
+
+		metrics := make(chan prometheus.Metric)
+		grp.Add(1)
+		go func() {
+			defer grp.Done()
+			vec.Collect(metrics)
+			close(metrics)
+		}()
+
+		for mymetric := range metrics {
+			protometric := dto.Metric{}
+			if err := mymetric.Write(&protometric); err != nil {
+				// TODO: take a logger here & display the errors?
+				continue
+			}
+
+			attributes := []attribute.KeyValue{}
+			for _, label := range protometric.Label {
+				if label.Name != nil && label.Value != nil {
+					attributes = append(attributes,
+						attribute.String(*label.Name, *label.Value),
+					)
+				}
+			}
+
+			if value := protometric.Gauge.Value; value != nil {
+				io.Observe(*value, metric.WithAttributes(attributes...))
+			}
+		}
+
+		return nil
+	}
 }

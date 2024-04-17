@@ -43,7 +43,7 @@ type OtlpMetrics struct {
 	PushInterval time.Duration `default:"15s"`
 
 	// GrpcClient is the client used to talk to the collector
-	GrpcClient *fxgrpc.Client `validate:"required_with=Enabled,omitempty"`
+	GrpcClient fxgrpc.Client `validate:"required_with=Enabled,omitempty"`
 }
 
 func (om *OtlpMetrics) OtlpMetricsConfig() *OtlpMetrics {
@@ -59,7 +59,7 @@ func NewOtlpMeterProvider(lc fx.Lifecycle, conf OtlpMetricsConfig, logger *zap.L
 		return provider, nil
 	}
 
-	creds, r, err := fxgrpc.MakeClientTLS(otlpConf.GrpcClient, logger)
+	creds, r, err := fxgrpc.MakeClientTLS(&otlpConf.GrpcClient, logger)
 	if err != nil {
 		return nil, err
 	}

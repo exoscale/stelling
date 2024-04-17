@@ -94,8 +94,6 @@ type PushMetrics struct {
 	ExtraLabels map[string]string
 }
 
-var _ PushMetricsConfig = &PushMetrics{}
-
 func (m *PushMetrics) PushMetricsConfig() *PushMetrics {
 	return m
 }
