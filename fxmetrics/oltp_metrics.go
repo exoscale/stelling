@@ -28,59 +28,26 @@ func NewOtlpModule(conf OtlpMetricsConfig) fx.Option {
 			NewOtlpMeterProvider,
 			NewOtlpGrpcServerInterceptors,
 			NewOtlpGrpcClientInterceptors,
-			func(conf OtlpMetricsConfig) MetricsConfig { return conf },
 		),
 	)
 }
 
 type OtlpMetricsConfig interface {
 	OtlpMetricsConfig() *OtlpMetrics
-	MetricsConfig() *Metrics
 }
 
 type OtlpMetrics struct {
 	// Enabled allows otlp metrics support to be toggled on and off
 	Enabled bool
-
-	// indicates whether grpc metrics middleware exports Histograms or not
-	Histograms bool `default:"false"`
-	// ProcessName is used as a prefix for certain metrics that can clash
-	ProcessName string
-
-	// InsecureConnection indicates whether TLS needs to be disabled
-	InsecureConnection bool
-	// CertFile is the path to the pem encoded TLS certificate
-	CertFile string `validate:"required_if=Enabled true InsecureConnection false,omitempty,file"`
-	// KeyFile is the path to the pem encoded private key of the TLS certificate
-	KeyFile string `validate:"required_if=Enabled true InsecureConnection false,omitempty,file"`
-	// RootCAFile is the  path to a pem encoded CA bundle used to validate connections
-	RootCAFile string `validate:"required_if=Enabled true InsecureConnection false,omitempty,file"`
-	// Endpoint is the address + port where the collector can be reached
-	Endpoint string `validate:"required_if=Enabled true InsecureConnection false,omitempty,hostname_port"`
-
 	// PushInterval is the frequency with which metrics are pushed
 	PushInterval time.Duration `default:"15s"`
+
+	// GrpcClient is the client used to talk to the collector
+	GrpcClient *fxgrpc.Client `validate:"required_with=Enabled,omitempty"`
 }
 
 func (om *OtlpMetrics) OtlpMetricsConfig() *OtlpMetrics {
 	return om
-}
-
-func (om *OtlpMetrics) MetricsConfig() *Metrics {
-	return &Metrics{
-		Histograms:  om.Histograms,
-		ProcessName: om.ProcessName,
-	}
-}
-
-func (om *OtlpMetrics) GrpcClientConfig() *fxgrpc.Client {
-	return &fxgrpc.Client{
-		InsecureConnection: om.InsecureConnection,
-		CertFile:           om.CertFile,
-		KeyFile:            om.KeyFile,
-		RootCAFile:         om.RootCAFile,
-		Endpoint:           om.Endpoint,
-	}
 }
 
 func NewOtlpMeterProvider(lc fx.Lifecycle, conf OtlpMetricsConfig, logger *zap.Logger) (metric.MeterProvider, error) {
@@ -92,7 +59,7 @@ func NewOtlpMeterProvider(lc fx.Lifecycle, conf OtlpMetricsConfig, logger *zap.L
 		return provider, nil
 	}
 
-	creds, r, err := fxgrpc.MakeClientTLS(otlpConf, logger)
+	creds, r, err := fxgrpc.MakeClientTLS(otlpConf.GrpcClient, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +68,7 @@ func NewOtlpMeterProvider(lc fx.Lifecycle, conf OtlpMetricsConfig, logger *zap.L
 	}
 
 	opts := []otlpmetricgrpc.Option{
-		otlpmetricgrpc.WithEndpoint(otlpConf.Endpoint),
+		otlpmetricgrpc.WithEndpoint(otlpConf.GrpcClient.Endpoint),
 		otlpmetricgrpc.WithTLSCredentials(creds),
 	}
 
@@ -146,11 +113,9 @@ type OtlpGrpcServerInterceptorResult struct {
 }
 
 func NewOtlpGrpcServerInterceptors(p OtlpGrpcServerInterceptorParams) (OtlpGrpcServerInterceptorResult, error) {
-	opts := []otelgrpc.Option{}
-
-	// Not checking `p.OtlpMetricsConfig.OtlpMetricsConfig().Histograms`, the histograms are always enabled with this SDK
-
-	opts = append(opts, otelgrpc.WithMeterProvider(p.MeterProvider))
+	opts := []otelgrpc.Option{
+		otelgrpc.WithMeterProvider(p.MeterProvider),
+	}
 
 	return OtlpGrpcServerInterceptorResult{
 		UnaryServerInterceptor: &fxgrpc.UnaryServerInterceptor{
@@ -179,10 +144,9 @@ type OtlpGrpcClientInterceptorResult struct {
 }
 
 func NewOtlpGrpcClientInterceptors(p OtlpGrpcClientInterceptorParams) (OtlpGrpcClientInterceptorResult, error) {
-	opts := []otelgrpc.Option{}
-	// Not checking `p.OtlpMetricsConfig.OtlpMetricsConfig().Histograms`, the histograms are always enabled with this SDK
-
-	opts = append(opts, otelgrpc.WithMeterProvider(p.MeterProvider))
+	opts := []otelgrpc.Option{
+		otelgrpc.WithMeterProvider(p.MeterProvider),
+	}
 
 	return OtlpGrpcClientInterceptorResult{
 		UnaryClientInterceptor: &fxgrpc.UnaryClientInterceptor{
