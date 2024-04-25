@@ -8,6 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	pBridge "go.opentelemetry.io/contrib/bridges/prometheus"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -58,6 +59,23 @@ func (om *OtlpMetrics) MetricsConfig() *Metrics {
 		Histograms:  om.Histograms,
 		ProcessName: om.ProcessName,
 	}
+}
+
+func (m *OtlpMetrics) MarshallLogObject(enc zapcore.ObjectEncoder) error {
+	if m == nil {
+		return nil
+	}
+
+	enc.AddBool("enabled", m.Enabled)
+	if err := enc.AddObject("grpcclient", &m.GrpcClient); err != nil {
+		return err
+	}
+	enc.AddDuration("pushinterval", m.PushInterval)
+	enc.AddBool("histograms", m.Histograms)
+	if m.ProcessName != "" {
+		enc.AddString("processname", m.ProcessName)
+	}
+	return nil
 }
 
 func NewOtlpMeterProvider(lc fx.Lifecycle, conf OtlpMetricsConfig, reg *prometheus.Registry, logger *zap.Logger) (metric.MeterProvider, error) {
