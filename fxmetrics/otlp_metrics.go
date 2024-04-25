@@ -61,7 +61,7 @@ func (om *OtlpMetrics) MetricsConfig() *Metrics {
 	}
 }
 
-func (m *OtlpMetrics) MarshallLogObject(enc zapcore.ObjectEncoder) error {
+func (m *OtlpMetrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if m == nil {
 		return nil
 	}
