@@ -30,7 +30,7 @@ jobs:
         with:
           go-version-file: 'go.mod'
           check-latest: true
-      - uses: golangci/golangci-lint-action@v4
+      - uses: golangci/golangci-lint-action@v5
         with:
           version: latest
           args: --timeout 2m
