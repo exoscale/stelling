@@ -78,7 +78,7 @@ github.com/go-playground/locales/currency
 # github.com/go-playground/universal-translator v0.18.1
 ## explicit; go 1.18
 github.com/go-playground/universal-translator
-# github.com/go-playground/validator/v10 v10.19.0
+# github.com/go-playground/validator/v10 v10.20.0
 ## explicit; go 1.18
 github.com/go-playground/validator/v10
 # github.com/golang/protobuf v1.5.4
@@ -406,7 +406,7 @@ google.golang.org/grpc/test/bufconn
 # google.golang.org/grpc/examples v0.0.0-20230215194445-0f02ca5cc927
 ## explicit; go 1.17
 google.golang.org/grpc/examples/route_guide/routeguide
-# google.golang.org/protobuf v1.33.0
+# google.golang.org/protobuf v1.34.1
 ## explicit; go 1.17
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/protojson
@@ -416,6 +416,7 @@ google.golang.org/protobuf/internal/descfmt
 google.golang.org/protobuf/internal/descopts
 google.golang.org/protobuf/internal/detrand
 google.golang.org/protobuf/internal/editiondefaults
+google.golang.org/protobuf/internal/editionssupport
 google.golang.org/protobuf/internal/encoding/defval
 google.golang.org/protobuf/internal/encoding/json
 google.golang.org/protobuf/internal/encoding/messageset
@@ -494,7 +495,7 @@ modernc.org/mathutil
 # modernc.org/memory v1.8.0
 ## explicit; go 1.18
 modernc.org/memory
-# modernc.org/sqlite v1.29.8
+# modernc.org/sqlite v1.29.9
 ## explicit; go 1.20
 modernc.org/sqlite
 modernc.org/sqlite/lib
@@ -504,7 +505,7 @@ modernc.org/strutil
 # modernc.org/token v1.1.0
 ## explicit
 modernc.org/token
-# zombiezen.com/go/sqlite v1.2.0
+# zombiezen.com/go/sqlite v1.3.0
 ## explicit; go 1.20
 zombiezen.com/go/sqlite
 zombiezen.com/go/sqlite/sqlitex

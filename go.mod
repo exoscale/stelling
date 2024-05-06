@@ -8,7 +8,7 @@ require (
 	github.com/exoscale/multiconfig v0.0.0-20230329142724-71ec8bdb4f80
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-logr/zapr v1.3.0
-	github.com/go-playground/validator/v10 v10.19.0
+	github.com/go-playground/validator/v10 v10.20.0
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/oklog/ulid/v2 v2.1.0
 	github.com/prometheus/client_golang v1.19.0
@@ -23,8 +23,8 @@ require (
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.63.2
 	google.golang.org/grpc/examples v0.0.0-20230215194445-0f02ca5cc927
-	google.golang.org/protobuf v1.33.0
-	zombiezen.com/go/sqlite v1.2.0
+	google.golang.org/protobuf v1.34.1
+	zombiezen.com/go/sqlite v1.3.0
 )
 
 require (
@@ -37,7 +37,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.26.0
 	go.opentelemetry.io/otel/sdk/metric v1.26.0
 	gopkg.in/square/go-jose.v2 v2.6.0
-	modernc.org/sqlite v1.29.8
+	modernc.org/sqlite v1.29.9
 )
 
 require (
