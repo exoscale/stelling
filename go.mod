@@ -21,7 +21,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.26.0
 	go.uber.org/fx v1.21.1
 	go.uber.org/zap v1.27.0
-	google.golang.org/grpc v1.63.2
+	google.golang.org/grpc v1.64.0
 	google.golang.org/grpc/examples v0.0.0-20230215194445-0f02ca5cc927
 	google.golang.org/protobuf v1.34.1
 	zombiezen.com/go/sqlite v1.3.0
@@ -37,7 +37,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.26.0
 	go.opentelemetry.io/otel/sdk/metric v1.26.0
 	gopkg.in/square/go-jose.v2 v2.6.0
-	modernc.org/sqlite v1.29.9
+	modernc.org/sqlite v1.29.10
 )
 
 require (
@@ -76,11 +76,11 @@ require (
 	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/exp v0.0.0-20240222234643-814bf88cf225 // indirect
 	golang.org/x/net v0.24.0 // indirect
-	golang.org/x/oauth2 v0.17.0 // indirect
+	golang.org/x/oauth2 v0.18.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240227224415-6ceb2ff114de // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240318140521-94a12d6c2237 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240415180920-8c6c420018be // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/gc/v3 v3.0.0-20240107210532-573471604cb6 // indirect
