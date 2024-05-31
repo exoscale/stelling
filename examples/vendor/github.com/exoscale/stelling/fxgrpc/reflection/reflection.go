@@ -3,7 +3,6 @@ package reflection
 
 import (
 	"go.uber.org/fx"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -13,6 +12,6 @@ var Module = fx.Module(
 	fx.Invoke(Register),
 )
 
-func Register(s *grpc.Server) {
+func Register(s reflection.GRPCServer) {
 	reflection.Register(s)
 }

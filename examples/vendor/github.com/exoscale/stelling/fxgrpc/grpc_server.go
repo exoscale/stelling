@@ -2,6 +2,7 @@ package fxgrpc
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/reflection"
 )
 
 type Config interface {
@@ -72,29 +74,70 @@ func (s *Server) AsHttpConfig() *fxhttp.Server {
 	}
 }
 
-func NewServerModule(conf Config) fx.Option {
+type serverModuleOpts struct {
+	name string
+}
+
+type serverModuleOption func(*serverModuleOpts)
+
+// WithServerModuleName will annotate the outputs with the given name
+func WithServerModuleName(name string) serverModuleOption {
+	return func(o *serverModuleOpts) {
+		o.name = name
+	}
+}
+
+func NewServerModule(conf Config, sOpts ...serverModuleOption) fx.Option {
+	modOpts := &serverModuleOpts{}
+	for _, o := range sOpts {
+		o(modOpts)
+	}
+
 	opts := fx.Options(
-		fx.Supply(fx.Annotate(conf, fx.As(new(Config)))),
+		fx.Supply(fx.Annotate(conf, fx.As(new(Config))), fx.Private),
 		fx.Supply(
 			fx.Annotate(
 				conf.AsHttpConfig(),
 				fx.As(new(fxhttp.ServerConfig)),
 				fx.ResultTags(`name:"grpc_server"`),
 			),
+			fx.Private,
 		),
 		fx.Provide(
 			NewGrpcServer,
-			func(server *grpc.Server) grpc.ServiceRegistrar { return server },
-		),
-		fx.Provide(
 			fx.Annotate(
 				fxhttp.NewListener,
 				fx.ParamTags(`name:"grpc_server"`),
-				fx.ResultTags(`name:"grpc_server"`),
 			),
+			fx.Private,
 		),
 		fx.Invoke(zapgrpc.SetGrpcLogger),
 	)
+	if modOpts.name == "" {
+		opts = fx.Options(
+			opts,
+			fx.Provide(
+				newServer,
+				func(s *server) grpc.ServiceRegistrar { return s.grpcServer },
+				func(s *server) reflection.GRPCServer { return s.grpcServer },
+			),
+		)
+	} else {
+		nameTag := fmt.Sprintf("name:\"%s\"", modOpts.name)
+		opts = fx.Options(
+			opts,
+			fx.Provide(
+				fx.Annotate(
+					newServer,
+					fx.ResultTags(nameTag),
+				),
+				fx.Annotate(
+					func(s *server) grpc.ServiceRegistrar { return s.grpcServer },
+					fx.ParamTags(nameTag),
+				),
+			),
+		)
+	}
 	if conf.GrpcServerConfig().TLS {
 		opts = fx.Options(
 			opts,
@@ -108,6 +151,7 @@ func NewServerModule(conf Config) fx.Option {
 					fx.ParamTags(``, `name:"grpc_server"`, ``),
 					fx.ResultTags(`name:"grpc_server"`),
 				),
+				fx.Private,
 			),
 		)
 	}
@@ -126,6 +170,18 @@ func GetCertReloaderConfig(conf Config) *reloader.CertReloaderConfig {
 		KeyFile:        conf.GrpcServerConfig().KeyFile,
 		ReloadInterval: 10 * time.Second,
 	}
+}
+
+// server is a tuple of grpc.Server with its accompanying net.Listener
+// It allows us to keep the server and listener constructors private to this module
+// While providing a single output of the module that be named, in case we need multiple server instances
+type server struct {
+	grpcServer *grpc.Server
+	lis        net.Listener
+}
+
+func newServer(grpcServer *grpc.Server, lis net.Listener) *server {
+	return &server{grpcServer, lis}
 }
 
 type GrpcServerParams struct {
@@ -167,25 +223,12 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 	return grpcServer, nil
 }
 
-type GrpcServerStartParams struct {
-	fx.In
-	Lc     fx.Lifecycle
-	Logger *zap.Logger
-	Server *grpc.Server
-	Lis    net.Listener `name:"grpc_server"`
-}
-
-func StartGrpcServer(p GrpcServerStartParams) {
-	lc := p.Lc
-	logger := p.Logger
-	server := p.Server
-	lis := p.Lis
-
+func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, s *server) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			logger.Info("Starting gRPC server", zap.String("address", lis.Addr().String()))
+			logger.Info("Starting gRPC server", zap.String("address", s.lis.Addr().String()))
 			go func() {
-				if err := server.Serve(lis); err != nil && err != grpc.ErrServerStopped {
+				if err := s.grpcServer.Serve(s.lis); err != nil && err != grpc.ErrServerStopped {
 					// If err is grpc.ErrServerStopped, it means that
 					// the grpc module was stopped very quickly before
 					// this goroutine was scheduled
@@ -198,7 +241,7 @@ func StartGrpcServer(p GrpcServerStartParams) {
 		},
 		OnStop: func(ctx context.Context) error {
 			logger.Info("Stopping gRPC server")
-			server.GracefulStop()
+			s.grpcServer.GracefulStop()
 			return nil
 		},
 	})
