@@ -15,7 +15,7 @@ var Module = fx.Module(
 	fx.Invoke(RegisterHealthService),
 )
 
-func RegisterHealthService(healthServer *health.Server, grpcServer *grpc.Server) {
+func RegisterHealthService(healthServer *health.Server, grpcServer grpc.ServiceRegistrar) {
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 	healthpb.RegisterHealthServer(grpcServer, healthServer)
 }

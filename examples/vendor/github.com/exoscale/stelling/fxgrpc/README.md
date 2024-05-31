@@ -15,11 +15,12 @@ optimized (un)marshaling when possible.
 ### Components 
 The server module lazily provides the following components:
 
-* A `*grpc.Server`
+* A `grpc.ServiceRegistrar`
 
 The module adds the following features to the server:
 
 * It will use `CertficateReloader` in case the configuration specifies TLS options.
+* It will enable the [reflection service](https://pkg.go.dev/google.golang.org/grpc/reflection) on the server.
 * All the interceptors from the `unary_server_interceptor` and `stream_server_interceptor` [value groups](https://uber-go.github.io/fx/value-groups/) will be installed on the server.
   Multiple stelling modules will lazily provide interceptors already.
   See the [interceptors](./interceptors) section for more details

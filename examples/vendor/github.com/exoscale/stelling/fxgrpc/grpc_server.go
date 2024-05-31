@@ -118,8 +118,11 @@ func NewServerModule(conf Config, sOpts ...serverModuleOption) fx.Option {
 			opts,
 			fx.Provide(
 				newServer,
-				func(s *server) grpc.ServiceRegistrar { return s.grpcServer },
-				func(s *server) reflection.GRPCServer { return s.grpcServer },
+				func(s *server) grpc.ServiceRegistrar { return s.server },
+				func(s *server) reflection.ServiceInfoProvider { return s.server },
+			),
+			fx.Invoke(
+				func(s *server) { reflection.Register(s.server) },
 			),
 		)
 	} else {
@@ -132,7 +135,19 @@ func NewServerModule(conf Config, sOpts ...serverModuleOption) fx.Option {
 					fx.ResultTags(nameTag),
 				),
 				fx.Annotate(
-					func(s *server) grpc.ServiceRegistrar { return s.grpcServer },
+					func(s *server) grpc.ServiceRegistrar { return s.server },
+					fx.ParamTags(nameTag),
+					fx.ResultTags(nameTag),
+				),
+				fx.Annotate(
+					func(s *server) reflection.ServiceInfoProvider { return s.server },
+					fx.ParamTags(nameTag),
+					fx.ResultTags(nameTag),
+				),
+			),
+			fx.Invoke(
+				fx.Annotate(
+					func(s *server) { reflection.Register(s.server) },
 					fx.ParamTags(nameTag),
 				),
 			),
@@ -176,12 +191,12 @@ func GetCertReloaderConfig(conf Config) *reloader.CertReloaderConfig {
 // It allows us to keep the server and listener constructors private to this module
 // While providing a single output of the module that be named, in case we need multiple server instances
 type server struct {
-	grpcServer *grpc.Server
-	lis        net.Listener
+	server *grpc.Server
+	lis    net.Listener
 }
 
-func newServer(grpcServer *grpc.Server, lis net.Listener) *server {
-	return &server{grpcServer, lis}
+func newServer(s *grpc.Server, lis net.Listener) *server {
+	return &server{s, lis}
 }
 
 type GrpcServerParams struct {
@@ -228,7 +243,7 @@ func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, s *server) {
 		OnStart: func(ctx context.Context) error {
 			logger.Info("Starting gRPC server", zap.String("address", s.lis.Addr().String()))
 			go func() {
-				if err := s.grpcServer.Serve(s.lis); err != nil && err != grpc.ErrServerStopped {
+				if err := s.server.Serve(s.lis); err != nil && err != grpc.ErrServerStopped {
 					// If err is grpc.ErrServerStopped, it means that
 					// the grpc module was stopped very quickly before
 					// this goroutine was scheduled
@@ -241,7 +256,7 @@ func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, s *server) {
 		},
 		OnStop: func(ctx context.Context) error {
 			logger.Info("Stopping gRPC server")
-			s.grpcServer.GracefulStop()
+			s.server.GracefulStop()
 			return nil
 		},
 	})

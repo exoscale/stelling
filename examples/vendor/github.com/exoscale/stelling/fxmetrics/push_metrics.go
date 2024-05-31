@@ -21,12 +21,15 @@ func NewPushModule(conf PushMetricsConfig) fx.Option {
 	nameTag := `name:"metrics_pusher"`
 
 	opts := fx.Options(
-		fx.Supply(fx.Annotate(conf, fx.As(new(PushMetricsConfig)))),
+		fx.Supply(fx.Annotate(conf, fx.As(new(PushMetricsConfig))), fx.Private),
 		fx.Provide(
 			NewPrometheusRegistry,
 			NewGrpcServerInterceptors,
 			NewGrpcClientInterceptors,
+		),
+		fx.Provide(
 			func(m PushMetricsConfig) MetricsConfig { return m },
+			fx.Private,
 		),
 	)
 	if conf.PushMetricsConfig().Endpoint != "" {
@@ -53,6 +56,7 @@ func NewPushModule(conf PushMetricsConfig) fx.Option {
 						fx.ParamTags(``, nameTag, ``),
 						fx.ResultTags(nameTag),
 					),
+					fx.Private,
 				),
 			)
 		}

@@ -9,7 +9,6 @@ import (
 	"github.com/exoscale/stelling/examples/server"
 	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/exoscale/stelling/fxgrpc/health"
-	"github.com/exoscale/stelling/fxgrpc/reflection"
 	"github.com/exoscale/stelling/fxlogging"
 	"github.com/exoscale/stelling/fxmetrics"
 	"github.com/exoscale/stelling/fxpprof"
@@ -83,9 +82,6 @@ func createSystem(conf *config.Config) fx.Option {
 		// Add a basic grpc healthcheck service
 		// It will automatically register itself on the system grpc.Server
 		health.Module,
-		// Add the grpc reflection service
-		// It will automatically register itself on the system grpc.Server
-		reflection.Module,
 
 		// Insert our application components
 		fx.Provide(
