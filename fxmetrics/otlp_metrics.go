@@ -19,8 +19,8 @@ import (
 
 func NewOtlpModule(conf OtlpMetricsConfig) fx.Option {
 	return fx.Options(
-		fx.Supply(fx.Annotate(conf, fx.As(new(OtlpMetricsConfig)))),
-		fx.Supply(fx.Annotate(conf, fx.As(new(MetricsConfig)))),
+		fx.Supply(fx.Annotate(conf, fx.As(new(OtlpMetricsConfig))), fx.Private),
+		fx.Supply(fx.Annotate(conf, fx.As(new(MetricsConfig))), fx.Private),
 		fx.Provide(
 			NewPrometheusRegistry,
 			NewOtlpMeterProvider,

@@ -19,7 +19,8 @@ import (
 func NewModule(conf MetricsConfig) fx.Option {
 	return fx.Module(
 		"metrics",
-		fx.Supply(fx.Annotate(conf, fx.As(new(MetricsConfig)))),
+		fx.Supply(fx.Annotate(conf, fx.As(new(MetricsConfig))), fx.Private),
+		fxhttp.NewModule(&conf.MetricsConfig().Server, fxhttp.WithServerModuleName("metrics")),
 		fx.Provide(
 			NewPrometheusRegistry,
 			NewGrpcServerInterceptors,
@@ -27,9 +28,8 @@ func NewModule(conf MetricsConfig) fx.Option {
 		),
 		fx.Invoke(
 			RegisterMetricsHandlers,
+			fx.Annotate(fxhttp.StartHttpServer, fx.ParamTags("", `name:"metrics"`, "")),
 		),
-		// Specify last so the server starts after we register the handlers
-		fxhttp.NewNamedModule("metrics", &conf.MetricsConfig().Server),
 	)
 }
 

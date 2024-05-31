@@ -29,7 +29,6 @@ github.com/exoscale/stelling/config
 github.com/exoscale/stelling/fxcert-reloader
 github.com/exoscale/stelling/fxgrpc
 github.com/exoscale/stelling/fxgrpc/health
-github.com/exoscale/stelling/fxgrpc/reflection
 github.com/exoscale/stelling/fxhttp
 github.com/exoscale/stelling/fxlogging
 github.com/exoscale/stelling/fxlogging/fxlogger
