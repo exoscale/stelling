@@ -10,7 +10,7 @@ require (
 	github.com/exoscale/multiconfig v0.0.0-20230329142724-71ec8bdb4f80
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-logr/zapr v1.3.0
-	github.com/go-playground/validator/v10 v10.20.0
+	github.com/go-playground/validator/v10 v10.21.0
 	github.com/oklog/ulid/v2 v2.1.0
 	github.com/prometheus/client_golang v1.19.1
 	github.com/stretchr/testify v1.9.0
@@ -38,7 +38,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.27.0
 	go.opentelemetry.io/otel/sdk/metric v1.27.0
 	gopkg.in/square/go-jose.v2 v2.6.0
-	modernc.org/sqlite v1.29.10
+	modernc.org/sqlite v1.30.0
 )
 
 require (
