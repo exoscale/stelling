@@ -9,8 +9,8 @@ import (
 
 type interceptorConfig struct {
 	levelFunc       func(info *otelgrpc.InterceptorInfo, code codes.Code) zapcore.Level
-	logFilter       otelgrpc.Filter
-	payloadFilter   otelgrpc.Filter
+	logFilter       otelgrpc.InterceptorFilter //nolint:staticcheck
+	payloadFilter   otelgrpc.InterceptorFilter //nolint:staticcheck
 	extraFieldsFunc func(logger *zap.Logger, info *otelgrpc.InterceptorInfo, payload any) *zap.Logger
 }
 
@@ -35,7 +35,7 @@ func WithExtraFieldsFunc(f func(*zap.Logger, *otelgrpc.InterceptorInfo, any) *za
 
 // WithLogFilter registers a predicate to determine whether the request should be logged
 // The predicate function must return `true` to log the request
-func WithLogFilter(f otelgrpc.Filter) Option {
+func WithLogFilter(f otelgrpc.InterceptorFilter) Option { //nolint:staticcheck
 	return func(c *interceptorConfig) {
 		c.logFilter = f
 	}
@@ -43,7 +43,7 @@ func WithLogFilter(f otelgrpc.Filter) Option {
 
 // WithLogFilter registers a predicate to determine whether the request payload should be logged
 // The predicate function must return `true` to log the request payload
-func WithPayloadFilter(f otelgrpc.Filter) Option {
+func WithPayloadFilter(f otelgrpc.InterceptorFilter) Option { //nolint:staticcheck
 	return func(c *interceptorConfig) {
 		c.payloadFilter = f
 	}

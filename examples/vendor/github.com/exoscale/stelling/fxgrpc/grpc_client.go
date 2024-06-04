@@ -26,7 +26,7 @@ import (
 func NewClientModule(conf ClientConfig) fx.Option {
 	return fx.Module(
 		"grpc-client",
-		fx.Supply(fx.Annotate(conf, fx.As(new(ClientConfig)))),
+		fx.Supply(fx.Annotate(conf, fx.As(new(ClientConfig))), fx.Private),
 		fx.Provide(ProvideGrpcClient),
 		fx.Invoke(zapgrpc.SetGrpcLogger),
 	)

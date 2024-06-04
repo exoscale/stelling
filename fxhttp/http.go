@@ -14,22 +14,82 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+type serverModuleOpts struct {
+	name string
+}
+
+type serverModuleOption func(*serverModuleOpts)
+
+// WithServerModuleName will annotate the outputs with the given name
+func WithServerModuleName(name string) serverModuleOption {
+	return func(o *serverModuleOpts) {
+		o.name = name
+	}
+}
+
+// server is a tuple of http.Server with its accompanying net.Listener
+// It allows us to keep the server and listener constructors private to this module
+// While providing a single output of the module that be named, in case we need multiple server instances
+type server struct {
+	server *http.Server
+	lis    net.Listener
+}
+
+func newServer(s *http.Server, lis net.Listener) *server {
+	return &server{s, lis}
+}
+
 // NewModule provides a configured *http.Server to the system
 // You still have to invoke StartHttpServer to ensure it starts
-func NewModule(conf ServerConfig) fx.Option {
+func NewModule(conf ServerConfig, sOpts ...serverModuleOption) fx.Option {
+	modOpts := &serverModuleOpts{}
+	for _, o := range sOpts {
+		o(modOpts)
+	}
+
 	opts := fx.Options(
-		fx.Supply(fx.Annotate(conf, fx.As(new(ServerConfig)))),
-		fx.Provide(
-			fx.Annotate(NewHTTPServer, fx.ParamTags(``, ``, `optional:"true"`)),
+		fx.Supply(
+			fx.Annotate(conf, fx.As(new(ServerConfig))),
+			fx.Private,
 		),
-		fx.Provide(NewListener),
+		fx.Provide(
+			NewListener,
+			fx.Private,
+		),
 	)
+	if modOpts.name == "" {
+		opts = fx.Options(
+			opts,
+			fx.Provide(
+				fx.Annotate(NewHTTPServer, fx.ParamTags(``, ``, `optional:"true"`)),
+				newServer,
+			),
+		)
+	} else {
+		nameTag := fmt.Sprintf("name:\"%s\"", modOpts.name)
+		opts = fx.Options(
+			opts,
+			fx.Provide(
+				fx.Annotate(
+					NewHTTPServer,
+					fx.ParamTags(``, ``, `optional:"true"`),
+					fx.ResultTags(nameTag),
+				),
+				fx.Annotate(
+					newServer,
+					fx.ParamTags(nameTag, ""),
+					fx.ResultTags(nameTag),
+				),
+			),
+		)
+	}
 	if conf.HttpServerConfig().TLS {
 		opts = fx.Options(
 			opts,
 			fx.Provide(
 				GetCertReloaderConfig,
 				reloader.ProvideCertReloader,
+				fx.Private,
 			),
 		)
 	}
@@ -40,55 +100,16 @@ func NewModule(conf ServerConfig) fx.Option {
 // It is mostly of use for other stelling components which may need to
 // start their own http servers
 // The average application should be able to use NewModule instead
+//
+// Deprecated: please use [NewModule] with the [WithServerModuleName] option
+// and add `fx.Invoke(fx.Annotate(StartHttpServer), fx.ParamTags("", "name=\"yourname\"", ""))` to the system
 func NewNamedModule(name string, conf ServerConfig) fx.Option {
 	nameTag := fmt.Sprintf("name:\"%s\"", name)
-	optNameTag := fmt.Sprintf("%s optional:\"true\"", nameTag)
-	moduleName := fmt.Sprintf("%s-http-server", name)
-
-	opts := fx.Options(
-		fx.Supply(fx.Annotate(conf, fx.As(new(ServerConfig)), fx.ResultTags(nameTag))),
-		fx.Provide(
-			fx.Annotate(
-				NewHTTPServer,
-				fx.ParamTags(``, nameTag, optNameTag),
-				fx.ResultTags(nameTag),
-			),
-		),
-		fx.Provide(
-			fx.Annotate(
-				NewListener,
-				fx.ParamTags(nameTag),
-				fx.ResultTags(nameTag),
-			),
-		),
-	)
-	if conf.HttpServerConfig().TLS {
-		opts = fx.Options(
-			opts,
-			fx.Provide(
-				fx.Annotate(
-					GetCertReloaderConfig,
-					fx.ParamTags(nameTag),
-					fx.ResultTags(nameTag),
-				),
-				fx.Annotate(
-					reloader.ProvideCertReloader,
-					fx.ParamTags(``, nameTag, ``),
-					fx.ResultTags(nameTag),
-				),
-			),
-		)
-	}
 	return fx.Options(
-		fx.Module(moduleName, opts),
+		NewModule(conf, WithServerModuleName(name)),
 		// We're not putting this in the module, so that the module which
 		// embeds this can chose when the http server should start
-		fx.Invoke(
-			fx.Annotate(
-				StartHttpServer,
-				fx.ParamTags(``, nameTag, ``, nameTag, nameTag),
-			),
-		),
+		fx.Invoke(fx.Annotate(StartHttpServer, fx.ParamTags(``, nameTag, ``))),
 	)
 }
 
@@ -167,13 +188,13 @@ func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, r *reloader.CertReloader)
 	return server, nil
 }
 
-func StartHttpServer(lc fx.Lifecycle, server *http.Server, logger *zap.Logger, conf ServerConfig, lis net.Listener) {
+func StartHttpServer(lc fx.Lifecycle, s *server, logger *zap.Logger) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			logger.Info("Starting http server", zap.String("address", lis.Addr().String()))
-			if conf.HttpServerConfig().TLS {
+			logger.Info("Starting http server", zap.String("address", s.lis.Addr().String()))
+			if s.server.TLSConfig != nil {
 				go func() {
-					if err := server.ServeTLS(lis, "", ""); err != http.ErrServerClosed {
+					if err := s.server.ServeTLS(s.lis, "", ""); err != http.ErrServerClosed {
 						logger.Fatal("Error while serving http", zap.Error(err))
 					} else {
 						logger.Info("Done serving http")
@@ -181,7 +202,7 @@ func StartHttpServer(lc fx.Lifecycle, server *http.Server, logger *zap.Logger, c
 				}()
 			} else {
 				go func() {
-					if err := server.Serve(lis); err != http.ErrServerClosed {
+					if err := s.server.Serve(s.lis); err != http.ErrServerClosed {
 						logger.Fatal("Error while serving http", zap.Error(err))
 					} else {
 						logger.Info("Done serving http")
@@ -192,7 +213,7 @@ func StartHttpServer(lc fx.Lifecycle, server *http.Server, logger *zap.Logger, c
 		},
 		OnStop: func(ctx context.Context) error {
 			logger.Info("Stopping http server")
-			return server.Shutdown(ctx)
+			return s.server.Shutdown(ctx)
 		},
 	})
 }

@@ -25,6 +25,7 @@ func NewModule(conf AuthorizerConfig) fx.Option {
 		),
 		fx.Supply(
 			fx.Annotate(conf, fx.As(new(AuthorizerConfig))),
+			fx.Private,
 		),
 	)
 }

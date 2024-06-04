@@ -12,14 +12,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/fx"
 	"go.uber.org/zap/zapcore"
-	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 // NewModule Exposes prometheus metrics.
 func NewModule(conf MetricsConfig) fx.Option {
 	return fx.Module(
 		"metrics",
-		fx.Supply(fx.Annotate(conf, fx.As(new(MetricsConfig)))),
+		fx.Supply(fx.Annotate(conf, fx.As(new(MetricsConfig))), fx.Private),
+		fxhttp.NewModule(&conf.MetricsConfig().Server, fxhttp.WithServerModuleName("metrics")),
 		fx.Provide(
 			NewPrometheusRegistry,
 			NewGrpcServerInterceptors,
@@ -27,9 +28,8 @@ func NewModule(conf MetricsConfig) fx.Option {
 		),
 		fx.Invoke(
 			RegisterMetricsHandlers,
+			fx.Annotate(fxhttp.StartHttpServer, fx.ParamTags("", `name:"metrics"`, "")),
 		),
-		// Specify last so the server starts after we register the handlers
-		fxhttp.NewNamedModule("metrics", &conf.MetricsConfig().Server),
 	)
 }
 
@@ -124,7 +124,7 @@ func NewGrpcServerInterceptors(p GrpcServerInterceptorParams) (GrpcServerInterce
 	}, nil
 }
 
-func InitializeGrpcServerMetrics(metrics *grpc_prometheus.ServerMetrics, server *grpc.Server) {
+func InitializeGrpcServerMetrics(metrics *grpc_prometheus.ServerMetrics, server reflection.ServiceInfoProvider) {
 	metrics.InitializeMetrics(server)
 }
 

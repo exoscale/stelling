@@ -22,7 +22,7 @@ func NewModule(conf PprofConfig) fx.Option {
 	if conf.PprofConfig().GenerateFiles != "" {
 		return fx.Module(
 			"pprof",
-			fx.Supply(fx.Annotate(conf, fx.As(new(PprofConfig)))),
+			fx.Supply(fx.Annotate(conf, fx.As(new(PprofConfig))), fx.Private),
 			fx.Invoke(InvokeRuntimePprof),
 		)
 	}
@@ -30,15 +30,18 @@ func NewModule(conf PprofConfig) fx.Option {
 	if conf.PprofConfig().Enabled {
 		return fx.Module(
 			"pprof",
-			fx.Supply(fx.Annotate(conf, fx.As(new(PprofConfig)))),
+			fx.Supply(fx.Annotate(conf, fx.As(new(PprofConfig))), fx.Private),
+			fxhttp.NewModule(&conf.PprofConfig().Server, fxhttp.WithServerModuleName("pprof")),
 			fx.Invoke(
 				fx.Annotate(
 					InitPprofProfiler,
 					fx.ParamTags(`name:"pprof"`),
 				),
+				fx.Annotate(
+					fxhttp.StartHttpServer,
+					fx.ParamTags("", `name:"pprof"`, ""),
+				),
 			),
-			// Specify last so the server starts after we register the handlers
-			fxhttp.NewNamedModule("pprof", &conf.PprofConfig().Server),
 		)
 	}
 

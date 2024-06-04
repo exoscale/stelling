@@ -16,7 +16,7 @@ import (
 
 func NewModule(conf SentryConfig) fx.Option {
 	return fx.Options(
-		fx.Supply(fx.Annotate(conf, fx.As(new(SentryConfig)))),
+		fx.Supply(fx.Annotate(conf, fx.As(new(SentryConfig))), fx.Private),
 		fx.Provide(ProvideSentryClient),
 		fx.Decorate(ProvideSentryLogger),
 	)

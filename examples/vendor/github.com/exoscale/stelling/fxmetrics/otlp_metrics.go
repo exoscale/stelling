@@ -8,6 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	pBridge "go.opentelemetry.io/contrib/bridges/prometheus"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -18,8 +19,8 @@ import (
 
 func NewOtlpModule(conf OtlpMetricsConfig) fx.Option {
 	return fx.Options(
-		fx.Supply(fx.Annotate(conf, fx.As(new(OtlpMetricsConfig)))),
-		fx.Supply(fx.Annotate(conf, fx.As(new(MetricsConfig)))),
+		fx.Supply(fx.Annotate(conf, fx.As(new(OtlpMetricsConfig))), fx.Private),
+		fx.Supply(fx.Annotate(conf, fx.As(new(MetricsConfig))), fx.Private),
 		fx.Provide(
 			NewPrometheusRegistry,
 			NewOtlpMeterProvider,
@@ -58,6 +59,23 @@ func (om *OtlpMetrics) MetricsConfig() *Metrics {
 		Histograms:  om.Histograms,
 		ProcessName: om.ProcessName,
 	}
+}
+
+func (m *OtlpMetrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if m == nil {
+		return nil
+	}
+
+	enc.AddBool("enabled", m.Enabled)
+	if err := enc.AddObject("grpcclient", &m.GrpcClient); err != nil {
+		return err
+	}
+	enc.AddDuration("pushinterval", m.PushInterval)
+	enc.AddBool("histograms", m.Histograms)
+	if m.ProcessName != "" {
+		enc.AddString("processname", m.ProcessName)
+	}
+	return nil
 }
 
 func NewOtlpMeterProvider(lc fx.Lifecycle, conf OtlpMetricsConfig, reg *prometheus.Registry, logger *zap.Logger) (metric.MeterProvider, error) {
@@ -105,6 +123,4 @@ func NewOtlpMeterProvider(lc fx.Lifecycle, conf OtlpMetricsConfig, reg *promethe
 }
 
 // InvokeOtlpMeterProvider can be embedded in a system to ensure the metric.MeterProvider is created
-func InvokeOtlpMeterProvider(lc fx.Lifecycle, mp metric.MeterProvider) {
-	return
-}
+func InvokeOtlpMeterProvider(lc fx.Lifecycle, mp metric.MeterProvider) {}

@@ -22,7 +22,7 @@ import (
 func NewModule(conf TracingConfig) fx.Option {
 	return fx.Module(
 		"tracing",
-		fx.Supply(fx.Annotate(conf, fx.As(new(TracingConfig)))),
+		fx.Supply(fx.Annotate(conf, fx.As(new(TracingConfig))), fx.Private),
 		fx.Provide(
 			NewTracerProvider,
 			NewGrpcServerInterceptors,

@@ -45,6 +45,7 @@ func NewModule(conf LoggingConfig) fx.Option {
 			),
 			fx.Supply(
 				fx.Annotate(conf, fx.As(new(LoggingConfig))),
+				fx.Private,
 			),
 		),
 	)
