@@ -10,7 +10,7 @@ require (
 	github.com/exoscale/multiconfig v0.0.0-20230329142724-71ec8bdb4f80
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-logr/zapr v1.3.0
-	github.com/go-playground/validator/v10 v10.21.0
+	github.com/go-playground/validator/v10 v10.22.0
 	github.com/oklog/ulid/v2 v2.1.0
 	github.com/prometheus/client_golang v1.19.1
 	github.com/stretchr/testify v1.9.0
@@ -24,13 +24,13 @@ require (
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.64.0
 	google.golang.org/grpc/examples v0.0.0-20230215194445-0f02ca5cc927
-	google.golang.org/protobuf v1.34.1
+	google.golang.org/protobuf v1.34.2
 	zombiezen.com/go/sqlite v1.3.0
 )
 
 require (
 	github.com/coreos/go-oidc/v3 v3.10.0
-	github.com/getsentry/sentry-go v0.28.0
+	github.com/getsentry/sentry-go v0.28.1
 	github.com/google/cel-go v0.20.1
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.1
 	go.opentelemetry.io/contrib/bridges/prometheus v0.52.0
