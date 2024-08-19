@@ -132,7 +132,7 @@ func Load(s interface{}, args []string, opts ...Option) error {
 			} else {
 				errorString += fmt.Sprintf("'%s=%v'", e.ActualTag(), e.Param())
 			}
-			return fmt.Errorf(errorString)
+			return errors.New(errorString)
 		}
 	}
 
