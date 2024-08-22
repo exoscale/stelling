@@ -8,10 +8,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type requestIdContextKey struct{}
-
-var requestIdCtxKey = &requestIdContextKey{}
-
 type WrapResponseWriter struct {
 	http.ResponseWriter
 
@@ -43,7 +39,7 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler) http.Handler {
 		ww.Header().Add("X-Trace-Id", traceid)
 
 		fields := []zapcore.Field{
-			zap.String("http.method", r.RequestURI),
+			zap.String("http.method", r.Method),
 			zap.String("http.uri", r.RequestURI),
 			zap.String("otlp.trace_id", traceid),
 		}
