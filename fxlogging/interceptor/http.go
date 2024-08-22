@@ -1,9 +1,8 @@
-package http
+package interceptor
 
 import (
 	"net/http"
 
-	"github.com/exoscale/stelling/fxlogging/interceptor"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -31,9 +30,9 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler) http.Handler {
 
 		ctx := r.Context()
 
-		traceid, ok := interceptor.TraceIdFromContext(ctx)
+		traceid, ok := traceIdFromContext(ctx)
 		if !ok {
-			ctx = interceptor.ContextWithTraceId(ctx, traceid)
+			ctx = contextWithTraceId(ctx, traceid)
 		}
 
 		ww.Header().Add("X-Trace-Id", traceid)
@@ -51,7 +50,7 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler) http.Handler {
 		}
 
 		l := logger.With(fields...)
-		ctx = interceptor.ContextWithLogger(ctx, l)
+		ctx = ContextWithLogger(ctx, l)
 		r = r.WithContext(ctx)
 
 		wrapped.ServeHTTP(ww, r)
