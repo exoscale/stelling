@@ -1,11 +1,9 @@
 package http
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/exoscale/stelling/fxlogging/interceptor"
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -35,16 +33,19 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ww := NewWrapResponseWriter(w)
 
-		requestId := uuid.New()
+		ctx := r.Context()
 
-		ctx := context.WithValue(r.Context(), requestIdCtxKey, requestId)
+		traceid, ok := interceptor.TraceIdFromContext(ctx)
+		if !ok {
+			ctx = interceptor.ContextWithTraceId(ctx, traceid)
+		}
 
-		ww.Header().Add("X-Request-Id", requestId.String())
+		ww.Header().Add("X-Trace-Id", traceid)
 
 		fields := []zapcore.Field{
-			zap.String("Request-Id", requestId.String()),
-			zap.String("Request-Method", r.Method),
-			zap.String("Request-URI", r.RequestURI),
+			zap.String("http.method", r.RequestURI),
+			zap.String("http.uri", r.RequestURI),
+			zap.String("otlp.trace_id", traceid),
 		}
 
 		if rUser, ok := r.Header["X-Forwarded-User"]; ok {

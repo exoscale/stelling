@@ -22,6 +22,10 @@ func contextWithTraceId(ctx context.Context, traceid string) context.Context {
 	return context.WithValue(ctx, traceIdCtxKey, traceid)
 }
 
+func ContextWithTraceId(ctx context.Context, traceid string) context.Context {
+	return contextWithTraceId(ctx, traceid)
+}
+
 // traceIdFromContext will extract a traceid from the context, if any
 // It will look for one in this order:
 // 1. A trace-id set using contextWithTraceId
@@ -43,6 +47,10 @@ func traceIdFromContext(ctx context.Context) (string, bool) {
 		return spanCtx.TraceID().String(), true
 	}
 	return fmt.Sprintf("local-%s", ulid.Make()), false
+}
+
+func TraceIdFromContext(ctx context.Context) (string, bool) {
+	return traceIdFromContext(ctx)
 }
 
 // ContextWithLogger returns a copy of the given context with a Logger embedded into it
