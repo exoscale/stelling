@@ -2,6 +2,7 @@ package interceptor
 
 import (
 	"net/http"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -26,6 +27,8 @@ func (w *WrapResponseWriter) WriteHeader(statusCode int) {
 
 func NewRequestLogger(logger *zap.Logger, wrapped http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
 		ww := NewWrapResponseWriter(w)
 
 		ctx := r.Context()
@@ -58,6 +61,7 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler) http.Handler {
 		l.Info(
 			"Handled request",
 			zap.Int("http.status", ww.StatusCode),
+			zap.Duration("http.duration", time.Since(start)),
 		)
 	})
 }
