@@ -57,7 +57,7 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler) http.Handler {
 
 		l.Info(
 			"Handled request",
-			zap.Int("status", ww.StatusCode),
+			zap.Int("http.status", ww.StatusCode),
 		)
 	})
 }
