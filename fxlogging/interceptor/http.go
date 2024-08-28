@@ -2,6 +2,7 @@ package interceptor
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -57,6 +58,15 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler) http.Handler {
 		r = r.WithContext(ctx)
 
 		wrapped.ServeHTTP(ww, r)
+
+		if r.Method == "GET" && ww.StatusCode == 200 && strings.HasSuffix(r.RequestURI, "/healthz") {
+			l.Debug(
+				"Handled request",
+				zap.Int("http.status", ww.StatusCode),
+				zap.Duration("http.duration", time.Since(start)),
+			)
+			return
+		}
 
 		l.Info(
 			"Handled request",
