@@ -68,13 +68,17 @@ func defaultExtraFieldsFunc(logger *zap.Logger, _ *otelgrpc.InterceptorInfo, _ a
 	return logger
 }
 
-func defaultFilter(_ *otelgrpc.InterceptorInfo) bool {
+func AllowAllFilter(_ *otelgrpc.InterceptorInfo) bool {
 	return true
 }
 
-func defaultPayloadFilter(_ *otelgrpc.InterceptorInfo) bool {
+func DenyAllFilter(_ *otelgrpc.InterceptorInfo) bool {
 	return false
 }
+
+var defaultFilter = AllowAllFilter
+
+var defaultPayloadFilter = DenyAllFilter
 
 func DefaultServerCodeToLevel(info *otelgrpc.InterceptorInfo, code codes.Code) zapcore.Level {
 	service, _ := MethodFromInterceptorInfo(info)
