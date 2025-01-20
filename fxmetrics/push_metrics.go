@@ -189,6 +189,11 @@ func ProvideMetricsPusher(lc fx.Lifecycle, conf PushMetricsConfig, reloader *rel
 	if pConf.GroupingLabelKey != "" {
 		pusher = pusher.Grouping(pConf.GroupingLabelKey, pConf.GroupingLabelValue)
 	}
+	if len(pConf.GroupingLabelKeys) > 0 {
+		for i := 0; i < len(pConf.GroupingLabelKeys); i++ {
+			pusher = pusher.Grouping(pConf.GroupingLabelKeys[i], pConf.GroupingLabelValues[i])
+		}
+	}
 
 	for name, value := range pConf.ExtraLabels {
 		pusher = pusher.Grouping(name, value)
