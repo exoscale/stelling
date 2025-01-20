@@ -92,7 +92,7 @@ type PushMetrics struct {
 	// The value for this instance of the GroupingLabel (see GroupingLabelKey)
 	GroupingLabelValue string `validate:"required_with=GroupingLabelKey"`
 
-	GroupingLabelKeys []string `validate:"excluded_if=GroupingLabelKey s"`
+	GroupingLabelKeys []string `validate:"excluded_if=GroupingLabelKey"`
 	// The value for this instance of the GroupingLabel (see GroupingLabelKey)
 	GroupingLabelValues []string `validate:"required_with=GroupingLabelKeys"`
 
