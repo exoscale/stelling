@@ -21,8 +21,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
 github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
-github.com/exoscale/multiconfig v0.0.0-20230329142724-71ec8bdb4f80 h1:yRYrK13jXTkBb+kB/kZXG9WasPoqKIEQu4I9APCDuuU=
-github.com/exoscale/multiconfig v0.0.0-20230329142724-71ec8bdb4f80/go.mod h1:thylIm+voytgvz6QMXgP6rZ8ZWKD3kkGFVpTHCCexyY=
+github.com/exoscale/multiconfig v0.0.0-20250121154433-cb30610932f6 h1:/EZ01ydSkr53UjIg2fCWeUvNYka5UHlqC/QzTk/acvc=
+github.com/exoscale/multiconfig v0.0.0-20250121154433-cb30610932f6/go.mod h1:n0skIbbd2HwtBcVYK+cbUPi/9KDvDGco5k4VZI4aLIQ=
 github.com/fatih/camelcase v1.0.0 h1:hxNvNX/xYBp0ovncs8WyWZrOrpBNub/JfaMvbURyft8=
 github.com/fatih/camelcase v1.0.0/go.mod h1:yN2Sb0lFhZJUdVvtELVWefmrXpuZESvPmqwoZc+/fpc=
 github.com/fatih/structs v1.1.0 h1:Q7juDM0QtcnhCpeyLGQKyg4TOIghuNXrkL32pHAUMxo=
