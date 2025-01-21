@@ -91,6 +91,11 @@ type PushMetrics struct {
 	GroupingLabelKey string ``
 	// The value for this instance of the GroupingLabel (see GroupingLabelKey)
 	GroupingLabelValue string `validate:"required_with=GroupingLabelKey"`
+
+	GroupingLabelKeys []string `validate:"excluded_if=GroupingLabelKey"`
+	// The value for this instance of the GroupingLabel (see GroupingLabelKey)
+	GroupingLabelValues []string `validate:"required_with=GroupingLabelKeys"`
+
 	// PushInterval is the frequency with which metrics are pushed
 	// If the PushInterval is set to 0, metrics will only be pushed when the system stops
 	PushInterval time.Duration `default:"15s"`
@@ -130,6 +135,11 @@ func (m *PushMetrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("jobname", m.JobName)
 	if m.GroupingLabelKey != "" {
 		enc.AddString("groupinglabel", m.GroupingLabelKey)
+	}
+	if len(m.GroupingLabelKeys) > 0 {
+		for i := 0; i < len(m.GroupingLabelKeys); i++ {
+			enc.AddString("groupinglabel", m.GroupingLabelKeys[i])
+		}
 	}
 	return nil
 }
@@ -178,6 +188,11 @@ func ProvideMetricsPusher(lc fx.Lifecycle, conf PushMetricsConfig, reloader *rel
 
 	if pConf.GroupingLabelKey != "" {
 		pusher = pusher.Grouping(pConf.GroupingLabelKey, pConf.GroupingLabelValue)
+	}
+	if len(pConf.GroupingLabelKeys) > 0 {
+		for i := 0; i < len(pConf.GroupingLabelKeys); i++ {
+			pusher = pusher.Grouping(pConf.GroupingLabelKeys[i], pConf.GroupingLabelValues[i])
+		}
 	}
 
 	for name, value := range pConf.ExtraLabels {
