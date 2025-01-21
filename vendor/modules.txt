@@ -32,8 +32,8 @@ github.com/davecgh/go-spew/spew
 # github.com/dustin/go-humanize v1.0.1
 ## explicit; go 1.16
 github.com/dustin/go-humanize
-# github.com/exoscale/multiconfig v0.0.0-20230329142724-71ec8bdb4f80
-## explicit; go 1.19
+# github.com/exoscale/multiconfig v0.0.0-20250121154433-cb30610932f6
+## explicit; go 1.22
 github.com/exoscale/multiconfig
 # github.com/fatih/camelcase v1.0.0
 ## explicit
