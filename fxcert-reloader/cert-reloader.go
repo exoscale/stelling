@@ -234,3 +234,85 @@ func MakeServerTLS(r *CertReloader, clientCAFile string) (*tls.Config, error) {
 
 	return tlsConf, nil
 }
+
+type ClientConfig interface {
+	HttpClientConfig() *Client
+}
+
+type Client struct {
+	// InsecureConnection indicates whether TLS needs to be disabled when connecting to the grpc server
+	InsecureConnection bool
+	// CertFile is the path to the pem encoded TLS certificate
+	CertFile string `validate:"omitempty,file"`
+	// KeyFile is the path to the pem encoded private key of the TLS certificate
+	KeyFile string `validate:"required_with=CertFile,omitempty,file"`
+	// RootCAFile is the  path to a pem encoded CA bundle used to validate server connections
+	RootCAFile string `validate:"omitempty,file"`
+}
+
+func (c *Client) HttpClientConfig() *Client {
+	return c
+}
+
+func (c *Client) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if c == nil {
+		return nil
+	}
+
+	enc.AddBool("insecure-connection", c.InsecureConnection)
+	if !c.InsecureConnection {
+		enc.AddString("cert-file", c.CertFile)
+		enc.AddString("key-file", c.KeyFile)
+		enc.AddString("root-ca-file", c.RootCAFile)
+	}
+
+	return nil
+}
+
+func MakeClientTLS(c ClientConfig, logger *zap.Logger) (*tls.Config, *CertReloader, error) {
+	conf := c.HttpClientConfig()
+
+	if conf.InsecureConnection {
+		return nil, nil, nil
+	}
+
+	tlsConf := &tls.Config{}
+	if conf.RootCAFile != "" {
+		cert, err := os.ReadFile(conf.RootCAFile)
+		if err != nil {
+			return nil, nil, err
+		}
+		// TODO: should we really use the system cert pool?
+		if tlsConf.RootCAs, err = x509.SystemCertPool(); err != nil {
+			return nil, nil, err
+		}
+		if !tlsConf.RootCAs.AppendCertsFromPEM(cert) {
+			return nil, nil, fmt.Errorf("appending CA `%s` failed", conf.RootCAFile)
+		}
+	}
+
+	var r *CertReloader
+
+	if conf.CertFile != "" {
+		var err error
+
+		// We won't bother using an fx component for the cert reloading.
+		// We may have multiple http-clients per application and each one
+		// of them may be using different certs
+		// Expressing that we may have different certs is hard enough for a server
+		// (where there can be only one); it's impossible for a client right now
+		// We'll just create the reloader in line and register the hooks directly
+		r, err = NewCertReloader(&CertReloaderConfig{
+			CertFile:       conf.CertFile,
+			KeyFile:        conf.KeyFile,
+			ReloadInterval: 10 * time.Second,
+		}, logger)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		tlsConf.GetClientCertificate = r.GetClientCertificate
+	}
+
+	return tlsConf, r, nil
+}

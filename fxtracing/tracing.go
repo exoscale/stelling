@@ -3,11 +3,14 @@ package fxtracing
 import (
 	"context"
 
+	fxcert_reloader "github.com/exoscale/stelling/fxcert-reloader"
 	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/go-logr/zapr"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -36,6 +39,7 @@ type TracingConfig interface {
 }
 
 type Tracing struct {
+	Protocol string `default:"grpc" validate:"oneof=grpc http"`
 	// Enabled allows tracing support to be toggled on and off
 	Enabled bool
 	// InsecureConnection indicates whether TLS needs to be disabled when connecting to the grpc server
@@ -61,6 +65,15 @@ func (t *Tracing) GrpcClientConfig() *fxgrpc.Client {
 		KeyFile:            t.KeyFile,
 		RootCAFile:         t.RootCAFile,
 		Endpoint:           t.Endpoint,
+	}
+}
+
+func (t *Tracing) HttpClientConfig() *fxcert_reloader.Client {
+	return &fxcert_reloader.Client{
+		InsecureConnection: t.InsecureConnection,
+		CertFile:           t.CertFile,
+		KeyFile:            t.KeyFile,
+		RootCAFile:         t.RootCAFile,
 	}
 }
 
@@ -112,21 +125,42 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 		return tp, nil
 	}
 
-	opts := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(tracingConf.Endpoint)}
+	var exporter *otlptrace.Exporter
 
-	creds, r, err := fxgrpc.MakeClientTLS(
-		tracingConf,
-		logger,
-	)
-	if err != nil {
-		return nil, err
-	}
-	if r != nil {
-		lc.Append(fx.Hook{OnStart: r.Start, OnStop: r.Stop})
-	}
-	opts = append(opts, otlptracegrpc.WithTLSCredentials(creds))
+	if true {
+		creds, r, err := fxgrpc.MakeClientTLS(
+			tracingConf,
+			logger,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if r != nil {
+			lc.Append(fx.Hook{OnStart: r.Start, OnStop: r.Stop})
+		}
 
-	exporter := otlptracegrpc.NewUnstarted(opts...)
+		opts := []otlptracegrpc.Option{
+			otlptracegrpc.WithEndpoint(tracingConf.Endpoint),
+			otlptracegrpc.WithTLSCredentials(creds),
+		}
+
+		exporter = otlptracegrpc.NewUnstarted(opts...)
+	} else {
+		creds, r, err := fxcert_reloader.MakeClientTLS(tracingConf, logger)
+		if err != nil {
+			return nil, err
+		}
+		if r != nil {
+			lc.Append(fx.Hook{OnStart: r.Start, OnStop: r.Stop})
+		}
+
+		opts := []otlptracehttp.Option{
+			otlptracehttp.WithEndpoint(tracingConf.Endpoint),
+			otlptracehttp.WithTLSClientConfig(creds),
+		}
+
+		exporter = otlptracehttp.NewUnstarted(opts...)
+	}
 
 	// TODO: configure sampling here
 	// TODO: configure the resource
