@@ -85,6 +85,7 @@ func (t *Tracing) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddBool("enabled", t.Enabled)
 	if t.Enabled {
+		enc.AddString("protocol", t.Protocol)
 		enc.AddString("endpoint", t.Endpoint)
 		enc.AddBool("insecure-connection", t.InsecureConnection)
 		if !t.InsecureConnection {
@@ -163,7 +164,7 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 
 		exporter = otlptracehttp.NewUnstarted(opts...)
 	default:
-		return nil, fmt.Errorf("Invalid protocol `%v`", tracingConf.Protocol)
+		return nil, fmt.Errorf("invalid protocol `%v`", tracingConf.Protocol)
 	}
 
 	// TODO: configure sampling here
