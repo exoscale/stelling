@@ -2,6 +2,7 @@ package fxtracing
 
 import (
 	"context"
+	"fmt"
 
 	fxcert_reloader "github.com/exoscale/stelling/fxcert-reloader"
 	"github.com/exoscale/stelling/fxgrpc"
@@ -127,7 +128,8 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 
 	var exporter *otlptrace.Exporter
 
-	if true {
+	switch tracingConf.Protocol {
+	case "grpc":
 		creds, r, err := fxgrpc.MakeClientTLS(
 			tracingConf,
 			logger,
@@ -145,7 +147,7 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 		}
 
 		exporter = otlptracegrpc.NewUnstarted(opts...)
-	} else {
+	case "http":
 		creds, r, err := fxcert_reloader.MakeClientTLS(tracingConf, logger)
 		if err != nil {
 			return nil, err
@@ -160,6 +162,8 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 		}
 
 		exporter = otlptracehttp.NewUnstarted(opts...)
+	default:
+		return nil, fmt.Errorf("Invalid protocol `%v`", tracingConf.Protocol)
 	}
 
 	// TODO: configure sampling here
