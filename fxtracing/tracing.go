@@ -162,6 +162,10 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 			otlptracehttp.WithTLSClientConfig(creds),
 		}
 
+		if tracingConf.InsecureConnection {
+			opts = append(opts, otlptracehttp.WithInsecure())
+		}
+
 		exporter = otlptracehttp.NewUnstarted(opts...)
 	default:
 		return nil, fmt.Errorf("invalid protocol `%v`", tracingConf.Protocol)
