@@ -38,8 +38,8 @@ func Example() {
 	// But then I also need to figure out why the example test isn't currently checking the output anyway
 
 	// Output:
-	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Using configuration","conf":{"Mode":"production","Enabled":true,"InsecureConnection":true,"CertFile":"","KeyFile":"","RootCAFile":"","Endpoint":""}}
-	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Final configuration","conf":{"Mode":"production","Enabled":true,"InsecureConnection":true,"CertFile":"","KeyFile":"","RootCAFile":"","Endpoint":""}}
+	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Using configuration","conf":{"Mode":"production","Protocol":"grpc","Enabled":true,"InsecureConnection":true,"CertFile":"","KeyFile":"","RootCAFile":"","Endpoint":""}}
+	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Final configuration","conf":{"Mode":"production","Protocol":"grpc","Enabled":true,"InsecureConnection":true,"CertFile":"","KeyFile":"","RootCAFile":"","Endpoint":""}}
 }
 
 func run(lc fx.Lifecycle, sd fx.Shutdowner, tp trace.TracerProvider) {
