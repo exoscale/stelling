@@ -68,10 +68,19 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler) http.Handler {
 			return
 		}
 
-		l.Info(
-			"Handled request",
-			zap.Int("http.status", ww.StatusCode),
-			zap.Duration("http.duration", time.Since(start)),
-		)
+		if ww.StatusCode >= 500 {
+			l.Error(
+				"Handled request",
+				zap.Int("http.status", ww.StatusCode),
+				zap.Duration("http.duration", time.Since(start)),
+			)
+		} else {
+			l.Info(
+				"Handled request",
+				zap.Int("http.status", ww.StatusCode),
+				zap.Duration("http.duration", time.Since(start)),
+			)
+		}
+
 	})
 }
