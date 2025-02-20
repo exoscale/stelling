@@ -27,6 +27,7 @@ func (w *WrapResponseWriter) WriteHeader(statusCode int) {
 }
 
 func NewRequestLogger(logger *zap.Logger, wrapped http.Handler) http.Handler {
+	logger = logger.WithOptions(zap.WithCaller(false))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
