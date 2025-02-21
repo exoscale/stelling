@@ -26,8 +26,14 @@ func (w *WrapResponseWriter) WriteHeader(statusCode int) {
 	w.ResponseWriter.WriteHeader(statusCode)
 }
 
+// NeverEnabler implements zapcore.LevelEnabler and always return false regardless of the level
+// This is used to disable features that are controlled by a zapcore.levelEnabler
+type NeverEnabler struct{}
+
+func (NeverEnabler) Enabled(zapcore.Level) bool { return false }
+
 func NewRequestLogger(logger *zap.Logger, wrapped http.Handler) http.Handler {
-	logger = logger.WithOptions(zap.WithCaller(false))
+	logger = logger.WithOptions(zap.WithCaller(false), zap.AddStacktrace(NeverEnabler{}))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
