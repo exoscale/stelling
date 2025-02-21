@@ -123,13 +123,14 @@ func ISO8601UTCTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 const GrpcInterceptorWeight uint = 50
 
 func NewGrpcLoggingServerInterceptors(logger *zap.Logger, opts ...interceptor.Option) (*fxgrpc.UnaryServerInterceptor, *fxgrpc.StreamServerInterceptor) {
+	logger = logger.WithOptions(zap.WithCaller(false), zap.AddStacktrace(interceptor.NeverEnabler{}))
 	unaryIx := &fxgrpc.UnaryServerInterceptor{Weight: GrpcInterceptorWeight, Interceptor: interceptor.NewLoggingUnaryServerInterceptor(logger, opts...)}
 	streamIx := &fxgrpc.StreamServerInterceptor{Weight: GrpcInterceptorWeight, Interceptor: interceptor.NewLoggingStreamServerInterceptor(logger, opts...)}
 	return unaryIx, streamIx
 }
 
 func NewGrpcLoggingClientInterceptors(logger *zap.Logger, opts ...interceptor.Option) (*fxgrpc.UnaryClientInterceptor, *fxgrpc.StreamClientInterceptor) {
-	logger = logger.WithOptions(zap.WithCaller(false))
+	logger = logger.WithOptions(zap.WithCaller(false), zap.AddStacktrace(interceptor.NeverEnabler{}))
 
 	unaryIx := &fxgrpc.UnaryClientInterceptor{Weight: GrpcInterceptorWeight, Interceptor: interceptor.NewLoggingUnaryClientInterceptor(logger, opts...)}
 	streamIx := &fxgrpc.StreamClientInterceptor{Weight: GrpcInterceptorWeight, Interceptor: interceptor.NewLoggingStreamClientInterceptor(logger, opts...)}
