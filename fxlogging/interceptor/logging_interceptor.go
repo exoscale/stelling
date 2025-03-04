@@ -31,7 +31,7 @@ func serviceName() string {
 		return svcName
 	}
 
-	if exec, err := os.Executable(); err != nil && exec != "" {
+	if exec, err := os.Executable(); err == nil && exec != "" {
 		return path.Base(exec)
 	}
 
