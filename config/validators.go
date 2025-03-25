@@ -2,14 +2,15 @@ package config
 
 import (
 	"fmt"
+	"slices"
 )
 
 func validatePortNumber(input int64) error {
 	if input < 0 {
-		return fmt.Errorf("Port numbers cannot be negative. Received: %d", input)
+		return fmt.Errorf("port numbers cannot be negative. Received: %d", input)
 	}
 	if input > 65535 {
-		return fmt.Errorf("Port numbers cannot be larger than 65535. Received: %d", input)
+		return fmt.Errorf("port numbers cannot be larger than 65535. Received: %d", input)
 	}
 	return nil
 }
@@ -30,10 +31,8 @@ func validateExoscaleZone(input string) error {
 		"aws",
 	}
 
-	for _, zone := range zones {
-		if input == zone {
-			return nil
-		}
+	if slices.Contains(zones, input) {
+		return nil
 	}
 
 	return fmt.Errorf("'%s' is not a valid Exoscale zone", input)
@@ -54,10 +53,8 @@ func validateExoscaleZoneLong(input string) error {
 		"bg-sof-1",
 	}
 
-	for _, zone := range zones {
-		if input == zone {
-			return nil
-		}
+	if slices.Contains(zones, input) {
+		return nil
 	}
 
 	return fmt.Errorf("'%s' is not a valid Exoscale zone", input)

@@ -61,7 +61,8 @@ func NewOIDCServer(t *testing.T, key *rsaKey, body map[string]string) *httptest.
 func (s *OIDCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body, _ := io.ReadAll(r.Body)
 
-	if r.URL.Path == "/.well-known/openid-configuration" {
+	switch r.URL.Path {
+	case "/.well-known/openid-configuration":
 		// Open id config
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprint(w, `{
@@ -70,7 +71,7 @@ func (s *OIDCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"token_endpoint":"`+s.url+`/token",
 			"jwks_uri":"`+s.url+`/jwks"
 		}`)
-	} else if r.URL.Path == "/token" {
+	case "/token":
 		// Token request
 		// Check body
 		if b, ok := s.body["token"]; ok {
@@ -84,7 +85,7 @@ func (s *OIDCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"access_token":"123456789",
 			"id_token":"id_123456789"
 		}`)
-	} else if r.URL.Path == "/jwks" {
+	case "/jwks":
 		// Key request
 		w.Header().Set("Content-Type", "application/json")
 		pubkey, err := s.key.publicJWK()
@@ -92,7 +93,7 @@ func (s *OIDCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			s.t.Fatalf("Failed to get public key: %v", err)
 		}
 		fmt.Fprint(w, `{"keys":[`+pubkey+`]}`)
-	} else {
+	default:
 		s.t.Fatal("Unrecognised request: ", r.URL, string(body))
 	}
 }

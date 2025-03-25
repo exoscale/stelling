@@ -18,7 +18,7 @@ func TestNewMigrations(t *testing.T) {
 		down := []string{"down1"}
 
 		_, err := NewMigrations(up, down)
-		require.EqualError(t, err, "Must have a 'down' migration for each 'up' migration")
+		require.EqualError(t, err, "must have a 'down' migration for each 'up' migration")
 	})
 
 	t.Run("Should return non-nil Migrations", func(t *testing.T) {
@@ -41,7 +41,7 @@ func TestNewMigrationsFromFS(t *testing.T) {
 		}
 
 		_, err := NewMigrationsFromFS(fsys, ".")
-		require.EqualError(t, err, "Target directory must have a 'down' migration for each 'up' migration")
+		require.EqualError(t, err, "target directory must have a 'down' migration for each 'up' migration")
 	})
 
 	t.Run("Should return an error if an up migration is missing", func(t *testing.T) {
@@ -53,7 +53,7 @@ func TestNewMigrationsFromFS(t *testing.T) {
 		}
 
 		_, err := NewMigrationsFromFS(fsys, ".")
-		require.EqualError(t, err, "Up migration for migration 2 is missing")
+		require.EqualError(t, err, "up migration for migration 2 is missing")
 	})
 
 	t.Run("Should return an error if a down migration is missing", func(t *testing.T) {
@@ -65,7 +65,7 @@ func TestNewMigrationsFromFS(t *testing.T) {
 		}
 
 		_, err := NewMigrationsFromFS(fsys, ".")
-		require.EqualError(t, err, "Down migration for migration 2 is missing")
+		require.EqualError(t, err, "down migration for migration 2 is missing")
 	})
 
 	t.Run("Should return non-nil migrations", func(t *testing.T) {

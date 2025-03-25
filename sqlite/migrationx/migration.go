@@ -57,7 +57,7 @@ type Migrations struct {
 
 func NewMigrations(up []string, down []string) (*Migrations, error) {
 	if len(up) != len(down) {
-		return nil, fmt.Errorf("Must have a 'down' migration for each 'up' migration")
+		return nil, fmt.Errorf("must have a 'down' migration for each 'up' migration")
 	}
 
 	return &Migrations{
@@ -98,18 +98,18 @@ func NewMigrationsFromFS(fsys fs.FS, subpath string) (*Migrations, error) {
 		}
 	}
 	if len(upFiles) != len(downFiles) {
-		return nil, fmt.Errorf("Target directory must have a 'down' migration for each 'up' migration")
+		return nil, fmt.Errorf("target directory must have a 'down' migration for each 'up' migration")
 	}
 	sort.Sort(migrationList(upFiles))
 	sort.Sort(migrationList(downFiles))
 	for i, m := range upFiles {
 		if i != int(m.pos)-1 {
-			return nil, fmt.Errorf("Up migration for migration %d is missing", i+1)
+			return nil, fmt.Errorf("up migration for migration %d is missing", i+1)
 		}
 	}
 	for i, m := range downFiles {
 		if i != int(m.pos)-1 {
-			return nil, fmt.Errorf("Down migration for migration %d is missing", i+1)
+			return nil, fmt.Errorf("down migration for migration %d is missing", i+1)
 		}
 	}
 	output := &Migrations{
