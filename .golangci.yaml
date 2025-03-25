@@ -1,31 +1,42 @@
+version: "2"
 linters:
   enable:
-    - errcheck
-    - gosimple
     - govet
-    - ineffassign
-    - staticcheck
-    - typecheck
-    - unused
     - bodyclose
     - durationcheck
-    - makezero 
+    - errname
+    - goprintffuncname
+    - grouper
+    - makezero
+    - misspell
     - nilerr
     - noctx
     - nosprintfhostport
+    - promlinter
     - rowserrcheck
     - sqlclosecheck
-    - tenv
     - thelper
-    - wastedassign
-    - promlinter
     - unconvert
     - unparam
-# Style
-    - errname
-    - gofmt 
+    - wastedassign
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
     - goimports
-    - goprintffuncname
-    - grouper 
-# Spelling
-    - misspell
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

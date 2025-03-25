@@ -139,7 +139,7 @@ func MakeClientTLS(c ClientConfig, logger *zap.Logger) (credentials.TransportCre
 				return nil, nil, err
 			}
 			if ok := certPool.AppendCertsFromPEM(ca); !ok {
-				return nil, nil, fmt.Errorf("Failed to parse RootCAFile: %s", conf.RootCAFile)
+				return nil, nil, fmt.Errorf("failed to parse RootCAFile: %s", conf.RootCAFile)
 			}
 			tlsConf.RootCAs = certPool
 		}
