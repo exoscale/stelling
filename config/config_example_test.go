@@ -34,7 +34,7 @@ type Config struct {
 // In this case it overwrites the default value for Port set by
 // the tags in ServerConfig
 func (c *Config) ApplyDefaults() {
-	c.Port = 9090
+	c.Server.Port = 9090
 }
 
 // In this example we'll show the order in which configuration is loaded

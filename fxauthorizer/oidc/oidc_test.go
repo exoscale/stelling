@@ -158,7 +158,7 @@ func TestTokenExtractorExtract(t *testing.T) {
 
 		key, err := newRSAKey()
 		require.NoError(t, err)
-		token2, err := key.createIdToken(
+		token2, err := key.createIDToken(
 			"https://some.other.server",
 			"J. Doe",
 			"jdoe@example.com",
@@ -179,7 +179,7 @@ func TestTokenExtractorExtract(t *testing.T) {
 
 		key, err := newRSAKey()
 		require.NoError(t, err)
-		token2, err := key.createIdToken(
+		token2, err := key.createIDToken(
 			server.URL,
 			"J. Doe",
 			"jdoe@example.com",
@@ -199,7 +199,7 @@ func TestTokenExtractorExtract(t *testing.T) {
 
 	t.Run("Should return a parsed token", func(t *testing.T) {
 		server, key := setupOIDCTest(t, map[string]map[string]string{})
-		token, err := key.createIdToken(
+		token, err := key.createIDToken(
 			server.URL,
 			"J. Doe",
 			"jdoe@example.com",
@@ -219,7 +219,7 @@ func TestTokenExtractorExtract(t *testing.T) {
 	t.Run("Should return a parsed token from the configured header", func(t *testing.T) {
 		header := "Other-Header"
 		server, key := setupOIDCTest(t, map[string]map[string]string{})
-		token, err := key.createIdToken(
+		token, err := key.createIDToken(
 			server.URL,
 			"Jane Doe",
 			"janedoe@example.com",
