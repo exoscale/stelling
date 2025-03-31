@@ -156,7 +156,7 @@ func (k *rsaKey) sign(payload []byte) (string, error) {
 	return data, nil
 }
 
-func (k *rsaKey) createIdToken(serverURL, user, email string, groups []string) (string, error) {
+func (k *rsaKey) createIDToken(serverURL, user, email string, groups []string) (string, error) {
 	input := []byte(`{
 		"iss": "` + serverURL + `",
 		"exp":` + strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10) + `,

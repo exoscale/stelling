@@ -47,7 +47,7 @@ type Metrics struct {
 }
 
 func (m *Metrics) ApplyDefaults() {
-	m.Address = ":9091"
+	m.Server.Address = ":9091"
 }
 
 func (m *Metrics) MetricsConfig() *Metrics {

@@ -19,6 +19,17 @@ linters:
     - unconvert
     - unparam
     - wastedassign
+  settings:
+    staticcheck:
+      checks:
+        - all
+        - -QF1008 # Allow using name of embedded field in selector
+        - -ST1000
+        - -ST1003
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
   exclusions:
     generated: lax
     presets:
