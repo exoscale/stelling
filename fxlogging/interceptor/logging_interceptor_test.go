@@ -238,6 +238,41 @@ func TestLoggingServerInterceptor(t *testing.T) {
 		withTestSystem(t, run, extraOpts)
 	})
 
+	t.Run("Should use custom startLogFilter", func(t *testing.T) {
+		run := func(client pb.RouteGuideClient, logs *observer.ObservedLogs) {
+			_, err := client.GetFeature(context.Background(), &pb.Point{
+				Latitude:  12345,
+				Longitude: 12345,
+			})
+			require.Error(t, err)
+			require.Equal(t, codes.Unimplemented, status.Code(err))
+
+			require.Equal(t, 2, logs.Len())
+			startLog := logs.AllUntimed()[0]
+			require.Equal(t, zapcore.InfoLevel, startLog.Level)
+			require.Equal(t, "started call", startLog.Message)
+			require.NotContains(t, startLog.ContextMap(), "rpc.request.duration")
+			require.NotContains(t, startLog.ContextMap(), "rpc.grpc.status_code")
+			endLog := logs.AllUntimed()[1]
+			require.Equal(t, zapcore.ErrorLevel, endLog.Level)
+			require.Equal(t, "finished call", endLog.Message)
+			require.Contains(t, endLog.ContextMap(), "rpc.request.duration")
+			require.Contains(t, endLog.ContextMap(), "rpc.grpc.status_code")
+		}
+		extraOpts := fx.Provide(
+			func() []Option {
+				return []Option{WithStartLogFilter(AllowAllFilter)}
+			},
+			fx.Annotate(
+				func(logger *zap.Logger, opts ...Option) *fxgrpc.UnaryServerInterceptor {
+					return &fxgrpc.UnaryServerInterceptor{Weight: 42, Interceptor: NewLoggingUnaryServerInterceptor(logger, opts...)}
+				},
+				fx.ResultTags(`group:"unary_server_interceptor"`),
+			),
+		)
+		withTestSystem(t, run, extraOpts)
+	})
+
 	t.Run("Should use custom payloadFilter", func(t *testing.T) {
 		run := func(client pb.RouteGuideClient, logs *observer.ObservedLogs) {
 			_, err := client.GetFeature(context.Background(), &pb.Point{
