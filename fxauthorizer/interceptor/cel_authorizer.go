@@ -8,7 +8,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/exoscale/stelling/fxauthorizer/schema"
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/types"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -63,7 +63,7 @@ func WithTokenExtractor(te TokenExtractor, requireToken bool) celAuthorizerOptio
 func compileCelProgram(rule string) (cel.Program, error) {
 	env, err := cel.NewEnv(
 		cel.Types(new(schema.GrpcRequest)),
-		cel.Declarations(decls.NewVar("request", decls.NewObjectType("exoscale.rpc.authorizer.v1.GrpcRequest"))),
+		cel.VariableDecls(decls.NewVariable("request", types.NewObjectType("exoscale.rpc.authorizer.v1.GrpcRequest"))),
 	)
 	if err != nil {
 		return nil, err

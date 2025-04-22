@@ -11,6 +11,7 @@ type interceptorConfig struct {
 	levelFunc       func(info *otelgrpc.InterceptorInfo, code codes.Code) zapcore.Level
 	logFilter       otelgrpc.InterceptorFilter //nolint:staticcheck
 	payloadFilter   otelgrpc.InterceptorFilter //nolint:staticcheck
+	startLogFilter  otelgrpc.InterceptorFilter //nolint:staticcheck
 	extraFieldsFunc func(logger *zap.Logger, info *otelgrpc.InterceptorInfo, payload any) *zap.Logger
 }
 
@@ -49,11 +50,20 @@ func WithPayloadFilter(f otelgrpc.InterceptorFilter) Option { //nolint:staticche
 	}
 }
 
+// WithStartLogFilter registers a predicate to determine whether the start of the request should be logged
+// Both this predicate function AND the LogFilter predicate  must return `true` to log the request
+func WithStartLogFilter(f otelgrpc.InterceptorFilter) Option { //nolint:staticcheck
+	return func(c *interceptorConfig) {
+		c.startLogFilter = f
+	}
+}
+
 func newInterceptorConfig(opts []Option) *interceptorConfig {
 	conf := &interceptorConfig{
 		levelFunc:       DefaultServerCodeToLevel,
 		logFilter:       defaultFilter,
 		payloadFilter:   defaultPayloadFilter,
+		startLogFilter:  defaultStartLogFilter,
 		extraFieldsFunc: defaultExtraFieldsFunc,
 	}
 
@@ -79,6 +89,8 @@ func DenyAllFilter(_ *otelgrpc.InterceptorInfo) bool {
 var defaultFilter = AllowAllFilter
 
 var defaultPayloadFilter = DenyAllFilter
+
+var defaultStartLogFilter = DenyAllFilter
 
 func DefaultServerCodeToLevel(info *otelgrpc.InterceptorInfo, code codes.Code) zapcore.Level {
 	service, _ := MethodFromInterceptorInfo(info)
