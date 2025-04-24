@@ -2,7 +2,7 @@
 
 This module provides [prometheus metrics](https://pkg.go.dev/github.com/prometheus/client_golang/prometheus) support.
 
-This package provides 2 modules:
+This package provides 3 modules:
 
 * A regular module that exposes a standard prometheus endpoint for use in long running daemons
 * An OTLP module which uses the prometheus sdk to define metrics, but pushes them out over OTLP rather than the standard prometheus http endpoint

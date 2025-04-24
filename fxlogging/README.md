@@ -4,15 +4,19 @@ This module provides configuration for [Ubers zap logger](https://pkg.go.dev/go.
 Almost all other modules expect a `*zap.Logger` to be present, so this module is as 
 close to mandatory as is possible.
 
+All logging will be done on `stdout`. It is assumed that any further log management facilities are
+provided by the underlying platform. There is no support for logging to a file, rotation or shipping
+logs, etc.
+
 ## Components
 The module lazily provides the following components:
 
 * A `*zap.Logger`
-* An adaptor which makes fx use the provided logger
+* An adaptor which makes `fx` use the provided logger
 * GrpcServerInterceptors that log all incoming requests
 * GrpcClientInterceptors that log all requests made with the client
-* GrpcServerInterceptors that embed a *zap.Logger, enriched with request metadata, in the context
-* GrpcClientInterceptors that set 'peer.service' metadata, which are logged by the server
+* GrpcServerInterceptors that embed a `*zap.Logger`, enriched with request metadata, in the context
+* GrpcClientInterceptors that set `peer.service` metadata, which are logged by the server
 
 In case special configuration of the zap Logger is needed, that is not supported by the exposed
 `LoggingConfig`, a [value group](https://uber-go.github.io/fx/value-groups/) of `zap.Option` with name

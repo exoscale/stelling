@@ -6,6 +6,13 @@ The various packages in this module can be used standalone, but are optimised to
 
 Detailed documentation for each package is included in the package README.
 
+## A Note On Contributions
+This library is primarily intended for internal Exoscale usage. If you like it, you are free to use
+it and fork it.
+We are not looking to build any community around this or actively seeking any outside contribution.
+We will accept PRs with bugfixes or features if they align with our direction. However we do not
+intend to shape the design to fit any other needs than our own.
+
 ## Basic Usage
 The `examples` directory contains an example project that can be used to bootstrap your own projects.
 It contains two entrypoints: a long running daemon and a long running job.
@@ -20,7 +27,7 @@ We are looking for the following features:
 
 The project has the following anti-goals:
 * Provide an abstraction over the underlying components.
-  What this means in practise is that we intent to provide you with, for example, a standard library http server and not a custom type.
+  What this means in practice is that we intend to provide you with, for example, a standard library http server and not a custom type.
   The focus is on common configuration of known to work well libraries.
 * Support human friendly CLI tools.
   We optimize for long running daemons and jobs, not human facing tools.
@@ -44,3 +51,15 @@ While the packages in stelling will work better with `fx`, the modules (and `fx`
   are registered, this design allows for fine grained control over the startup and shutdown order of unrelated components in the system.
 
 This allows the components to be used in as many situations as possible.
+
+## Stability
+
+### Config
+The `config` package is considered stable. We do not expect any breaking API changes to it at this point.
+We will probably turn it into its own module and give it a proper semver to indicate this.
+
+### Fx modules
+While we are using the fx based modules extensively in production, their APIs are still subject to change.
+We are not ready to commit on anything and may perform breaking changes.
+Therefore, we do not tag any releases at the moment: whatever is on master at the moment is
+considered the current version.
