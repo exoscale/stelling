@@ -10,11 +10,11 @@ The authorizer allows you to write policies targetting the following parameters:
 * TLS client cert information
 * Claims in OIDC IDTokens
 * Grpc service and method name
-* Http uri, path and query parameters
+* HTTP URI, path and query parameters
 
-Because the CEL program is cached and the available parameters are all readily available to request handlers,
+Because the CEL program is cached and the parameters are all readily available to request handlers,
 policy evaluation introduces very little overhead.
-Benchmarking shows that common policy evaluate in about 1 microsecond.
+Benchmarking shows that common policies evaluate in about 1 microsecond.
 
 This provides a flexible environment that allows expressing a wide variety of policies.
 
@@ -27,7 +27,7 @@ The module supports the following configuration options:
 * `Rule`: The CEL expression which will be validated for each request. Required
 
 ## Request schema
-While most parameters are shared between Http and Grpc requests, they have been tailored to their respective
+While most parameters are shared between HTTP and gRPC requests, they have been tailored to their respective
 protocols. For the most up to date definitions check [schema/schema.proto](./schema/schema.proto).
 
 ## Example policies
@@ -42,5 +42,5 @@ protocols. For the most up to date definitions check [schema/schema.proto](./sch
     ```
 
 ## Roadmap
-* Http middleware
+* HTTP middleware
 * Hot reloading policies
