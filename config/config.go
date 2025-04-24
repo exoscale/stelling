@@ -151,18 +151,6 @@ func registerValidators(validate *validator.Validate) error {
 				return validatePortNumber(fl.Field().Int()) == nil
 			},
 		},
-		{
-			tag: "exoscale_zone",
-			validator: func(fl validator.FieldLevel) bool {
-				return validateExoscaleZone(fl.Field().String()) == nil
-			},
-		},
-		{
-			tag: "exoscale_zone_long",
-			validator: func(fl validator.FieldLevel) bool {
-				return validateExoscaleZoneLong(fl.Field().String()) == nil
-			},
-		},
 	}
 
 	for _, v := range validators {
