@@ -226,7 +226,7 @@ func MakeServerTLS(r *CertReloader, clientCAFile string) (*tls.Config, error) {
 			return nil, err
 		}
 		if ok := certPool.AppendCertsFromPEM(ca); !ok {
-			return nil, fmt.Errorf("Failed to parse ClientCAFile: %s", clientCAFile)
+			return nil, fmt.Errorf("failed to parse ClientCAFile: %s", clientCAFile)
 		}
 		tlsConf.ClientAuth = tls.RequireAndVerifyClientCert
 		tlsConf.ClientCAs = certPool
