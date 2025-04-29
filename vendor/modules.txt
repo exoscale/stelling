@@ -293,8 +293,6 @@ go.uber.org/zap/zaptest
 go.uber.org/zap/zaptest/observer
 # golang.org/x/crypto v0.37.0
 ## explicit; go 1.23.0
-golang.org/x/crypto/ed25519
-golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/sha3
 # golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
 ## explicit; go 1.23.0
@@ -460,11 +458,6 @@ google.golang.org/protobuf/types/known/fieldmaskpb
 google.golang.org/protobuf/types/known/structpb
 google.golang.org/protobuf/types/known/timestamppb
 google.golang.org/protobuf/types/known/wrapperspb
-# gopkg.in/square/go-jose.v2 v2.6.0
-## explicit
-gopkg.in/square/go-jose.v2
-gopkg.in/square/go-jose.v2/cipher
-gopkg.in/square/go-jose.v2/json
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
