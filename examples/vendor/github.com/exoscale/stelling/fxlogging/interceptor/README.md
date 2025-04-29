@@ -12,6 +12,7 @@ We chose to write a custom one for the following reasons:
   This also means it does not support logging all messages on a stream.
   You will have to use another interceptor for that.
 * Easily configure if a request should be logged or not.
+* Easily configure if the start of a request should be logged or not.
 * Correctly handle client streams
 
 ## Inject Logger Interceptor

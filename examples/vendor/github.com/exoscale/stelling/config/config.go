@@ -53,7 +53,7 @@ func WithLegacyFlags() Option {
 //
 // After loading, Load will validate the values with the functions passed into the `validate` struct tag
 // If any value doesn't pass validation, a user readable error will be returned.
-func Load(s interface{}, args []string, opts ...Option) error {
+func Load(s any, args []string, opts ...Option) error {
 	// Check if --version or -v flag are passed
 	if versionRequested(args[1:]) {
 		if info, ok := debug.ReadBuildInfo(); ok {
@@ -132,7 +132,7 @@ func Load(s interface{}, args []string, opts ...Option) error {
 			} else {
 				errorString += fmt.Sprintf("'%s=%v'", e.ActualTag(), e.Param())
 			}
-			return fmt.Errorf(errorString)
+			return errors.New(errorString)
 		}
 	}
 
@@ -151,18 +151,6 @@ func registerValidators(validate *validator.Validate) error {
 				return validatePortNumber(fl.Field().Int()) == nil
 			},
 		},
-		{
-			tag: "exoscale_zone",
-			validator: func(fl validator.FieldLevel) bool {
-				return validateExoscaleZone(fl.Field().String()) == nil
-			},
-		},
-		{
-			tag: "exoscale_zone_long",
-			validator: func(fl validator.FieldLevel) bool {
-				return validateExoscaleZoneLong(fl.Field().String()) == nil
-			},
-		},
 	}
 
 	for _, v := range validators {
@@ -174,8 +162,8 @@ func registerValidators(validate *validator.Validate) error {
 	return nil
 }
 
-var errMultipleFileFlag = errors.New("The file flag can be specified at most once")
-var errNoConfigPathValue = errors.New("No value provided for file flag")
+var errMultipleFileFlag = errors.New("the file flag can be specified at most once")
+var errNoConfigPathValue = errors.New("no value provided for file flag")
 
 // getConfigPath parses the input for a `-f` flag and returns args with `-f` removed
 // It will return a user readable error in case `-f` could not be parsed
@@ -185,10 +173,7 @@ func getConfigPath(args []string) (string, []string, error) {
 	configPath := ""
 
 	i := 0
-	for {
-		if i >= len(args) {
-			break
-		}
+	for i < len(args) {
 		arg := args[i]
 
 		var argSplit []string

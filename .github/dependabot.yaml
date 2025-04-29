@@ -9,6 +9,15 @@ updates:
     all:
       patterns:
         - "*"
+- package-ecosystem: gomod
+  directory: /examples
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 10
+  groups:
+    all:
+      patterns:
+        - "*"
 - package-ecosystem: "github-actions"
   directory: /
   schedule:

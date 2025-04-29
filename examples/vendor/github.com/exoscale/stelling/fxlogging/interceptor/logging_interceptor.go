@@ -31,7 +31,7 @@ func serviceName() string {
 		return svcName
 	}
 
-	if exec, err := os.Executable(); err != nil && exec != "" {
+	if exec, err := os.Executable(); err == nil && exec != "" {
 		return path.Base(exec)
 	}
 
@@ -70,31 +70,41 @@ func MethodFromInterceptorInfo(info *otelgrpc.InterceptorInfo) (string, string) 
 }
 
 type reporter struct {
-	svcName   string
-	conf      *interceptorConfig
-	info      *otelgrpc.InterceptorInfo
-	startTime time.Time
-	logger    *zap.Logger
+	svcName string
+	conf    *interceptorConfig
+	logger  *zap.Logger
 }
 
-func (r *reporter) Log(ctx context.Context, payload any, handleErr error) {
-	duration := time.Since(r.startTime)
+type logEvent int
+
+const (
+	logEventStart logEvent = iota
+	logEventEnd
+	logEventMessage
+)
+
+func (r *reporter) Log(ctx context.Context, info *otelgrpc.InterceptorInfo, startTime time.Time, event logEvent, payload any, handleErr error) {
 	code := status.Code(handleErr)
-	level := r.conf.levelFunc(r.info, code)
+	level := r.conf.levelFunc(info, code)
 	traceid, _ := traceIdFromContext(ctx)
 
 	// TODO: refactor this using otel.semconv
-	service, method := MethodFromInterceptorInfo(r.info)
+	service, method := MethodFromInterceptorInfo(info)
 	logger := r.logger.With(
 		zap.String("rpc.system", "grpc"),
 		zap.String("service.name", r.svcName),
 		zap.String("rpc.method", method),
 		zap.String("rpc.service", service),
-		zap.Time("rpc.request.start_time", r.startTime),
-		zap.String("rpc.grpc.status_code", code.String()),
-		zap.Duration("rpc.request.duration", duration),
+		zap.Time("rpc.request.start_time", startTime),
 		zap.String("otlp.trace_id", traceid),
 	)
+	if event == logEventEnd {
+		duration := time.Since(startTime)
+		logger = logger.With(
+			zap.Duration("rpc.request.duration", duration),
+			zap.String("rpc.grpc.status_code", code.String()),
+		)
+	}
 	if deadline, ok := ctx.Deadline(); ok {
 		logger = logger.With(zap.Time("rpc.request.deadline", deadline))
 	}
@@ -112,8 +122,8 @@ func (r *reporter) Log(ctx context.Context, payload any, handleErr error) {
 	if peerService, ok := peerService(ctx); ok {
 		logger = logger.With(zap.String("peer.service", peerService))
 	}
-	logger = r.conf.extraFieldsFunc(logger, r.info, payload)
-	if payload != nil && r.conf.payloadFilter(r.info) {
+	logger = r.conf.extraFieldsFunc(logger, info, payload)
+	if payload != nil && r.conf.payloadFilter(info) {
 		p, ok := payload.(proto.Message)
 		if !ok {
 			logger.DPanic("payload is not a google.golang.org/protobuf/proto.Message", zap.Any("msg", payload))
@@ -125,31 +135,36 @@ func (r *reporter) Log(ctx context.Context, payload any, handleErr error) {
 		logger = logger.With(zap.Error(handleErr))
 	}
 
-	logger.Log(level, "finished call")
+	if event == logEventStart {
+		logger.Log(level, "started call")
+	} else {
+		logger.Log(level, "finished call")
+	}
 }
 
 func NewLoggingUnaryServerInterceptor(logger *zap.Logger, opts ...Option) grpc.UnaryServerInterceptor {
 	svcName := serviceName()
 	conf := newInterceptorConfig(opts)
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	r := &reporter{
+		svcName: svcName,
+		conf:    conf,
+		logger:  logger,
+	}
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		startTime := time.Now()
+		interceptorInfo := &otelgrpc.InterceptorInfo{UnaryServerInfo: info, Type: otelgrpc.UnaryServer}
+
+		if conf.logFilter(interceptorInfo) && conf.startLogFilter(interceptorInfo) {
+			r.Log(ctx, interceptorInfo, startTime, logEventStart, req, nil)
+		}
 
 		resp, err := handler(ctx, req)
 
-		interceptorInfo := &otelgrpc.InterceptorInfo{UnaryServerInfo: info, Type: otelgrpc.UnaryServer}
 		if !conf.logFilter(interceptorInfo) {
 			return resp, err
 		}
 
-		r := &reporter{
-			svcName:   svcName,
-			conf:      conf,
-			info:      interceptorInfo,
-			startTime: startTime,
-			logger:    logger,
-		}
-
-		r.Log(ctx, req, err)
+		r.Log(ctx, interceptorInfo, startTime, logEventEnd, req, err)
 
 		return resp, err
 	}
@@ -183,27 +198,29 @@ func (s *monitoredServerStream) RecvMsg(m any) error {
 func NewLoggingStreamServerInterceptor(logger *zap.Logger, opts ...Option) grpc.StreamServerInterceptor {
 	svcName := serviceName()
 	conf := newInterceptorConfig(opts)
+	r := &reporter{
+		svcName: svcName,
+		conf:    conf,
+		logger:  logger,
+	}
 	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		startTime := time.Now()
 		ctx := ss.Context()
+		interceptorInfo := &otelgrpc.InterceptorInfo{StreamServerInfo: info, Type: otelgrpc.StreamServer}
 
 		mStream := &monitoredServerStream{ctx: ctx, ServerStream: ss}
 
+		if conf.logFilter(interceptorInfo) && conf.startLogFilter(interceptorInfo) {
+			r.Log(ctx, interceptorInfo, startTime, logEventStart, mStream.payload, nil)
+		}
+
 		err := handler(srv, mStream)
 
-		interceptorInfo := &otelgrpc.InterceptorInfo{StreamServerInfo: info, Type: otelgrpc.StreamServer}
 		if !conf.logFilter(interceptorInfo) {
 			return err
 		}
 
-		r := &reporter{
-			svcName:   svcName,
-			conf:      conf,
-			info:      interceptorInfo,
-			startTime: startTime,
-			logger:    logger,
-		}
-		r.Log(ctx, mStream.payload, err)
+		r.Log(ctx, interceptorInfo, startTime, logEventEnd, mStream.payload, err)
 
 		return err
 	}
@@ -212,25 +229,26 @@ func NewLoggingStreamServerInterceptor(logger *zap.Logger, opts ...Option) grpc.
 func NewLoggingUnaryClientInterceptor(logger *zap.Logger, opts ...Option) grpc.UnaryClientInterceptor {
 	svcName := serviceName()
 	conf := newInterceptorConfig(append([]Option{WithLevelFunc(DefaultClientCodeToLevel)}, opts...))
+	r := &reporter{
+		svcName: svcName,
+		conf:    conf,
+		logger:  logger,
+	}
 	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, callopts ...grpc.CallOption) error {
 		startTime := time.Now()
+		interceptorInfo := &otelgrpc.InterceptorInfo{Method: method, Type: otelgrpc.UnaryClient}
+
+		if conf.logFilter(interceptorInfo) && conf.startLogFilter(interceptorInfo) {
+			r.Log(ctx, interceptorInfo, startTime, logEventStart, req, nil)
+		}
 
 		err := invoker(ctx, method, req, reply, cc, callopts...)
 
-		interceptorInfo := &otelgrpc.InterceptorInfo{Method: method, Type: otelgrpc.UnaryClient}
 		if !conf.logFilter(interceptorInfo) {
 			return err
 		}
 
-		r := &reporter{
-			svcName:   svcName,
-			conf:      conf,
-			info:      interceptorInfo,
-			startTime: startTime,
-			logger:    logger,
-		}
-
-		r.Log(ctx, req, err)
+		r.Log(ctx, interceptorInfo, startTime, logEventEnd, req, err)
 
 		return err
 	}
@@ -238,10 +256,12 @@ func NewLoggingUnaryClientInterceptor(logger *zap.Logger, opts ...Option) grpc.U
 
 type monitoredClientStream struct {
 	grpc.ClientStream
-	ctx      context.Context
-	payload  any
-	reporter *reporter
-	desc     *grpc.StreamDesc
+	ctx       context.Context
+	payload   any
+	reporter  *reporter
+	desc      *grpc.StreamDesc
+	info      *otelgrpc.InterceptorInfo
+	startTime time.Time
 }
 
 func (s *monitoredClientStream) Context() context.Context {
@@ -272,13 +292,13 @@ func (s *monitoredClientStream) SendMsg(m any) error {
 func (s *monitoredClientStream) RecvMsg(m any) error {
 	err := s.ClientStream.RecvMsg(m)
 	if err == nil && !s.desc.ServerStreams {
-		s.reporter.Log(s.ctx, s.payload, nil)
+		s.reporter.Log(s.ctx, s.info, s.startTime, logEventEnd, s.payload, nil)
 		return nil
 	}
 	if err == io.EOF {
-		s.reporter.Log(s.ctx, s.payload, nil)
+		s.reporter.Log(s.ctx, s.info, s.startTime, logEventEnd, s.payload, nil)
 	} else if err != nil {
-		s.reporter.Log(s.ctx, s.payload, err)
+		s.reporter.Log(s.ctx, s.info, s.startTime, logEventEnd, s.payload, err)
 	}
 	return err
 }
@@ -286,25 +306,23 @@ func (s *monitoredClientStream) RecvMsg(m any) error {
 func NewLoggingStreamClientInterceptor(logger *zap.Logger, opts ...Option) grpc.StreamClientInterceptor {
 	svcName := serviceName()
 	conf := newInterceptorConfig(append([]Option{WithLevelFunc(DefaultClientCodeToLevel)}, opts...))
+	r := &reporter{
+		svcName: svcName,
+		conf:    conf,
+		logger:  logger,
+	}
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, callOpts ...grpc.CallOption) (grpc.ClientStream, error) {
 		startTime := time.Now()
+		interceptorInfo := &otelgrpc.InterceptorInfo{Method: method, Type: otelgrpc.StreamClient}
 
 		cs, err := streamer(ctx, desc, cc, method, callOpts...)
 
-		interceptorInfo := &otelgrpc.InterceptorInfo{Method: method, Type: otelgrpc.StreamClient}
 		if !conf.logFilter(interceptorInfo) {
 			return cs, err
 		}
 
-		r := &reporter{
-			svcName:   svcName,
-			conf:      conf,
-			info:      interceptorInfo,
-			startTime: startTime,
-			logger:    logger,
-		}
 		if err != nil {
-			r.Log(ctx, nil, err)
+			r.Log(ctx, interceptorInfo, startTime, logEventEnd, nil, err)
 			return nil, err
 		}
 
@@ -313,7 +331,13 @@ func NewLoggingStreamClientInterceptor(logger *zap.Logger, opts ...Option) grpc.
 			ClientStream: cs,
 			reporter:     r,
 			desc:         desc,
+			info:         interceptorInfo,
+			startTime:    startTime,
 		}
+		if conf.startLogFilter(interceptorInfo) {
+			r.Log(ctx, interceptorInfo, startTime, logEventStart, nil, nil)
+		}
+
 		return mStream, nil
 	}
 }

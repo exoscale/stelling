@@ -5,6 +5,7 @@ package otlpmetricgrpc // import "go.opentelemetry.io/otel/exporters/otlp/otlpme
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -79,7 +80,7 @@ func (e *Exporter) Export(ctx context.Context, rm *metricdata.ResourceMetrics) e
 			return fmt.Errorf("failed to upload metrics: %w", upErr)
 		}
 		// Merge the two errors.
-		return fmt.Errorf("failed to upload incomplete metrics (%s): %w", err, upErr)
+		return fmt.Errorf("failed to upload incomplete metrics (%w): %w", err, upErr)
 	}
 	return err
 }
@@ -114,7 +115,7 @@ func (e *Exporter) Shutdown(ctx context.Context) error {
 	return err
 }
 
-var errShutdown = fmt.Errorf("gRPC exporter is shutdown")
+var errShutdown = errors.New("gRPC exporter is shutdown")
 
 type shutdownClient struct{}
 

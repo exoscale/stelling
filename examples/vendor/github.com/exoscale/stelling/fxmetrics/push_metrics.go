@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
@@ -88,9 +89,15 @@ type PushMetrics struct {
 	JobName string `validate:"required_with=Endpoint"`
 	// GroupingLabelKey is the label on which PushGateway groups metrics
 	// (ie: you can keep a copy of each metric for each value of the GroupingLabelKey)
+	// Deprecated: Use GroupingLabels
 	GroupingLabelKey string ``
 	// The value for this instance of the GroupingLabel (see GroupingLabelKey)
+	// Deprecated: Use GroupingLabels
 	GroupingLabelValue string `validate:"required_with=GroupingLabelKey"`
+
+	// GroupingLabels are labels on which PushGateway groups metrics
+	GroupingLabels map[string]string `validate:"excluded_with=GroupingLabelKey"`
+
 	// PushInterval is the frequency with which metrics are pushed
 	// If the PushInterval is set to 0, metrics will only be pushed when the system stops
 	PushInterval time.Duration `default:"15s"`
@@ -130,6 +137,13 @@ func (m *PushMetrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("jobname", m.JobName)
 	if m.GroupingLabelKey != "" {
 		enc.AddString("groupinglabel", m.GroupingLabelKey)
+	}
+	if len(m.GroupingLabels) > 0 {
+		kvs := make([]string, 0, len(m.GroupingLabels))
+		for k, v := range m.GroupingLabels {
+			kvs = append(kvs, fmt.Sprintf("%s=%s", k, v))
+		}
+		enc.AddString("groupinglabels", strings.Join(kvs, ","))
 	}
 	return nil
 }
@@ -178,6 +192,10 @@ func ProvideMetricsPusher(lc fx.Lifecycle, conf PushMetricsConfig, reloader *rel
 
 	if pConf.GroupingLabelKey != "" {
 		pusher = pusher.Grouping(pConf.GroupingLabelKey, pConf.GroupingLabelValue)
+	} else {
+		for k, v := range pConf.GroupingLabels {
+			pusher = pusher.Grouping(k, v)
+		}
 	}
 
 	for name, value := range pConf.ExtraLabels {
