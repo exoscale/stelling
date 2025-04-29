@@ -31,13 +31,13 @@ require (
 require (
 	github.com/coreos/go-oidc/v3 v3.14.1
 	github.com/getsentry/sentry-go v0.32.0
+	github.com/go-jose/go-jose/v4 v4.1.0
 	github.com/google/cel-go v0.25.0
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.1
 	go.opentelemetry.io/contrib/bridges/prometheus v0.60.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.35.0
 	go.opentelemetry.io/otel/metric v1.35.0
 	go.opentelemetry.io/otel/sdk/metric v1.35.0
-	gopkg.in/square/go-jose.v2 v2.6.0
 	modernc.org/sqlite v1.37.0
 )
 
@@ -53,7 +53,6 @@ require (
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.9 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
