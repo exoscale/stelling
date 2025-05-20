@@ -25,6 +25,9 @@ type loaderConfig struct {
 }
 
 // WithValidator replaces the built-in validator with a user supplied one
+//
+// See https://pkg.go.dev/github.com/go-playground/validator/v10#Validate for more information on
+// how to use this feature
 func WithValidator(validate *validator.Validate) Option {
 	return func(conf *loaderConfig) {
 		conf.validate = validate
@@ -47,9 +50,10 @@ func WithLegacyFlags() Option {
 // Load will populate s with configuration and validate it
 // It will load from the following sources in order:
 //  1. The `default` struct tag
-//  2. The configuration file at configPath (if it is not the empty string)
-//  3. Environment variables
-//  4. CLI flags
+//  2. Default values provided by the ApplyDefaults method
+//  3. The configuration file at configPath (if it is not the empty string)
+//  4. Environment variables
+//  5. CLI flags
 //
 // After loading, Load will validate the values with the functions passed into the `validate` struct tag
 // If any value doesn't pass validation, a user readable error will be returned.
