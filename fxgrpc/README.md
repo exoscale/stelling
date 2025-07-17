@@ -63,6 +63,30 @@ The module provides the following configuration options:
 
 The client can further be customized by providing [grpc.DialOption](https://pkg.go.dev/google.golang.org/grpc#DialOption) in the `grpc_client_options` value group.
 
+## ConnManager
+
+### Components
+The module lazily provides the following components:
+
+* A `*fxgrpc.ConnManager`
+
+This is a cache of `*grpc.ClientConn` to an endpoint.
+Each connection has the same features as a regular gRPC client produced by stelling (TLS management, interceptors, etc.)
+
+The interface is very simple: `manager.Get(endpoint)` will return a `*grpc.ClientConn` to that endpoint.
+Since connections can be used by multiple clients, there's no reason to return them to the manager.
+Grpc will automatically close and recreate any underlying TCP connections depending on usage.
+
+### Configuration
+The module provides the following configuration options:
+
+* `InsecureConnection`: Disables TLS when connecting to the server
+* `CertFile`: Path to a pem encoded client TLS certificate
+* `KeyFile`: Path to the pem encoded private key of the client TLS certificate
+* `RootCAFile`: Path to a pem encoded CA bundle to validate the server certificate
+
+The connections can further be customized by providing [grpc.DialOption](https://pkg.go.dev/google.golang.org/grpc#DialOption) in the `grpc_client_options` value group.
+
 ## Interceptors
 Because grpc interceptors form a chain, the order in which they are installed on the server or client is important.
 
