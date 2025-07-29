@@ -19,7 +19,7 @@ Additional custom metrics can of course be registered.
 
 ## Regular Module
 
-### Components 
+### Components
 The module lazily provides the following components:
 
 * A `*prometheus.Registry`
@@ -30,7 +30,7 @@ It starts an additional webserver exposing the prometheus endpoint.
 
 ## OTLP Module
 
-### Components 
+### Components
 The module lazily provides the following components:
 
 * A `*prometheus.Registry`
@@ -68,8 +68,7 @@ It adds hooks to push the metrics when the system stops and at regular intervals
 * `Histograms`: A bool which enables support for histograms in the grpc middleware (will most likely be removed)
 * `ProcessName`: A string used as a prefix inside the process collector to prevent clashes
 * `JobName`: The name of the job in pushgateway
-* `GroupingLabelKey`: The label on which pushgateway groups metrics
-  Pushgateway keeps a copy of each metric for each value of GroupingLabelKey
-* `GroupingLabelValue`: The value for this instance of the GroupingLabelKey
-* `PushInterval`: The frequency at which metrics are pushed during runtime. 
+* `GroupingLabels`: A map of label name & values
+  Pushgateway keeps a copy of each metric for each value of the set of grouping label keys
+* `PushInterval`: The frequency at which metrics are pushed during runtime.
   When `0` metrics are only pushed when the system stops

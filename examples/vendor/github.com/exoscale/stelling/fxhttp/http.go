@@ -27,16 +27,15 @@ func WithServerModuleName(name string) serverModuleOption {
 	}
 }
 
-// server is a tuple of http.Server with its accompanying net.Listener
-// It allows us to keep the server and listener constructors private to this module
-// While providing a single output of the module that be named, in case we need multiple server instances
+// server is a tuple of http.Server with its accompanying address or socket name
 type server struct {
-	server *http.Server
-	lis    net.Listener
+	server     *http.Server
+	addr       string
+	socketName string
 }
 
-func newServer(s *http.Server, lis net.Listener) *server {
-	return &server{s, lis}
+func newServer(s *http.Server, conf ServerConfig) *server {
+	return &server{s, conf.HttpServerConfig().Address, conf.HttpServerConfig().SocketName}
 }
 
 // NewModule provides a configured *http.Server to the system
@@ -50,10 +49,6 @@ func NewModule(conf ServerConfig, sOpts ...serverModuleOption) fx.Option {
 	opts := fx.Options(
 		fx.Supply(
 			fx.Annotate(conf, fx.As(new(ServerConfig))),
-			fx.Private,
-		),
-		fx.Provide(
-			NewListener,
 			fx.Private,
 		),
 	)
@@ -164,13 +159,12 @@ func GetCertReloaderConfig(conf ServerConfig) *reloader.CertReloaderConfig {
 	}
 }
 
-func NewListener(conf ServerConfig) (net.Listener, error) {
-	socketName := conf.HttpServerConfig().SocketName
-
+func NewListener(ctx context.Context, socketName string, addr string) (net.Listener, error) {
 	if socketName != "" {
 		return NamedSocketListener(socketName)
 	} else {
-		return net.Listen("tcp", conf.HttpServerConfig().Address)
+		var lc net.ListenConfig
+		return lc.Listen(ctx, "tcp", addr)
 	}
 }
 
@@ -191,10 +185,14 @@ func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, r *reloader.CertReloader)
 func StartHttpServer(lc fx.Lifecycle, s *server, logger *zap.Logger) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			logger.Info("Starting http server", zap.String("address", s.lis.Addr().String()))
+			logger.Info("Starting http server", zap.String("address", s.addr))
+			lis, err := NewListener(ctx, s.socketName, s.addr)
+			if err != nil {
+				return err
+			}
 			if s.server.TLSConfig != nil {
 				go func() {
-					if err := s.server.ServeTLS(s.lis, "", ""); err != http.ErrServerClosed {
+					if err := s.server.ServeTLS(lis, "", ""); err != http.ErrServerClosed {
 						logger.Fatal("Error while serving http", zap.Error(err))
 					} else {
 						logger.Info("Done serving http")
@@ -202,7 +200,7 @@ func StartHttpServer(lc fx.Lifecycle, s *server, logger *zap.Logger) {
 				}()
 			} else {
 				go func() {
-					if err := s.server.Serve(s.lis); err != http.ErrServerClosed {
+					if err := s.server.Serve(lis); err != http.ErrServerClosed {
 						logger.Fatal("Error while serving http", zap.Error(err))
 					} else {
 						logger.Info("Done serving http")
