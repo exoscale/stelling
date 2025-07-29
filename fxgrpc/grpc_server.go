@@ -3,7 +3,6 @@ package fxgrpc
 import (
 	"context"
 	"fmt"
-	"net"
 	"time"
 
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
@@ -105,10 +104,6 @@ func NewServerModule(conf Config, sOpts ...serverModuleOption) fx.Option {
 		),
 		fx.Provide(
 			NewGrpcServer,
-			fx.Annotate(
-				fxhttp.NewListener,
-				fx.ParamTags(`name:"grpc_server"`),
-			),
 			fx.Private,
 		),
 		fx.Invoke(zapgrpc.SetGrpcLogger),
@@ -187,16 +182,15 @@ func GetCertReloaderConfig(conf Config) *reloader.CertReloaderConfig {
 	}
 }
 
-// server is a tuple of grpc.Server with its accompanying net.Listener
-// It allows us to keep the server and listener constructors private to this module
-// While providing a single output of the module that be named, in case we need multiple server instances
+// server is a tuple of grpc.Server with its accompanying address or socket name
 type server struct {
-	server *grpc.Server
-	lis    net.Listener
+	server     *grpc.Server
+	addr       string
+	socketName string
 }
 
-func newServer(s *grpc.Server, lis net.Listener) *server {
-	return &server{s, lis}
+func newServer(s *grpc.Server, conf Config) *server {
+	return &server{s, conf.AsHttpConfig().Address, conf.AsHttpConfig().SocketName}
 }
 
 type GrpcServerParams struct {
@@ -241,9 +235,13 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 func StartGrpcServer(lc fx.Lifecycle, logger *zap.Logger, s *server) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			logger.Info("Starting gRPC server", zap.String("address", s.lis.Addr().String()))
+			logger.Info("Starting gRPC server", zap.String("address", s.addr))
+			lis, err := fxhttp.NewListener(ctx, s.socketName, s.addr)
+			if err != nil {
+				return err
+			}
 			go func() {
-				if err := s.server.Serve(s.lis); err != nil && err != grpc.ErrServerStopped {
+				if err := s.server.Serve(lis); err != nil && err != grpc.ErrServerStopped {
 					// If err is grpc.ErrServerStopped, it means that
 					// the grpc module was stopped very quickly before
 					// this goroutine was scheduled
