@@ -1,4 +1,4 @@
-// Package fxcert-reloader provides a way to automatically reload certificates when changed on disk.
+// Package fxcert-reloader provides a way to automatically reload certificates
 package fxcert_reloader
 
 import (
@@ -7,11 +7,9 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -22,8 +20,8 @@ type CertReloaderConfig struct {
 	CertFile string
 	// KeyFile is the path to a pem encoded private key
 	KeyFile string
-	// The time in which events are buffered up before a reload is attempted
-	ReloadInterval time.Duration `default:"10s"`
+	// The time minimum time between 2 reloads
+	ReloadInterval time.Duration `default:"1h"`
 }
 
 func (c *CertReloaderConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error {
@@ -33,20 +31,20 @@ func (c *CertReloaderConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("cert-file", c.CertFile)
 	enc.AddString("key-file", c.KeyFile)
+	enc.AddDuration("reload-interval", c.ReloadInterval)
 
 	return nil
 }
 
-// CertReloader watches and reloads a TLS keypair on disk.
-// Watching for changes must be explicitly started and stopped
+// CertReloader periodically reloads a TLS keypair on disk.
+// The reloader must be explicitly started and stopped
 // The GetCertificate() method can be used in a tls.Config
 type CertReloader struct {
-	cert    *tls.Certificate
-	conf    *CertReloaderConfig
-	logger  *zap.Logger
-	watcher *fsnotify.Watcher
-	ticker  *time.Ticker
-	wg      sync.WaitGroup
+	cert   *tls.Certificate
+	conf   *CertReloaderConfig
+	logger *zap.Logger
+	wg     sync.WaitGroup
+	cancel context.CancelFunc
 	sync.RWMutex
 }
 
@@ -67,98 +65,34 @@ func (c *CertReloader) GetClientCertificate(_ *tls.CertificateRequestInfo) (*tls
 	return c.cert, nil
 }
 
-// Start spawns a go routine that watches for changes on the KeyPair
+// Start spawns a go routine that periodically reloads a KeyPair
 func (c *CertReloader) Start(ctx context.Context) error {
-	c.logger.Info("Starting watcher")
-	// Watching files is extremely hard to get right (surprising, I know)
-	// We'll try to annotate the code as best as possible
+	c.logger.Info("Starting certificate reloader")
 
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-
-	// Because inotify works on inodes, atomic updates (touch + mv) can
-	// cause the file watcher to get lost, because the inode changes
-	// We will therefore watch the parent directory
-	certFileDir := filepath.Dir(c.conf.CertFile)
-	if err := watcher.Add(certFileDir); err != nil {
-		return err
-	}
-	// Only watch key directory if it's different
-	keyFileDir := filepath.Dir(c.conf.KeyFile)
-	if keyFileDir != certFileDir {
-		if err := watcher.Add(keyFileDir); err != nil {
-			return err
-		}
-	}
-	c.watcher = watcher
-
-	// In order to rate limit a bit and try to prevent reading half written files,
-	// we will use a 'dirty' flag to track changes and then use a timer to reload
-	// periodically if the certs are 'dirty'
-	c.ticker = time.NewTicker(c.conf.ReloadInterval)
+	progCtx, cancel := context.WithCancel(context.Background())
+	c.cancel = cancel
 	c.wg.Add(1)
 	go func() {
+		ticker := time.NewTicker(c.conf.ReloadInterval)
+		defer ticker.Stop()
 		defer c.wg.Done()
-		reload := false
-		_, certFileName := filepath.Split(c.conf.CertFile)
-		_, keyFileName := filepath.Split(c.conf.KeyFile)
 		for {
 			select {
-			case ev, ok := <-c.watcher.Events:
-				if !ok {
-					// Channel is closed, we can stop the processing here
-					c.logger.Info("File watcher channel closed")
-					return
-				}
-				// Because we watch the parent directory, we should only reload if
-				// the affected file matches the cert file names
-				// We are optimising here for the common case where both cert and key
-				// live in the same directory
-				// In case they live in a different directory we might reload too often
-				// if the same file name lives in both directories, but that should be
-				// fine because loading the certs is idempotent
-				_, f := filepath.Split(ev.Name)
-				if f == certFileName || f == keyFileName {
-					c.logger.Info("Certificate was updated. Scheduling update.", zap.Any("event", ev))
-					// We don't care about the exact number of events, just that 1 has
-					// come in since the last tick
-					reload = true
-				} else {
-					c.logger.Debug("Event for untracked file. Ignoring event.")
-				}
-			case err, ok := <-c.watcher.Errors:
-				if !ok {
-					// Channel is closed, we can stop the processing here
-					c.logger.Info("File watcher error channel closed")
-					return
-				}
-				// We can't really act on the error here
-				// Logging so we can alert on this
+			case <-progCtx.Done():
+				return
+			case <-ticker.C:
+			}
+			c.logger.Info("Reloading certificate")
+			cert, err := tls.LoadX509KeyPair(c.conf.CertFile, c.conf.KeyFile)
+			if err != nil {
+				// We are assuming the error is transient and will try to
+				// reload on the next tick
 				// TODO: expose a count of this as metric?
-				c.logger.Error("Error watching for cert changes", zap.Error(err))
-			case _, ok := <-c.ticker.C:
-				if !ok {
-					// Channel is closed, we can stop the processing here
-					c.logger.Info("File watcher ticker channel closed")
-					return
-				}
-				if reload {
-					c.logger.Info("Reloading certificate")
-					cert, err := tls.LoadX509KeyPair(c.conf.CertFile, c.conf.KeyFile)
-					if err != nil {
-						// We are assuming the error is transient and will try to
-						// reload on the next tick
-						// TODO: expose a count of this as metric?
-						c.logger.Error("Failed to reload certificate", zap.Error(err))
-					} else {
-						c.Lock()
-						c.cert = &cert
-						c.Unlock()
-						reload = false
-					}
-				}
+				c.logger.Error("Failed to reload certificate", zap.Error(err))
+			} else {
+				c.Lock()
+				c.cert = &cert
+				c.Unlock()
 			}
 		}
 	}()
@@ -166,13 +100,10 @@ func (c *CertReloader) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop ends the file watcher and cleans up any resources
+// Stop stops the reloader and cleans up any resources
 func (c *CertReloader) Stop(ctx context.Context) error {
-	c.logger.Info("Stopping watcher")
-	c.ticker.Stop()
-	if err := c.watcher.Close(); err != nil {
-		return err
-	}
+	c.logger.Info("Stopping reloader")
+	c.cancel()
 	c.wg.Wait()
 	return nil
 }

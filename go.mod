@@ -8,7 +8,6 @@ require (
 	github.com/TheZeroSlave/zapsentry v1.23.0
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/exoscale/multiconfig v0.0.0-20250121154433-cb30610932f6
-	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-logr/zapr v1.3.0
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/oklog/ulid/v2 v2.1.0
