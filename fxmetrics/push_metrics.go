@@ -152,7 +152,7 @@ func GetCertReloaderConfig(conf PushMetricsConfig) *reloader.CertReloaderConfig 
 	return &reloader.CertReloaderConfig{
 		CertFile:       conf.PushMetricsConfig().CertFile,
 		KeyFile:        conf.PushMetricsConfig().KeyFile,
-		ReloadInterval: 10 * time.Second,
+		ReloadInterval: 1 * time.Hour,
 	}
 }
 

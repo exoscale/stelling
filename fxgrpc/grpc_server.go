@@ -178,7 +178,7 @@ func GetCertReloaderConfig(conf Config) *reloader.CertReloaderConfig {
 	return &reloader.CertReloaderConfig{
 		CertFile:       conf.GrpcServerConfig().CertFile,
 		KeyFile:        conf.GrpcServerConfig().KeyFile,
-		ReloadInterval: 10 * time.Second,
+		ReloadInterval: 1 * time.Hour,
 	}
 }
 

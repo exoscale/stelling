@@ -119,7 +119,7 @@ func MakeClientTLS(c ClientConfig, logger *zap.Logger) (credentials.TransportCre
 		r, err := reloader.NewCertReloader(&reloader.CertReloaderConfig{
 			CertFile:       conf.CertFile,
 			KeyFile:        conf.KeyFile,
-			ReloadInterval: 10 * time.Second,
+			ReloadInterval: 1 * time.Hour,
 		}, logger)
 		if err != nil {
 			return nil, nil, err
