@@ -14,7 +14,7 @@ func ExampleCertReloader_GetCertificate() {
 	conf := &CertReloaderConfig{
 		CertFile:       "/path/to/cert.pem",
 		KeyFile:        "/path/to/key.pem",
-		ReloadInterval: 10 * time.Second,
+		ReloadInterval: 1 * time.Hour,
 	}
 	reloader, err := NewCertReloader(conf, zap.NewNop())
 	if err != nil {
@@ -39,7 +39,7 @@ func ExampleCertReloader_GetClientCertificate() {
 	conf := &CertReloaderConfig{
 		CertFile:       "/path/to/cert.pem",
 		KeyFile:        "/path/to/key.pem",
-		ReloadInterval: 10 * time.Second,
+		ReloadInterval: 1 * time.Hour,
 	}
 	reloader, err := NewCertReloader(conf, zap.NewNop())
 	if err != nil {
