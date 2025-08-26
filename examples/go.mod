@@ -7,7 +7,7 @@ toolchain go1.24.2
 require (
 	github.com/exoscale/stelling v0.0.0-20250429080247-f139936c467f
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 	go.uber.org/fx v1.24.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc/examples v0.0.0-20250429054939-399e2d048c20

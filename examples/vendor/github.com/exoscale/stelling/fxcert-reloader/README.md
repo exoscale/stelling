@@ -1,6 +1,6 @@
 # CertReloader Module
 
-This module provides facilities for reloading TLS certificates when they change on disk.
+This module provides facilities for automatically reloading TLS certificates.
 
 It will generally not be used directly, but through other stelling modules such as the grpc server and clients.
 
@@ -14,5 +14,5 @@ There is a `ProvideCertReloader` function which will provision a `CertReloader` 
 The module provides the following configuration options:
 * `CertFile`: Path to the pem encoded server TLS certificate
 * `KeyFile`: Path to the pem encoded private key of the server TLS certificate
-* `ReloadInterval`: The time during which events are buffered before they trigger a reload
+* `ReloadInterval`: The minimum time between 2 certificate reloads
 
