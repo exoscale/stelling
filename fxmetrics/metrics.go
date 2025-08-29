@@ -162,13 +162,7 @@ func NewMetricsServer(reg *prometheus.Registry, addr string) *http.Server {
 	}
 }
 
-// NewPrometheusRegistry creates a prometheus registry for fx usage.
 func NewPrometheusRegistry(conf MetricsConfig) (*prometheus.Registry, error) {
-	return NewPrometheusRegistryStandalone(conf.MetricsConfig())
-}
-
-// NewPrometheusRegistryStandalone creates a prometheus registry (non-fx).
-func NewPrometheusRegistryStandalone(conf *Metrics) (*prometheus.Registry, error) {
 	reg := prometheus.NewRegistry()
 	err := reg.Register(
 		collectors.NewGoCollector(
@@ -181,7 +175,7 @@ func NewPrometheusRegistryStandalone(conf *Metrics) (*prometheus.Registry, error
 		return nil, err
 	}
 	opts := collectors.ProcessCollectorOpts{
-		Namespace: conf.ProcessName,
+		Namespace: conf.MetricsConfig().ProcessName,
 	}
 	if err := reg.Register(collectors.NewProcessCollector(opts)); err != nil {
 		return nil, err
