@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-// NewModule Exposes prometheus metrics.
+// NewModule Exposes prometheus metrics via fx.
 func NewModule(conf MetricsConfig) fx.Option {
 	return fx.Module(
 		"metrics",
@@ -152,9 +152,24 @@ func NewGrpcClientInterceptors(reg *prometheus.Registry) (GrpcClientInterceptors
 	}, nil
 }
 
-func NewPrometheusRegistry(conf MetricsConfig) (*prometheus.Registry, error) {
-	reg := prometheus.NewRegistry()
+// NewMetricsServer creates an http.Server serving Prometheus metrics.
+func NewMetricsServer(reg *prometheus.Registry, addr string) *http.Server {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+	return &http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+}
 
+// NewPrometheusRegistry creates a prometheus registry for fx usage.
+func NewPrometheusRegistry(conf MetricsConfig) (*prometheus.Registry, error) {
+	return NewPrometheusRegistryStandalone(conf.MetricsConfig())
+}
+
+// NewPrometheusRegistryStandalone creates a prometheus registry (non-fx).
+func NewPrometheusRegistryStandalone(conf *Metrics) (*prometheus.Registry, error) {
+	reg := prometheus.NewRegistry()
 	err := reg.Register(
 		collectors.NewGoCollector(
 			collectors.WithGoCollectorRuntimeMetrics(
@@ -166,7 +181,7 @@ func NewPrometheusRegistry(conf MetricsConfig) (*prometheus.Registry, error) {
 		return nil, err
 	}
 	opts := collectors.ProcessCollectorOpts{
-		Namespace: conf.MetricsConfig().ProcessName,
+		Namespace: conf.ProcessName,
 	}
 	if err := reg.Register(collectors.NewProcessCollector(opts)); err != nil {
 		return nil, err
@@ -177,6 +192,27 @@ func NewPrometheusRegistry(conf MetricsConfig) (*prometheus.Registry, error) {
 	if err := reg.Register(NewVersionCollector()); err != nil {
 		return nil, err
 	}
-
 	return reg, nil
+}
+
+// NewGrpcServerMetricsStandalone creates gRPC server metrics/interceptors (non-fx).
+func NewGrpcServerMetricsStandalone(conf *Metrics, reg *prometheus.Registry, histogramOps ...grpc_prometheus.HistogramOption) (*grpc_prometheus.ServerMetrics, error) {
+	opts := []grpc_prometheus.ServerMetricsOption{}
+	if conf.Histograms {
+		opts = append(opts, grpc_prometheus.WithServerHandlingTimeHistogram(histogramOps...))
+	}
+	serverMetrics := grpc_prometheus.NewServerMetrics(opts...)
+	if err := reg.Register(serverMetrics); err != nil {
+		return nil, err
+	}
+	return serverMetrics, nil
+}
+
+// NewGrpcClientMetricsStandalone creates gRPC client metrics/interceptors (non-fx).
+func NewGrpcClientMetricsStandalone(reg *prometheus.Registry) (*grpc_prometheus.ClientMetrics, error) {
+	clientMetrics := grpc_prometheus.NewClientMetrics()
+	if err := reg.Register(clientMetrics); err != nil {
+		return nil, err
+	}
+	return clientMetrics, nil
 }
