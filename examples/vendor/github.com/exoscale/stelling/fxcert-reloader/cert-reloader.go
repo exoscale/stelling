@@ -67,7 +67,7 @@ func (c *CertReloader) GetClientCertificate(_ *tls.CertificateRequestInfo) (*tls
 
 // Start spawns a go routine that periodically reloads a KeyPair
 func (c *CertReloader) Start(ctx context.Context) error {
-	c.logger.Info("Starting watcher")
+	c.logger.Info("Starting certificate reloader")
 
 	progCtx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
@@ -100,9 +100,9 @@ func (c *CertReloader) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop ends the file watcher and cleans up any resources
+// Stop stops the reloader and cleans up any resources
 func (c *CertReloader) Stop(ctx context.Context) error {
-	c.logger.Info("Stopping watcher")
+	c.logger.Info("Stopping reloader")
 	c.cancel()
 	c.wg.Wait()
 	return nil
