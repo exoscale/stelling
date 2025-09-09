@@ -2,7 +2,7 @@ module github.com/exoscale/stelling/examples
 
 go 1.24
 
-toolchain go1.24.2
+toolchain go1.24.7
 
 require (
 	github.com/exoscale/stelling v0.0.0-20250429080247-f139936c467f

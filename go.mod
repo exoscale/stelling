@@ -2,7 +2,7 @@ module github.com/exoscale/stelling
 
 go 1.24
 
-toolchain go1.24.2
+toolchain go1.24.7
 
 require (
 	github.com/TheZeroSlave/zapsentry v1.23.0
