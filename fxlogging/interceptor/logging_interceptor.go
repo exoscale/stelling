@@ -108,20 +108,26 @@ func (r *reporter) Log(ctx context.Context, info *otelgrpc.InterceptorInfo, star
 	if deadline, ok := ctx.Deadline(); ok {
 		logger = logger.With(zap.Time("rpc.request.deadline", deadline))
 	}
-	// TODO: Only on server maybe?
-	if peerInfo, ok := peer.FromContext(ctx); ok {
-		if tcpAddr, ok := peerInfo.Addr.(*net.TCPAddr); ok {
-			logger = logger.With(
-				zap.String("sock.net.peer.address", tcpAddr.IP.String()),
-				zap.Int("sock.net.peer.port", tcpAddr.Port),
-			)
-		} else {
-			logger = logger.With(zap.String("sock.net.peer.address", peerInfo.Addr.String()))
+
+	// Peer information (network and service-name) is only valid in a server context
+	// If we don't check for this we may accidentally log it in a client context if that context is the
+	// child of a server context
+	if info.Type == otelgrpc.UnaryServer || info.Type == otelgrpc.StreamServer {
+		if peerInfo, ok := peer.FromContext(ctx); ok {
+			if tcpAddr, ok := peerInfo.Addr.(*net.TCPAddr); ok {
+				logger = logger.With(
+					zap.String("sock.net.peer.address", tcpAddr.IP.String()),
+					zap.Int("sock.net.peer.port", tcpAddr.Port),
+				)
+			} else {
+				logger = logger.With(zap.String("sock.net.peer.address", peerInfo.Addr.String()))
+			}
+		}
+		if peerService, ok := peerService(ctx); ok {
+			logger = logger.With(zap.String("peer.service", peerService))
 		}
 	}
-	if peerService, ok := peerService(ctx); ok {
-		logger = logger.With(zap.String("peer.service", peerService))
-	}
+
 	logger = r.conf.extraFieldsFunc(logger, info, payload)
 	if payload != nil && r.conf.payloadFilter(info) {
 		p, ok := payload.(proto.Message)
@@ -135,10 +141,15 @@ func (r *reporter) Log(ctx context.Context, info *otelgrpc.InterceptorInfo, star
 		logger = logger.With(zap.Error(handleErr))
 	}
 
+	kind := "server"
+	if info.Type == otelgrpc.UnaryClient || info.Type == otelgrpc.StreamClient {
+		kind = "client"
+	}
+	logger = logger.With(zap.String("rpc.kind", kind))
 	if event == logEventStart {
-		logger.Log(level, "started call")
+		logger.Log(level, "started "+kind+" call")
 	} else {
-		logger.Log(level, "finished call")
+		logger.Log(level, "finished "+kind+" call")
 	}
 }
 

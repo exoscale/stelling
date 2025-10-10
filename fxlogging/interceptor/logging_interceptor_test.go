@@ -80,7 +80,7 @@ func TestLoggingServerInterceptor(t *testing.T) {
 			log := logs.AllUntimed()[0]
 
 			require.Equal(t, zapcore.ErrorLevel, log.Level)
-			require.Equal(t, "finished call", log.Message)
+			require.Equal(t, "finished server call", log.Message)
 			// Since we know the logging logic is shared by all interceptors
 			// We'll do this detailed check only once
 			fields := log.ContextMap()
@@ -101,6 +101,8 @@ func TestLoggingServerInterceptor(t *testing.T) {
 			require.Equal(t, "bufconn", fields["sock.net.peer.address"])
 			require.Contains(t, fields, "otlp.trace_id")
 			require.True(t, strings.HasPrefix(fields["otlp.trace_id"].(string), "local-"))
+			require.Contains(t, fields, "rpc.kind")
+			require.Equal(t, "server", fields["rpc.kind"])
 		}
 		extraOpts := fx.Provide(
 			fx.Annotate(
@@ -125,7 +127,7 @@ func TestLoggingServerInterceptor(t *testing.T) {
 			require.Equal(t, 1, logs.Len())
 			log := logs.AllUntimed()[0]
 			require.Equal(t, zapcore.InfoLevel, log.Level)
-			require.Equal(t, "finished call", log.Message)
+			require.Equal(t, "finished server call", log.Message)
 		}
 		extraOpts := fx.Provide(
 			fx.Annotate(
@@ -147,7 +149,10 @@ func TestLoggingServerInterceptor(t *testing.T) {
 			require.Equal(t, 1, logs.Len())
 			log := logs.AllUntimed()[0]
 			require.Equal(t, zapcore.ErrorLevel, log.Level)
-			require.Equal(t, "finished call", log.Message)
+			require.Equal(t, "finished client call", log.Message)
+			fields := log.ContextMap()
+			require.Contains(t, fields, "rpc.kind")
+			require.Equal(t, "client", fields["rpc.kind"])
 		}
 		extraOpts := fx.Provide(
 			fx.Annotate(
@@ -172,7 +177,7 @@ func TestLoggingServerInterceptor(t *testing.T) {
 			require.Equal(t, 1, logs.Len())
 			log := logs.AllUntimed()[0]
 			require.Equal(t, zapcore.DebugLevel, log.Level)
-			require.Equal(t, "finished call", log.Message)
+			require.Equal(t, "finished client call", log.Message)
 		}
 		extraOpts := fx.Provide(
 			fx.Annotate(
@@ -194,7 +199,7 @@ func TestLoggingServerInterceptor(t *testing.T) {
 			require.Equal(t, 1, logs.Len())
 			log := logs.AllUntimed()[0]
 			require.Equal(t, zapcore.WarnLevel, log.Level)
-			require.Equal(t, "finished call", log.Message)
+			require.Equal(t, "finished server call", log.Message)
 		}
 		extraOpts := fx.Provide(
 			func() []Option {
@@ -250,12 +255,12 @@ func TestLoggingServerInterceptor(t *testing.T) {
 			require.Equal(t, 2, logs.Len())
 			startLog := logs.AllUntimed()[0]
 			require.Equal(t, zapcore.InfoLevel, startLog.Level)
-			require.Equal(t, "started call", startLog.Message)
+			require.Equal(t, "started server call", startLog.Message)
 			require.NotContains(t, startLog.ContextMap(), "rpc.request.duration")
 			require.NotContains(t, startLog.ContextMap(), "rpc.grpc.status_code")
 			endLog := logs.AllUntimed()[1]
 			require.Equal(t, zapcore.ErrorLevel, endLog.Level)
-			require.Equal(t, "finished call", endLog.Message)
+			require.Equal(t, "finished server call", endLog.Message)
 			require.Contains(t, endLog.ContextMap(), "rpc.request.duration")
 			require.Contains(t, endLog.ContextMap(), "rpc.grpc.status_code")
 		}
@@ -285,7 +290,7 @@ func TestLoggingServerInterceptor(t *testing.T) {
 			require.Equal(t, 1, logs.Len())
 			log := logs.AllUntimed()[0]
 			require.Equal(t, zapcore.ErrorLevel, log.Level)
-			require.Equal(t, "finished call", log.Message)
+			require.Equal(t, "finished server call", log.Message)
 			require.Contains(t, log.ContextMap(), "rpc.request.content")
 			// Using a regex because zap.Any will use the String() implementation of the proto field, which is not stable
 			require.Regexp(t, regexp.MustCompile(`latitude:12345[ ]*longitude:12345`), log.ContextMap()["rpc.request.content"])
@@ -322,7 +327,7 @@ func TestLoggingServerInterceptor(t *testing.T) {
 			require.Equal(t, 1, logs.Len())
 			log := logs.AllUntimed()[0]
 			require.Equal(t, zapcore.InfoLevel, log.Level)
-			require.Equal(t, "finished call", log.Message)
+			require.Equal(t, "finished server call", log.Message)
 			require.Contains(t, log.ContextMap(), "rpc.request.content")
 			// Using a regex because zap.Any will use the String() implementation of the proto field, which is not stable
 			require.Regexp(t, regexp.MustCompile(`lo:{latitude:-1[ ]*longitude:-1}[ ]*hi:{latitude:1[ ]*longitude:1}`), log.ContextMap()["rpc.request.content"])
@@ -358,7 +363,7 @@ func TestLoggingServerInterceptor(t *testing.T) {
 			require.Equal(t, 1, logs.Len())
 			log := logs.AllUntimed()[0]
 			require.Equal(t, zapcore.DebugLevel, log.Level)
-			require.Equal(t, "finished call", log.Message)
+			require.Equal(t, "finished client call", log.Message)
 			require.Contains(t, log.ContextMap(), "rpc.request.content")
 			t.Logf("%T", log.ContextMap()["rpc.request.content"])
 			// Using a regex because zap.Any will use the String() implementation of the proto field, which is not stable
@@ -393,7 +398,7 @@ func TestLoggingServerInterceptor(t *testing.T) {
 			require.Equal(t, 1, logs.Len())
 			log := logs.AllUntimed()[0]
 			require.Equal(t, zapcore.ErrorLevel, log.Level)
-			require.Equal(t, "finished call", log.Message)
+			require.Equal(t, "finished server call", log.Message)
 			require.Contains(t, log.ContextMap(), "enriched")
 			require.True(t, log.ContextMap()["enriched"].(bool))
 		}
