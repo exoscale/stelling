@@ -177,6 +177,9 @@ func TestDbVersion(t *testing.T) {
 
 		_, err := dbVersion(context.Background(), db)
 		require.Error(t, err)
+
+		_, err = Version(context.Background(), db)
+		require.Error(t, err)
 	})
 
 	t.Run("Should return 0 if no version is set yet", func(t *testing.T) {
@@ -185,6 +188,10 @@ func TestDbVersion(t *testing.T) {
 		require.NoError(t, ensureVersionSchema(ctx, db))
 
 		version, err := dbVersion(ctx, db)
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), version)
+
+		version, err = Version(ctx, db)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), version)
 	})
@@ -204,6 +211,10 @@ func TestDbVersion(t *testing.T) {
 		require.NoError(t, err)
 
 		version, err := dbVersion(ctx, db)
+		require.NoError(t, err)
+		require.Equal(t, expected, version)
+
+		version, err = Version(ctx, db)
 		require.NoError(t, err)
 		require.Equal(t, expected, version)
 	})

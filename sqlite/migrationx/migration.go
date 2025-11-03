@@ -39,6 +39,15 @@ func dbVersion(conn *sqlite.Conn) (uint64, error) {
 	return version, err
 }
 
+// Version returns the current version of the database.
+func Version(conn *sqlite.Conn) (version uint64, err error) {
+	defer sqlitex.Save(conn)(&err)
+
+	version, err = dbVersion(conn)
+
+	return
+}
+
 func setDbVersion(conn *sqlite.Conn, version uint64) error {
 	if err := sqlitex.ExecuteTransient(conn, "DELETE FROM schema_migrations;", nil); err != nil {
 		return err
