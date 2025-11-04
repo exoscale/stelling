@@ -194,11 +194,14 @@ func TestEnsureVersionSchema(t *testing.T) {
 	})
 }
 
-func TestDbVersion(t *testing.T) {
+func TestVersion(t *testing.T) {
 	t.Run("Should return an error if the version table has not been provisioned", func(t *testing.T) {
 		conn := testDb(t)
 
 		_, err := dbVersion(conn)
+		require.Error(t, err)
+
+		_, err = Version(conn)
 		require.Error(t, err)
 	})
 
@@ -207,6 +210,10 @@ func TestDbVersion(t *testing.T) {
 		require.NoError(t, ensureVersionSchema(conn))
 
 		version, err := dbVersion(conn)
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), version)
+
+		version, err = Version(conn)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), version)
 	})
@@ -223,6 +230,10 @@ func TestDbVersion(t *testing.T) {
 		))
 
 		version, err := dbVersion(conn)
+		require.NoError(t, err)
+		require.Equal(t, expected, version)
+
+		version, err = Version(conn)
 		require.NoError(t, err)
 		require.Equal(t, expected, version)
 	})

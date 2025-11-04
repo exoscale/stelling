@@ -35,6 +35,27 @@ func dbVersion(ctx context.Context, tx sqlExecutor) (uint64, error) {
 	return version, err
 }
 
+// Version returns the current version of the database.
+func Version(ctx context.Context, db *sql.DB) (uint64, error) {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("getting version failed: %w", err)
+	}
+
+	version, err := dbVersion(ctx, tx)
+	if err != nil {
+		if err2 := tx.Rollback(); err2 != nil {
+			return 0, fmt.Errorf("getting version failed: %w, rollback failed: %w", err, err2)
+		}
+		return 0, fmt.Errorf("getting version failed: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("getting version failed: %w", err)
+	}
+
+	return version, nil
+}
+
 func setDbVersion(ctx context.Context, tx sqlExecutor, version uint64) error {
 	if _, err := tx.ExecContext(ctx, "DELETE FROM schema_migrations"); err != nil {
 		return err
