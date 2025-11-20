@@ -5,6 +5,9 @@ import (
 	"io"
 	"testing"
 
+	"github.com/google/uuid"
+	"google.golang.org/grpc/metadata"
+
 	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/exoscale/stelling/fxgrpc/grpctest"
 	"github.com/stretchr/testify/require"
@@ -146,5 +149,70 @@ func TestInjectLoggerInterceptor(t *testing.T) {
 			}
 		}
 		require.Len(t, traceIdFields, 1)
+	})
+}
+
+func TestInjectLoggerInterceptor_WithMetadataFields(t *testing.T) {
+	var client pb.RouteGuideClient
+
+	core, observer := observer.New(zapcore.DebugLevel)
+	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zap.WrapCore(func(_ zapcore.Core) zapcore.Core { return core })))
+
+	rid := uuid.New().String()
+
+	app := fxtest.New(t, fx.Options(
+		grpctest.Module,
+		fx.Supply(logger),
+		fx.Provide(
+			newInjectLoggerRouteGuideServer,
+			pb.NewRouteGuideClient,
+			fx.Annotate(
+				func(logger *zap.Logger) *fxgrpc.UnaryServerInterceptor {
+					return &fxgrpc.UnaryServerInterceptor{Weight: 42, Interceptor: NewInjectLoggerUnaryServerInterceptor(logger, WithMetadataFields(map[string]string{"x-request-id": "request_id"}))}
+				},
+				fx.ResultTags(`group:"unary_server_interceptor"`),
+			),
+			fx.Annotate(
+				func(logger *zap.Logger) *fxgrpc.StreamServerInterceptor {
+					return &fxgrpc.StreamServerInterceptor{Weight: 42, Interceptor: NewInjectLoggerStreamServerInterceptor(logger, WithMetadataFields(map[string]string{"x-request-id": "request_id"}))}
+				},
+				fx.ResultTags(`group:"stream_server_interceptor"`),
+			),
+		),
+		fx.Invoke(
+			pb.RegisterRouteGuideServer,
+		),
+		fx.Populate(&client),
+	))
+	defer app.RequireStart().RequireStop()
+
+	t.Run("Unary should extract request-id from metadata", func(t *testing.T) {
+		ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("x-request-id", rid))
+		_, err := client.GetFeature(ctx, &pb.Point{})
+		require.NoError(t, err)
+
+		logs := observer.TakeAll()
+		require.Len(t, logs, 1)
+		log := logs[0]
+		require.Equal(t, "GetFeature", log.Message)
+		require.Equal(t, rid, log.ContextMap()["request_id"])
+	})
+
+	t.Run("Stream should extract request-id from metadata", func(t *testing.T) {
+		ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("x-request-id", rid))
+		stream, err := client.ListFeatures(ctx, &pb.Rectangle{})
+		require.NoError(t, err)
+		for {
+			_, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+		logs := observer.TakeAll()
+		require.Len(t, logs, 1)
+		log := logs[0]
+		require.Equal(t, "ListFeatures", log.Message)
+		require.Equal(t, rid, log.ContextMap()["request_id"])
 	})
 }
