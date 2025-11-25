@@ -36,6 +36,7 @@ func NewModule(conf LoggingConfig) fx.Option {
 				),
 				fx.Annotate(
 					NewGrpcInjectLoggerInterceptors,
+					fx.ParamTags(``, `group:"inject_logger_interceptor_options"`),
 					fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
 				),
 				fx.Annotate(
@@ -137,10 +138,10 @@ func NewGrpcLoggingClientInterceptors(logger *zap.Logger, opts ...interceptor.Op
 	return unaryIx, streamIx
 }
 
-func NewGrpcInjectLoggerInterceptors(logger *zap.Logger) (*fxgrpc.UnaryServerInterceptor, *fxgrpc.StreamServerInterceptor) {
+func NewGrpcInjectLoggerInterceptors(logger *zap.Logger, opts ...interceptor.Option) (*fxgrpc.UnaryServerInterceptor, *fxgrpc.StreamServerInterceptor) {
 	weight := GrpcInterceptorWeight - 1
-	unaryIx := &fxgrpc.UnaryServerInterceptor{Weight: weight, Interceptor: interceptor.NewInjectLoggerUnaryServerInterceptor(logger)}
-	streamIx := &fxgrpc.StreamServerInterceptor{Weight: weight, Interceptor: interceptor.NewInjectLoggerStreamServerInterceptor(logger)}
+	unaryIx := &fxgrpc.UnaryServerInterceptor{Weight: weight, Interceptor: interceptor.NewInjectLoggerUnaryServerInterceptor(logger, opts...)}
+	streamIx := &fxgrpc.StreamServerInterceptor{Weight: weight, Interceptor: interceptor.NewInjectLoggerStreamServerInterceptor(logger, opts...)}
 	return unaryIx, streamIx
 }
 

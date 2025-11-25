@@ -3,6 +3,7 @@ package fxgrpc
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
@@ -13,6 +14,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -204,7 +206,29 @@ type GrpcServerParams struct {
 }
 
 func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
-	opts := []grpc.ServerOption{}
+	opts := []grpc.ServerOption{
+		// We overwrite the default keepalive parameters, because they interact badly with the keepalive config of the go runtime
+		// Go runtime sets the keepalive interval to 15s: https://github.com/golang/go/blob/0d347544cbca0f42b160424f6bc2458ebcc7b3fc/src/net/dial.go#LL17C1-L17C1
+		// Grpc sets TCP_USER_TIMEOUT to 20s: https://github.com/grpc/grpc-go/blob/master/internal/transport/defaults.go#L39
+		// and https://github.com/grpc/grpc-go/blob/273e03d8d31b433965b06029ee03e26d298bd8c1/internal/transport/http2_server.go#L232-L239
+		// The kernel computes the max number of packets that can be missed by dividing these numbers (https://man7.org/linux/man-pages/man7/tcp.7.html)
+		// Therefore a single dropped keepalive packet will make the grpc server terminate the TCP connection with rst
+		//
+		// Grpc introduced the usage of TCP_USER_TIMEOUT because it made memory management of its C++ backend better:
+		// https://github.com/grpc/proposal/blob/master/A18-tcp-user-timeout.md
+		//
+		// Given that we do not use the C++ backend, we do not need this particular optimization:
+		// * The standard usage of short TCP keepalive intervals in the go runtime will ensure dead connections are detected quickly
+		//   (135s on default Linux systems, compared to multiple hours in the standard case)
+		// * Go's GC is capable of cleaning up memory well enough in case TCP connections are killed
+		// * Applications for which this is still too long can still set application level deadlines on individual requests
+		//
+		// We therefore chose to wholesale disable the use of TCP_USER_TIMEOUT in grpc: it makes finding a good enough point in the configuration space too hard
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			// See: https://github.com/grpc/grpc-go/blob/8389ddb30539e08e45391650f8c249bd8a57ffc3/internal/transport/http2_server.go#L229-L239
+			Time: time.Duration(math.MaxInt64), // Disables TCP_USER_TIMEOUT
+		}),
+	}
 	serverConf := p.Conf.GrpcServerConfig()
 
 	// Handle server TLS

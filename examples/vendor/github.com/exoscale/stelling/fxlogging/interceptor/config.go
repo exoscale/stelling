@@ -13,6 +13,7 @@ type interceptorConfig struct {
 	payloadFilter   otelgrpc.InterceptorFilter //nolint:staticcheck
 	startLogFilter  otelgrpc.InterceptorFilter //nolint:staticcheck
 	extraFieldsFunc func(logger *zap.Logger, info *otelgrpc.InterceptorInfo, payload any) *zap.Logger
+	metadataFields  map[string]string
 }
 
 type Option func(*interceptorConfig)
@@ -58,6 +59,14 @@ func WithStartLogFilter(f otelgrpc.InterceptorFilter) Option { //nolint:staticch
 	}
 }
 
+// WithMetadataFields configures the interceptor to extract values from incoming
+// gRPC metadata and add them to the logger. The map is metadataKey->loggerFieldName
+func WithMetadataFields(m map[string]string) Option {
+	return func(c *interceptorConfig) {
+		c.metadataFields = m
+	}
+}
+
 func newInterceptorConfig(opts []Option) *interceptorConfig {
 	conf := &interceptorConfig{
 		levelFunc:       DefaultServerCodeToLevel,
@@ -65,6 +74,7 @@ func newInterceptorConfig(opts []Option) *interceptorConfig {
 		payloadFilter:   defaultPayloadFilter,
 		startLogFilter:  defaultStartLogFilter,
 		extraFieldsFunc: defaultExtraFieldsFunc,
+		metadataFields:  nil,
 	}
 
 	for _, opt := range opts {
