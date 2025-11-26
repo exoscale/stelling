@@ -3,6 +3,7 @@ package interceptor
 import (
 	"context"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -15,14 +16,17 @@ import (
 func NewInjectLoggerUnaryServerInterceptor(logger *zap.Logger, opts ...Option) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		conf := newInterceptorConfig(opts)
-		mdFields := conf.metadataFields
+		interceptorInfo := &otelgrpc.InterceptorInfo{UnaryServerInfo: info, Type: otelgrpc.UnaryServer}
+
 		traceid, ok := traceIdFromContext(ctx)
 		if !ok {
 			ctx = contextWithTraceId(ctx, traceid)
 		}
+
 		newLogger := logger.With(zap.String("otlp.trace_id", traceid))
-		newLogger = enrichLoggerWithMetadata(ctx, newLogger, mdFields)
-		ctx = ContextWithLogger(ctx, newLogger)
+		newLogger = enrichLoggerWithMetadata(ctx, newLogger, conf.metadataFields)
+
+		ctx = ContextWithLogger(ctx, conf.extraFieldsFunc(newLogger, interceptorInfo, req))
 
 		return handler(ctx, req)
 	}
