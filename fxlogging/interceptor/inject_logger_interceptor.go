@@ -17,13 +17,19 @@ func NewInjectLoggerUnaryServerInterceptor(logger *zap.Logger, opts ...Option) g
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		conf := newInterceptorConfig(opts)
 		interceptorInfo := &otelgrpc.InterceptorInfo{UnaryServerInfo: info, Type: otelgrpc.UnaryServer}
+		service, method := MethodFromInterceptorInfo(interceptorInfo)
 
 		traceid, ok := traceIdFromContext(ctx)
 		if !ok {
 			ctx = contextWithTraceId(ctx, traceid)
 		}
 
-		newLogger := logger.With(zap.String("otlp.trace_id", traceid))
+		newLogger := logger.With(
+			zap.String("otlp.trace_id", traceid),
+			zap.String("rpc.system", "grpc"),
+			zap.String("service.name", serviceName()),
+			zap.String("rpc.method", method),
+			zap.String("rpc.service", service))
 		newLogger = enrichLoggerWithMetadata(ctx, newLogger, conf.metadataFields)
 
 		ctx = ContextWithLogger(ctx, conf.extraFieldsFunc(newLogger, interceptorInfo, req))
