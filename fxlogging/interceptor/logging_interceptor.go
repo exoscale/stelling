@@ -147,9 +147,9 @@ func (r *reporter) Log(ctx context.Context, info *otelgrpc.InterceptorInfo, star
 	}
 	logger = logger.With(zap.String("rpc.kind", kind))
 	if event == logEventStart {
-		logger.Log(level, "started "+kind+" call")
+		logger.Log(level, "started "+kind+" call: "+method)
 	} else {
-		logger.Log(level, "finished "+kind+" call")
+		logger.Log(level, "finished "+kind+" call: "+method)
 	}
 }
 
