@@ -53,16 +53,24 @@ func (s *wrappedServerStream) Context() context.Context {
 func NewInjectLoggerStreamServerInterceptor(logger *zap.Logger, opts ...Option) grpc.StreamServerInterceptor {
 	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		conf := newInterceptorConfig(opts)
-		mdFields := conf.metadataFields
+		interceptorInfo := &otelgrpc.InterceptorInfo{StreamServerInfo: info, Type: otelgrpc.StreamServer}
+		service, method := MethodFromInterceptorInfo(interceptorInfo)
 
 		ctx := ss.Context()
+		mStream := &monitoredServerStream{ctx: ctx, ServerStream: ss}
+
 		traceid, ok := traceIdFromContext(ctx)
 		if !ok {
 			ctx = contextWithTraceId(ctx, traceid)
 		}
-		newLogger := logger.With(zap.String("otlp.trace_id", traceid))
-		newLogger = enrichLoggerWithMetadata(ctx, newLogger, mdFields)
-		ctx = ContextWithLogger(ctx, newLogger)
+		newLogger := logger.With(
+			zap.String("otlp.trace_id", traceid),
+			zap.String("rpc.system", "grpc"),
+			zap.String("service.name", serviceName()),
+			zap.String("rpc.method", method),
+			zap.String("rpc.service", service))
+		newLogger = enrichLoggerWithMetadata(ctx, newLogger, conf.metadataFields)
+		ctx = ContextWithLogger(ctx, conf.extraFieldsFunc(newLogger, interceptorInfo, mStream.payload))
 
 		wrappedStream := &wrappedServerStream{ctx: ctx, ServerStream: ss}
 
