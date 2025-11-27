@@ -89,6 +89,7 @@ func (r *reporter) Log(ctx context.Context, info *otelgrpc.InterceptorInfo, star
 
 	logger := loggerWithDefaultFields(ctx, r.logger, info)
 
+	logger = logger.With(zap.Time("rpc.request.start_time", startTime))
 	if event == logEventEnd {
 		duration := time.Since(startTime)
 		logger = logger.With(
