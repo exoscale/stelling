@@ -6,6 +6,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 // NewInjectLoggerUnaryServerInterceptor returns a UnaryServerInterceptor that stores a *zap.Logger
@@ -29,11 +30,28 @@ func NewInjectLoggerUnaryServerInterceptor(logger *zap.Logger, opts ...Option) g
 
 type wrappedServerStream struct {
 	grpc.ServerStream
-	ctx context.Context
+	ctx  context.Context
+	info *otelgrpc.InterceptorInfo
+	conf *interceptorConfig
 }
 
 func (s *wrappedServerStream) Context() context.Context {
 	return s.ctx
+}
+
+func (s *wrappedServerStream) RecvMsg(m any) error {
+	err := s.ServerStream.RecvMsg(m)
+
+	if err == nil {
+		msg, ok := m.(proto.Message)
+		if ok {
+			logger := LoggerFromContext(s.ctx)
+			logger = s.conf.extraFieldsFunc(logger, s.info, msg)
+			s.ctx = ContextWithLogger(s.ctx, logger)
+		}
+	}
+
+	return err
 }
 
 // NewInjectLoggerStreamServerInterceptor returns a StreamServerInterceptor that stores a *zap.Logger
@@ -45,15 +63,13 @@ func NewInjectLoggerStreamServerInterceptor(logger *zap.Logger, opts ...Option) 
 		interceptorInfo := &otelgrpc.InterceptorInfo{StreamServerInfo: info, Type: otelgrpc.StreamServer}
 
 		ctx := ss.Context()
-		mStream := &monitoredServerStream{ctx: ctx, ServerStream: ss}
 
 		newLogger := loggerWithDefaultFields(ctx, logger, interceptorInfo)
 		newLogger = loggerWithMetadata(ctx, newLogger, conf.metadataFields)
-		newLogger = conf.extraFieldsFunc(newLogger, interceptorInfo, mStream.payload)
 
 		ctx = ContextWithLogger(ctx, newLogger)
 
-		wrappedStream := &wrappedServerStream{ctx: ctx, ServerStream: ss}
+		wrappedStream := &wrappedServerStream{ctx: ctx, ServerStream: ss, info: interceptorInfo, conf: conf}
 
 		return handler(srv, wrappedStream)
 	}

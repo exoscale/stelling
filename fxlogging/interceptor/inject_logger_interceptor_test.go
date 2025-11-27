@@ -3,10 +3,14 @@ package interceptor
 import (
 	"context"
 	"io"
+	"regexp"
+	"slices"
 	"testing"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/exoscale/stelling/fxgrpc/grpctest"
@@ -42,6 +46,13 @@ func (s *injectLoggerRouteGuideServer) ListFeatures(req *pb.Rectangle, stream pb
 
 func TestInjectLoggerInterceptor(t *testing.T) {
 	var client pb.RouteGuideClient
+	var defaultGRPCFields = []string{
+		"otlp.trace_id",
+		"rpc.system",
+		"service.name",
+		"rpc.method",
+		"rpc.service",
+	}
 
 	core, observer := observer.New(zapcore.DebugLevel)
 	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zap.WrapCore(func(_ zapcore.Core) zapcore.Core { return core })))
@@ -81,6 +92,10 @@ func TestInjectLoggerInterceptor(t *testing.T) {
 		log := logs[0]
 		require.Equal(t, "GetFeature", log.Message)
 		require.NotEmpty(t, log.ContextMap()["otlp.trace_id"])
+		require.NotEmpty(t, log.ContextMap()["rpc.method"])
+		require.NotEmpty(t, log.ContextMap()["rpc.service"])
+		require.NotEmpty(t, log.ContextMap()["rpc.system"])
+		require.NotEmpty(t, log.ContextMap()["service.name"])
 	})
 
 	t.Run("StreamServerInterceptor should inject a configured logger in the context", func(t *testing.T) {
@@ -98,9 +113,13 @@ func TestInjectLoggerInterceptor(t *testing.T) {
 		log := logs[0]
 		require.Equal(t, "ListFeatures", log.Message)
 		require.NotEmpty(t, log.ContextMap()["otlp.trace_id"])
+		require.NotEmpty(t, log.ContextMap()["rpc.method"])
+		require.NotEmpty(t, log.ContextMap()["rpc.service"])
+		require.NotEmpty(t, log.ContextMap()["rpc.system"])
+		require.NotEmpty(t, log.ContextMap()["service.name"])
 	})
 
-	t.Run("UnaryServerInterceptor should set only a single trace_id", func(t *testing.T) {
+	t.Run("UnaryServerInterceptor should set only default gRPC fields", func(t *testing.T) {
 		_, err := client.GetFeature(context.Background(), &pb.Point{})
 		require.NoError(t, err)
 		_, err = client.GetFeature(context.Background(), &pb.Point{})
@@ -110,16 +129,16 @@ func TestInjectLoggerInterceptor(t *testing.T) {
 		require.Len(t, logs, 2)
 		log := logs[1]
 		require.Equal(t, "GetFeature", log.Message)
-		traceIdFields := []zapcore.Field{}
+		defaultFields := []zapcore.Field{}
 		for _, field := range log.Context {
-			if field.Key == "otlp.trace_id" {
-				traceIdFields = append(traceIdFields, field)
+			if slices.Contains(defaultGRPCFields, field.Key) {
+				defaultFields = append(defaultFields, field)
 			}
 		}
-		require.Len(t, traceIdFields, 1)
+		require.Len(t, defaultFields, 5)
 	})
 
-	t.Run("StreamServerInterceptor should set only a single trace_id", func(t *testing.T) {
+	t.Run("StreamServerInterceptor should set only default gRPC fields", func(t *testing.T) {
 		stream, err := client.ListFeatures(context.Background(), &pb.Rectangle{})
 		require.NoError(t, err)
 		for {
@@ -142,13 +161,13 @@ func TestInjectLoggerInterceptor(t *testing.T) {
 		require.Len(t, logs, 2)
 		log := logs[1]
 		require.Equal(t, "ListFeatures", log.Message)
-		traceIdFields := []zapcore.Field{}
+		defaultFields := []zapcore.Field{}
 		for _, field := range log.Context {
-			if field.Key == "otlp.trace_id" {
-				traceIdFields = append(traceIdFields, field)
+			if slices.Contains(defaultGRPCFields, field.Key) {
+				defaultFields = append(defaultFields, field)
 			}
 		}
-		require.Len(t, traceIdFields, 1)
+		require.Len(t, defaultFields, 5)
 	})
 }
 
@@ -214,5 +233,89 @@ func TestInjectLoggerInterceptor_WithMetadataFields(t *testing.T) {
 		log := logs[0]
 		require.Equal(t, "ListFeatures", log.Message)
 		require.Equal(t, rid, log.ContextMap()["request_id"])
+	})
+}
+
+func TestInjectLoggerInterceptor_WithExtraFieldsFunc(t *testing.T) {
+	var client pb.RouteGuideClient
+
+	extraValue := "extra_value"
+
+	extraFields := func(logger *zap.Logger, info *otelgrpc.InterceptorInfo, payload any) *zap.Logger {
+		var server string
+		switch info.Type {
+		case otelgrpc.StreamServer:
+			server = "stream"
+		case otelgrpc.UnaryServer:
+			server = "unary"
+		}
+
+		return logger.With(
+			zap.String("extra_field", extraValue),
+			zap.Any("payload", payload.(proto.Message)),
+			zap.String("server_type", server),
+		)
+	}
+
+	core, observer := observer.New(zapcore.DebugLevel)
+	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zap.WrapCore(func(_ zapcore.Core) zapcore.Core { return core })))
+
+	app := fxtest.New(t, fx.Options(
+		grpctest.Module,
+		fx.Supply(logger),
+		fx.Provide(
+			newInjectLoggerRouteGuideServer,
+			pb.NewRouteGuideClient,
+			fx.Annotate(
+				func(logger *zap.Logger) *fxgrpc.UnaryServerInterceptor {
+					return &fxgrpc.UnaryServerInterceptor{Weight: 42, Interceptor: NewInjectLoggerUnaryServerInterceptor(logger, WithExtraFieldsFunc(extraFields))}
+				},
+				fx.ResultTags(`group:"unary_server_interceptor"`),
+			),
+			fx.Annotate(
+				func(logger *zap.Logger) *fxgrpc.StreamServerInterceptor {
+					return &fxgrpc.StreamServerInterceptor{Weight: 42, Interceptor: NewInjectLoggerStreamServerInterceptor(logger, WithExtraFieldsFunc(extraFields))}
+				},
+				fx.ResultTags(`group:"stream_server_interceptor"`),
+			),
+		),
+		fx.Invoke(
+			pb.RegisterRouteGuideServer,
+		),
+		fx.Populate(&client),
+	))
+	defer app.RequireStart().RequireStop()
+
+	t.Run("Unary should extract all extra fields", func(t *testing.T) {
+		_, err := client.GetFeature(context.Background(), &pb.Point{Latitude: 1, Longitude: 2})
+		require.NoError(t, err)
+
+		logs := observer.TakeAll()
+		require.Len(t, logs, 1)
+		log := logs[0]
+		require.Equal(t, "GetFeature", log.Message)
+		require.Regexp(t, regexp.MustCompile(`latitude:1[ ]*longitude:2`), log.ContextMap()["payload"])
+		require.Equal(t, extraValue, log.ContextMap()["extra_field"])
+		require.Equal(t, "unary", log.ContextMap()["server_type"])
+	})
+
+	t.Run("Stream should extract all extra fields", func(t *testing.T) {
+		stream, err := client.ListFeatures(context.Background(), &pb.Rectangle{Lo: &pb.Point{Longitude: 2, Latitude: 1}, Hi: &pb.Point{Longitude: 4, Latitude: 3}})
+		require.NoError(t, err)
+
+		for {
+			_, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
+		logs := observer.TakeAll()
+		require.Len(t, logs, 1)
+		log := logs[0]
+		require.Equal(t, "ListFeatures", log.Message)
+		require.Equal(t, extraValue, log.ContextMap()["extra_field"])
+		require.Regexp(t, regexp.MustCompile(`lo:{latitude:1[ ]*longitude:2}[ ]*hi:{latitude:3[ ]*longitude:4}`), log.ContextMap()["payload"])
+		require.Equal(t, "stream", log.ContextMap()["server_type"])
 	})
 }
