@@ -17,10 +17,11 @@ func NewInjectLoggerUnaryServerInterceptor(logger *zap.Logger, opts ...Option) g
 		conf := newInterceptorConfig(opts)
 		interceptorInfo := &otelgrpc.InterceptorInfo{UnaryServerInfo: info, Type: otelgrpc.UnaryServer}
 
-		newLogger := loggerWithMetadata(ctx, logger, conf.metadataFields)
-		newLogger = loggerWithDefaultFields(ctx, interceptorInfo, newLogger)
+		newLogger := loggerWithDefaultFields(ctx, logger, interceptorInfo)
+		newLogger = loggerWithMetadata(ctx, newLogger, conf.metadataFields)
+		newLogger = conf.extraFieldsFunc(newLogger, interceptorInfo, req)
 
-		ctx = ContextWithLogger(ctx, conf.extraFieldsFunc(newLogger, interceptorInfo, req))
+		ctx = ContextWithLogger(ctx, newLogger)
 
 		return handler(ctx, req)
 	}
@@ -46,10 +47,11 @@ func NewInjectLoggerStreamServerInterceptor(logger *zap.Logger, opts ...Option) 
 		ctx := ss.Context()
 		mStream := &monitoredServerStream{ctx: ctx, ServerStream: ss}
 
-		newLogger := loggerWithMetadata(ctx, logger, conf.metadataFields)
-		newLogger = loggerWithDefaultFields(ctx, interceptorInfo, newLogger)
+		newLogger := loggerWithDefaultFields(ctx, logger, interceptorInfo)
+		newLogger = loggerWithMetadata(ctx, newLogger, conf.metadataFields)
+		newLogger = conf.extraFieldsFunc(newLogger, interceptorInfo, mStream.payload)
 
-		ctx = ContextWithLogger(ctx, conf.extraFieldsFunc(newLogger, interceptorInfo, mStream.payload))
+		ctx = ContextWithLogger(ctx, newLogger)
 
 		wrappedStream := &wrappedServerStream{ctx: ctx, ServerStream: ss}
 

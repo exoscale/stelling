@@ -87,7 +87,7 @@ func (r *reporter) Log(ctx context.Context, info *otelgrpc.InterceptorInfo, star
 	code := status.Code(handleErr)
 	level := r.conf.levelFunc(info, code)
 
-	logger := loggerWithDefaultFields(ctx, info, r.logger)
+	logger := loggerWithDefaultFields(ctx, r.logger, info)
 
 	if event == logEventEnd {
 		duration := time.Since(startTime)
@@ -119,8 +119,8 @@ func (r *reporter) Log(ctx context.Context, info *otelgrpc.InterceptorInfo, star
 		}
 	}
 
-	logger = r.conf.extraFieldsFunc(logger, info, payload)
 	logger = loggerWithMetadata(ctx, logger, r.conf.metadataFields)
+	logger = r.conf.extraFieldsFunc(logger, info, payload)
 	if payload != nil && r.conf.payloadFilter(info) {
 		p, ok := payload.(proto.Message)
 		if !ok {

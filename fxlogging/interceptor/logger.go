@@ -28,7 +28,7 @@ func loggerWithMetadata(ctx context.Context, logger *zap.Logger, mdFields map[st
 }
 
 // loggerWithDefaultFields adds standard gRPC fields to the provided logger
-func loggerWithDefaultFields(ctx context.Context, info *otelgrpc.InterceptorInfo, logger *zap.Logger) *zap.Logger {
+func loggerWithDefaultFields(ctx context.Context, logger *zap.Logger, info *otelgrpc.InterceptorInfo) *zap.Logger {
 	traceid, _ := traceIdFromContext(ctx)
 
 	// TODO: refactor this using otel.semconv
