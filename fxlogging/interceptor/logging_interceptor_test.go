@@ -9,6 +9,7 @@ import (
 
 	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/exoscale/stelling/fxgrpc/grpctest"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/fx"
@@ -19,6 +20,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc/codes"
 	pb "google.golang.org/grpc/examples/route_guide/routeguide"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -408,6 +410,38 @@ func TestLoggingServerInterceptor(t *testing.T) {
 					return logger.With(zap.Bool("enriched", true))
 				}
 				return []Option{WithExtraFieldsFunc(extraFieldsFunc)}
+			},
+			fx.Annotate(
+				func(logger *zap.Logger, opts ...Option) *fxgrpc.UnaryServerInterceptor {
+					return &fxgrpc.UnaryServerInterceptor{Weight: 42, Interceptor: NewLoggingUnaryServerInterceptor(logger, opts...)}
+				},
+				fx.ResultTags(`group:"unary_server_interceptor"`),
+			),
+		)
+		withTestSystem(t, run, extraOpts)
+	})
+
+	t.Run("Should enrich logger with metadataFields", func(t *testing.T) {
+		rid := uuid.NewString()
+		run := func(client pb.RouteGuideClient, logs *observer.ObservedLogs) {
+			ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("x-request-id", rid))
+			_, err := client.GetFeature(ctx, &pb.Point{})
+			require.Error(t, err)
+			require.Equal(t, codes.Unimplemented, status.Code(err))
+
+			require.Equal(t, 1, logs.Len())
+			log := logs.AllUntimed()[0]
+			require.Equal(t, zapcore.ErrorLevel, log.Level)
+			require.Equal(t, "finished server call", log.Message)
+			require.Contains(t, log.ContextMap(), "request_id")
+			require.Equal(t, log.ContextMap()["request_id"], rid)
+		}
+		extraOpts := fx.Provide(
+			func() []Option {
+				metadataFields := map[string]string{
+					"x-request-id": "request_id",
+				}
+				return []Option{WithMetadataFields(metadataFields)}
 			},
 			fx.Annotate(
 				func(logger *zap.Logger, opts ...Option) *fxgrpc.UnaryServerInterceptor {
