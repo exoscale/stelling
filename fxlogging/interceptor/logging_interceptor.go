@@ -86,18 +86,9 @@ const (
 func (r *reporter) Log(ctx context.Context, info *otelgrpc.InterceptorInfo, startTime time.Time, event logEvent, payload any, handleErr error) {
 	code := status.Code(handleErr)
 	level := r.conf.levelFunc(info, code)
-	traceid, _ := traceIdFromContext(ctx)
 
-	// TODO: refactor this using otel.semconv
-	service, method := MethodFromInterceptorInfo(info)
-	logger := r.logger.With(
-		zap.String("rpc.system", "grpc"),
-		zap.String("service.name", r.svcName),
-		zap.String("rpc.method", method),
-		zap.String("rpc.service", service),
-		zap.Time("rpc.request.start_time", startTime),
-		zap.String("otlp.trace_id", traceid),
-	)
+	logger := loggerWithDefaultFields(ctx, info, r.logger)
+
 	if event == logEventEnd {
 		duration := time.Since(startTime)
 		logger = logger.With(
@@ -129,6 +120,7 @@ func (r *reporter) Log(ctx context.Context, info *otelgrpc.InterceptorInfo, star
 	}
 
 	logger = r.conf.extraFieldsFunc(logger, info, payload)
+	logger = loggerWithMetadata(ctx, logger, r.conf.metadataFields)
 	if payload != nil && r.conf.payloadFilter(info) {
 		p, ok := payload.(proto.Message)
 		if !ok {
