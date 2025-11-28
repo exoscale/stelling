@@ -298,24 +298,4 @@ func TestInjectLoggerInterceptor_WithExtraFieldsFunc(t *testing.T) {
 		require.Equal(t, extraValue, log.ContextMap()["extra_field"])
 		require.Equal(t, "unary", log.ContextMap()["server_type"])
 	})
-
-	t.Run("Stream should extract all extra fields", func(t *testing.T) {
-		stream, err := client.ListFeatures(context.Background(), &pb.Rectangle{Lo: &pb.Point{Longitude: 2, Latitude: 1}, Hi: &pb.Point{Longitude: 4, Latitude: 3}})
-		require.NoError(t, err)
-
-		for {
-			_, err := stream.Recv()
-			if err == io.EOF {
-				break
-			}
-			require.NoError(t, err)
-		}
-		logs := observer.TakeAll()
-		require.Len(t, logs, 1)
-		log := logs[0]
-		require.Equal(t, "ListFeatures", log.Message)
-		require.Equal(t, extraValue, log.ContextMap()["extra_field"])
-		require.Regexp(t, regexp.MustCompile(`lo:{latitude:1[ ]*longitude:2}[ ]*hi:{latitude:3[ ]*longitude:4}`), log.ContextMap()["payload"])
-		require.Equal(t, "stream", log.ContextMap()["server_type"])
-	})
 }

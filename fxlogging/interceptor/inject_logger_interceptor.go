@@ -6,7 +6,6 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/proto"
 )
 
 // NewInjectLoggerUnaryServerInterceptor returns a UnaryServerInterceptor that stores a *zap.Logger
@@ -39,21 +38,6 @@ func (s *wrappedServerStream) Context() context.Context {
 	return s.ctx
 }
 
-func (s *wrappedServerStream) RecvMsg(m any) error {
-	err := s.ServerStream.RecvMsg(m)
-
-	if err == nil {
-		msg, ok := m.(proto.Message)
-		if ok {
-			logger := LoggerFromContext(s.ctx)
-			logger = s.conf.extraFieldsFunc(logger, s.info, msg)
-			s.ctx = ContextWithLogger(s.ctx, logger)
-		}
-	}
-
-	return err
-}
-
 // NewInjectLoggerStreamServerInterceptor returns a StreamServerInterceptor that stores a *zap.Logger
 // enriched with a trace-id in the request context
 // The handler can obtain the logger by calling `LoggerFromContext`
@@ -69,7 +53,7 @@ func NewInjectLoggerStreamServerInterceptor(logger *zap.Logger, opts ...Option) 
 
 		ctx = ContextWithLogger(ctx, newLogger)
 
-		wrappedStream := &wrappedServerStream{ctx: ctx, ServerStream: ss, info: interceptorInfo, conf: conf}
+		wrappedStream := &wrappedServerStream{ctx: ctx, ServerStream: ss}
 
 		return handler(srv, wrappedStream)
 	}
