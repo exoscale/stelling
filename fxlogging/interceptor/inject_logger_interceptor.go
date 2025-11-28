@@ -29,9 +29,7 @@ func NewInjectLoggerUnaryServerInterceptor(logger *zap.Logger, opts ...Option) g
 
 type wrappedServerStream struct {
 	grpc.ServerStream
-	ctx  context.Context
-	info *otelgrpc.InterceptorInfo
-	conf *interceptorConfig
+	ctx context.Context
 }
 
 func (s *wrappedServerStream) Context() context.Context {
