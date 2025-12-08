@@ -30,6 +30,7 @@ require (
 	github.com/getsentry/sentry-go v0.33.0
 	github.com/go-jose/go-jose/v4 v4.1.0
 	github.com/google/cel-go v0.25.0
+	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.1
 	go.opentelemetry.io/contrib/bridges/prometheus v0.60.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.35.0
@@ -54,7 +55,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.3 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
