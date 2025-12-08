@@ -74,7 +74,7 @@ func newInterceptorConfig(opts []Option) *interceptorConfig {
 		payloadFilter:   defaultPayloadFilter,
 		startLogFilter:  defaultStartLogFilter,
 		extraFieldsFunc: defaultExtraFieldsFunc,
-		metadataFields:  nil,
+		metadataFields:  map[string]string{},
 	}
 
 	for _, opt := range opts {

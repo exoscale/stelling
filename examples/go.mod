@@ -1,6 +1,6 @@
 module github.com/exoscale/stelling/examples
 
-go 1.25.3
+go 1.25.5
 
 require (
 	github.com/exoscale/stelling v0.0.0-20250429080247-f139936c467f
