@@ -10,6 +10,7 @@ import (
 	"github.com/exoscale/stelling/fxlogging"
 	"github.com/exoscale/stelling/fxsentry"
 	"github.com/exoscale/stelling/fxtracing"
+	"github.com/exoscale/stelling/fxutils"
 	"go.uber.org/fx"
 )
 
@@ -30,12 +31,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	app := fx.New(createSystem(conf))
-
 	// Start the application:
 	// This will run until we receive a signal to shut down or the job finishes
 	// It handles its own errors
-	app.Run()
+	fxutils.RunWithSystem(createSystem(conf))
 }
 
 // createSystem turns the configuration into a system that can be run
@@ -65,9 +64,6 @@ func createSystem(conf *config.Config) fx.Option {
 			job.NewDependency,
 			job.NewJob,
 		),
-
-		// Invoke functions are run in the order in which they are specified
-		fx.Invoke(job.InvokeJob),
 	)
 
 	return opts

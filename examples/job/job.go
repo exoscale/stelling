@@ -2,10 +2,11 @@ package job
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/exoscale/stelling/examples/config"
-	"github.com/hashicorp/go-multierror"
+	"github.com/exoscale/stelling/fxutils"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -37,42 +38,39 @@ func (d *Dependency) Stop(ctx context.Context) error {
 
 // Job simulates our top level artifact
 // It keeps some state and uses its dependency to execute a side-effect
-// We also keep track of the errors that have occured:
-// Depending on the job you may want to just report all failures out or
-// stop after the first failure
 type Job struct {
 	d      *Dependency
 	logger *zap.Logger
 	count  int
-	err    *multierror.Error
 }
 
-func NewJob(d *Dependency, logger *zap.Logger) *Job {
+func NewJob(d *Dependency, logger *zap.Logger) fxutils.Job {
 	return &Job{
 		d:      d,
 		logger: logger,
 	}
 }
 
-func (j *Job) Run(ctx context.Context) {
+func (j *Job) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
 			j.logger.Info("Job was explicitly canceled")
-			return
+			return ctx.Err()
 		case <-j.d.state.C:
 			// In this example we assume that each iteration is independent
 			// We track the errors, but don't exit early
 			// If an error is fatal, you can save it on the job and immediately
 			// return here
+			errs := []error{}
 			if err := sideEffect(); err != nil {
-				j.err = multierror.Append(j.err, err)
+				errs = append(errs, err)
 			}
 			j.count++
 			j.logger.Info("Job progress", zap.Int("count", j.count))
 			if j.count == 5 {
 				j.logger.Info("Job finished", zap.Int("count", j.count))
-				return
+				return errors.Join(errs...)
 			}
 		}
 	}
@@ -80,27 +78,4 @@ func (j *Job) Run(ctx context.Context) {
 
 func sideEffect() error {
 	return nil
-}
-
-// InvokeJob is the function we'll Invoke in our system
-// In its OnStart hook we spawn the go routine that executes the work
-// We use an fx.Shutdowner to stop the system when all work is done
-// In its OnStop hook, we check if there were any errors and return them:
-// this will cause the program to return a non-zero exit code if any errors
-// happened during execution
-func InvokeJob(lc fx.Lifecycle, sd fx.Shutdowner, job *Job, logger *zap.Logger) {
-	jobCtx, cancel := context.WithCancel(context.Background())
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			go func() {
-				job.Run(jobCtx)
-				sd.Shutdown()
-			}()
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			cancel()
-			return job.err.ErrorOrNil()
-		},
-	})
 }
