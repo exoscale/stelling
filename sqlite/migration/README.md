@@ -35,7 +35,7 @@ func main() {
     panic(err)
   }
 
-  if err := m.Up(ctx, conn); err != nil {
+  if err := m.Up(ctx, db); err != nil {
     panic(err)
   }
 
