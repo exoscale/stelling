@@ -38,6 +38,7 @@ github.com/exoscale/stelling/fxmetrics
 github.com/exoscale/stelling/fxpprof
 github.com/exoscale/stelling/fxsentry
 github.com/exoscale/stelling/fxtracing
+github.com/exoscale/stelling/fxutils
 # github.com/fatih/camelcase v1.0.0
 ## explicit
 github.com/fatih/camelcase
@@ -93,12 +94,6 @@ github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors
 github.com/grpc-ecosystem/grpc-gateway/v2/internal/httprule
 github.com/grpc-ecosystem/grpc-gateway/v2/runtime
 github.com/grpc-ecosystem/grpc-gateway/v2/utilities
-# github.com/hashicorp/errwrap v1.1.0
-## explicit
-github.com/hashicorp/errwrap
-# github.com/hashicorp/go-multierror v1.1.1
-## explicit; go 1.13
-github.com/hashicorp/go-multierror
 # github.com/leodido/go-urn v1.4.0
 ## explicit; go 1.18
 github.com/leodido/go-urn
