@@ -13,7 +13,9 @@ import (
 func NewGormDB(db *sql.DB, logger *zap.Logger) (*gorm.DB, error) {
 	conf := &gorm.Config{}
 	if logger != nil {
-		conf.Logger = zapgorm2.New(logger)
+		gormLogger := zapgorm2.New(logger)
+		gormLogger.IgnoreRecordNotFoundError = true
+		conf.Logger = gormLogger
 	}
 	return gorm.Open(&sqlite.Dialector{Conn: db}, conf)
 }
