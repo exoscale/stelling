@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/stats"
 )
 
 type Config interface {
@@ -199,6 +200,7 @@ type GrpcServerParams struct {
 	fx.In
 
 	Conf               Config
+	StatsHandlers      []stats.Handler            `group:"server_stats_handler"`
 	UnaryInterceptors  []*UnaryServerInterceptor  `group:"unary_server_interceptor"`
 	StreamInterceptors []*StreamServerInterceptor `group:"stream_server_interceptor"`
 	Reloader           *reloader.CertReloader     `name:"grpc_server" optional:"true"`
@@ -239,6 +241,11 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 			return nil, err
 		}
 		opts = append(opts, grpc.Creds(credentials.NewTLS(creds)))
+	}
+
+	// Stats handlers
+	for _, handler := range p.StatsHandlers {
+		opts = append(opts, grpc.StatsHandler(handler))
 	}
 
 	// Handle server middleware

@@ -10,7 +10,7 @@ func MultiValidator(validators ...Validator) Validator {
 // Validate tries to validate given struct with all the validators. If it doesn't
 // have any Validator it will simply skip the validation step. If any of the
 // given validators return err, it will stop validating and return it.
-func (d multiValidator) Validate(s interface{}) error {
+func (d multiValidator) Validate(s any) error {
 	for _, validator := range d {
 		if err := validator.Validate(s); err != nil {
 			return err
@@ -21,7 +21,7 @@ func (d multiValidator) Validate(s interface{}) error {
 }
 
 // MustValidate validates the struct, it panics if gets any error
-func (d multiValidator) MustValidate(s interface{}) {
+func (d multiValidator) MustValidate(s any) {
 	if err := d.Validate(s); err != nil {
 		panic(err)
 	}

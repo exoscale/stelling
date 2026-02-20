@@ -16,6 +16,7 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc/stats"
 )
 
 // NewModule provides an opentelemetry TracingProvider to the system
@@ -25,8 +26,8 @@ func NewModule(conf TracingConfig) fx.Option {
 		fx.Supply(fx.Annotate(conf, fx.As(new(TracingConfig))), fx.Private),
 		fx.Provide(
 			NewTracerProvider,
-			NewGrpcServerInterceptors,
-			NewGrpcClientInterceptors,
+			NewClientStatsHandler,
+			NewServerStatsHandler,
 		),
 	)
 }
@@ -149,79 +150,48 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 	return tracerProvider, nil
 }
 
-type GrpcServerInterceptorsResult struct {
+type ServerStatsHandlerResult struct {
 	fx.Out
 
-	*fxgrpc.UnaryServerInterceptor  `group:"unary_server_interceptor"`
-	*fxgrpc.StreamServerInterceptor `group:"stream_server_interceptor"`
+	Handler stats.Handler `group:"server_stats_handler"`
 }
 
-const GrpcInterceptorWeight = 30
-
-// NewGrpcClientInterceptors returns OpenTelemetry tracing interceptors that can be used as middleware in a gRPC server
-func NewGrpcServerInterceptors(tracerProvider trace.TracerProvider) (GrpcServerInterceptorsResult, error) {
-
+// NewServerStatsHandler returns a grpc stats.Handler for use in a server that automatically traces requests
+func NewServerStatsHandler(tracerProvider trace.TracerProvider) ServerStatsHandlerResult {
 	propagator := propagation.NewCompositeTextMapPropagator(
 		propagation.Baggage{},
 		propagation.TraceContext{},
 	)
 
-	// We explicitly rely on the deprecated interceptor implementation
-	// The new implementation relies on a stats.Handler which is incompatible
-	// with receive buffer reuse: https://github.com/grpc/grpc-go/blob/master/experimental/experimental.go#L40-L42
-	// The receive buffer reuse is important for our performance sensitive use cases
+	handler := otelgrpc.NewServerHandler(
+		otelgrpc.WithTracerProvider(tracerProvider),
+		otelgrpc.WithPropagators(propagator),
+	)
 
-	return GrpcServerInterceptorsResult{
-		UnaryServerInterceptor: &fxgrpc.UnaryServerInterceptor{
-			Weight: GrpcInterceptorWeight,
-			Interceptor: otelgrpc.UnaryServerInterceptor( //nolint:staticcheck
-				otelgrpc.WithTracerProvider(tracerProvider),
-				otelgrpc.WithPropagators(propagator),
-			),
-		},
-		StreamServerInterceptor: &fxgrpc.StreamServerInterceptor{
-			Weight: GrpcInterceptorWeight,
-			Interceptor: otelgrpc.StreamServerInterceptor( //nolint:staticcheck
-				otelgrpc.WithTracerProvider(tracerProvider),
-				otelgrpc.WithPropagators(propagator),
-			),
-		},
-	}, nil
+	return ServerStatsHandlerResult{
+		Handler: handler,
+	}
 }
 
-type GrpcClientInterceptorsResult struct {
+type ClientStatsHandlerResult struct {
 	fx.Out
 
-	*fxgrpc.UnaryClientInterceptor  `group:"unary_client_interceptor"`
-	*fxgrpc.StreamClientInterceptor `group:"stream_client_interceptor"`
+	Handler stats.Handler `group:"client_stats_handler"`
 }
 
-// NewGrpcClientInterceptors returns OpenTelemetry tracing interceptors that can be used as middleware in a gRPC client
-func NewGrpcClientInterceptors(tracerProvider trace.TracerProvider) (GrpcClientInterceptorsResult, error) {
+// NewClientStatsHandler returns a grpc stats.Handler for use in a client that automatically traces requests
+func NewClientStatsHandler(tracerProvider trace.TracerProvider) ClientStatsHandlerResult {
 	propagator := propagation.NewCompositeTextMapPropagator(
 		propagation.Baggage{},
 		propagation.TraceContext{},
 	)
 
-	// We explicitly rely on the deprecated interceptor implementation
-	// The new implementation relies on a stats.Handler which is incompatible
-	// with receive buffer reuse: https://github.com/grpc/grpc-go/blob/master/experimental/experimental.go#L40-L42
-	// The receive buffer reuse is important for our performance sensitive use cases
+	handler := otelgrpc.NewClientHandler(
+		otelgrpc.WithTracerProvider(tracerProvider),
+		otelgrpc.WithPropagators(propagator),
+	)
 
-	return GrpcClientInterceptorsResult{
-		UnaryClientInterceptor: &fxgrpc.UnaryClientInterceptor{
-			Weight: GrpcInterceptorWeight,
-			Interceptor: otelgrpc.UnaryClientInterceptor( //nolint:staticcheck
-				otelgrpc.WithTracerProvider(tracerProvider),
-				otelgrpc.WithPropagators(propagator),
-			),
-		},
-		StreamClientInterceptor: &fxgrpc.StreamClientInterceptor{
-			Weight: GrpcInterceptorWeight,
-			Interceptor: otelgrpc.StreamClientInterceptor( //nolint:staticcheck
-				otelgrpc.WithTracerProvider(tracerProvider),
-				otelgrpc.WithPropagators(propagator),
-			),
-		},
-	}, nil
+	return ClientStatsHandlerResult{
+		Handler: handler,
+	}
 }

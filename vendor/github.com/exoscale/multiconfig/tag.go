@@ -19,7 +19,7 @@ type TagLoader struct {
 	DefaultTagName string
 }
 
-func (t *TagLoader) Load(s interface{}) error {
+func (t *TagLoader) Load(s any) error {
 	if t.DefaultTagName == "" {
 		t.DefaultTagName = "default"
 	}

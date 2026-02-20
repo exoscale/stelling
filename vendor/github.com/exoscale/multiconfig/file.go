@@ -29,7 +29,7 @@ type TOMLLoader struct {
 // Load loads the source into the config defined by struct s
 // Defaults to using the Reader if provided, otherwise tries to read from the
 // file
-func (t *TOMLLoader) Load(s interface{}) error {
+func (t *TOMLLoader) Load(s any) error {
 	var r io.Reader
 
 	if t.Reader != nil {
@@ -62,7 +62,7 @@ type JSONLoader struct {
 // Load loads the source into the config defined by struct s.
 // Defaults to using the Reader if provided, otherwise tries to read from the
 // file
-func (j *JSONLoader) Load(s interface{}) error {
+func (j *JSONLoader) Load(s any) error {
 	var r io.Reader
 	if j.Reader != nil {
 		r = j.Reader
@@ -90,7 +90,7 @@ type YAMLLoader struct {
 // Load loads the source into the config defined by struct s.
 // Defaults to using the Reader if provided, otherwise tries to read from the
 // file
-func (y *YAMLLoader) Load(s interface{}) error {
+func (y *YAMLLoader) Load(s any) error {
 	var r io.Reader
 
 	if y.Reader != nil {

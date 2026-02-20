@@ -64,7 +64,7 @@ type FlagLoader struct {
 }
 
 // Load loads the source into the config defined by struct s
-func (f *FlagLoader) Load(s interface{}) error {
+func (f *FlagLoader) Load(s any) error {
 	if f.StructSeparator == "" {
 		f.StructSeparator = "-"
 	}
@@ -202,7 +202,7 @@ func (f *fieldValue) String() string {
 	return fmt.Sprintf("%v", f.field.Value())
 }
 
-func (f *fieldValue) Get() interface{} {
+func (f *fieldValue) Get() any {
 	if f.IsZero() {
 		return nil
 	}

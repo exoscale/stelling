@@ -16,7 +16,7 @@ import (
 // responsible for setting the default values of the struct.
 type Loader interface {
 	// Load loads the source into the config defined by struct s
-	Load(s interface{}) error
+	Load(s any) error
 }
 
 // DefaultLoader implements the Loader interface. It initializes the given
@@ -79,20 +79,20 @@ func New() *DefaultLoader {
 
 // MustLoadWithPath loads with the DefaultLoader settings and from the given
 // Path. It exits if the config cannot be parsed.
-func MustLoadWithPath(path string, conf interface{}) {
+func MustLoadWithPath(path string, conf any) {
 	d := NewWithPath(path)
 	d.MustLoad(conf)
 }
 
 // MustLoad loads with the DefaultLoader settings. It exits if the config
 // cannot be parsed.
-func MustLoad(conf interface{}) {
+func MustLoad(conf any) {
 	d := New()
 	d.MustLoad(conf)
 }
 
 // MustLoad is like Load but panics if the config cannot be parsed.
-func (d *DefaultLoader) MustLoad(conf interface{}) {
+func (d *DefaultLoader) MustLoad(conf any) {
 	if err := d.Load(conf); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
@@ -108,7 +108,7 @@ func (d *DefaultLoader) MustLoad(conf interface{}) {
 
 // MustValidate validates the struct. It exits with status 1 if it can't
 // validate.
-func (d *DefaultLoader) MustValidate(conf interface{}) {
+func (d *DefaultLoader) MustValidate(conf any) {
 	if err := d.Validate(conf); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)

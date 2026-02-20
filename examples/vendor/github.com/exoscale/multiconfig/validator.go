@@ -12,7 +12,7 @@ import (
 // for the logic.
 type Validator interface {
 	// Validate validates the config struct
-	Validate(s interface{}) error
+	Validate(s any) error
 }
 
 // RequiredValidator validates the struct against zero values.
@@ -27,7 +27,7 @@ type RequiredValidator struct {
 // Validate validates the given struct agaist field's zero values. If
 // intentionaly, the value of a field is `zero-valued`(e.g false, 0, "")
 // required tag should not be set for that field.
-func (e *RequiredValidator) Validate(s interface{}) error {
+func (e *RequiredValidator) Validate(s any) error {
 	if e.TagName == "" {
 		e.TagName = "required"
 	}

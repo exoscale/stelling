@@ -1,31 +1,53 @@
+version: "2"
 linters:
   enable:
-    - errcheck
-    - gosimple
-    - govet
-    - ineffassign
-    - staticcheck
-    - typecheck
-    - unused
     - bodyclose
     - durationcheck
-    - makezero 
+    - errname
+    - goprintffuncname
+    - grouper
+    - makezero
+    - misspell
     - nilerr
     - noctx
     - nosprintfhostport
+    - promlinter
     - rowserrcheck
     - sqlclosecheck
-    - tenv
     - thelper
-    - wastedassign
-    - promlinter
     - unconvert
     - unparam
-# Style
-    - errname
-    - gofmt 
+    - wastedassign
+  settings:
+    staticcheck:
+      checks:
+        - all
+        - -QF1008 # Allow using name of embedded field in selector
+        # disabled by default
+        - -ST1000
+        - -ST1003
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
     - goimports
-    - goprintffuncname
-    - grouper 
-# Spelling
-    - misspell
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
