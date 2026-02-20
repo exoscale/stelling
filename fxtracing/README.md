@@ -6,8 +6,8 @@ This module provides [opentelemetry tracing](https://pkg.go.dev/go.opentelemetry
 The module lazily provides the following components:
 
 * A `trace.TracerProvider`
-* GrpcServerInterceptors that traces all incoming requests
-* GrpcClientInterceptors that traces all requests made with the client
+* A server stats.Handler that traces all incoming requests
+* A client stats.Handler that traces all requests made with the client
 
 At the moment we do not expose any advanced otelgrpc, or samplerprovider options.
 

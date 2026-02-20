@@ -23,15 +23,19 @@ func Example() {
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
 	}
-	app := fx.New(fx.Options(
+	opts := fx.Options(
 		fxlogging.NewModule(conf),
 		fxtracing.NewModule(conf),
 		// zapOpts contains options to make the logs determistic so we can test the output
 		fx.Supply(fx.Annotate(zapOpts, fx.ResultTags(`group:"zap_opts,flatten"`))),
 		fx.Invoke(run),
-	))
+	)
 
-	app.Run()
+	if err := fx.ValidateApp(opts); err != nil {
+		panic(err)
+	}
+
+	fx.New(opts).Run()
 
 	// This does print the span as json to stdout: we're not asserting over it because it can't be made deterministic
 	// If we disable the timestamp in the stdouttracer and pass in an ID generator that always returns the same ID, it might work

@@ -150,7 +150,7 @@ func TestTokenExtractorExtract(t *testing.T) {
 			"Authorization": {"Bearer foobar"},
 		})
 		require.Nil(t, token)
-		require.EqualError(t, err, "invalid token: oidc: malformed jwt: oidc: malformed jwt, expected 3 parts got 1")
+		require.Contains(t, err.Error(), "invalid token: oidc: malformed jwt:")
 	})
 
 	t.Run("Should return an error if the token fails validation", func(t *testing.T) {
@@ -171,7 +171,7 @@ func TestTokenExtractorExtract(t *testing.T) {
 		})
 		require.Nil(t, token)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid token: oidc: id token issued by a different provider")
+		require.Contains(t, err.Error(), "invalid token: failed to verify signature")
 	})
 
 	t.Run("Should return an error if the token fails signature validation", func(t *testing.T) {

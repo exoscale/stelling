@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/stats"
 )
 
 // TODO: refactor constructors in terms of DialOptions
@@ -92,6 +93,7 @@ type GrpcClientParams struct {
 	Lc                 fx.Lifecycle
 	Conf               ClientConfig
 	Logger             *zap.Logger
+	StatsHandlers      []stats.Handler            `group:"client_stats_handler"`
 	UnaryInterceptors  []*UnaryClientInterceptor  `group:"unary_client_interceptor"`
 	StreamInterceptors []*StreamClientInterceptor `group:"stream_client_interceptor"`
 	ClientOpts         []grpc.DialOption          `group:"grpc_client_options"`
@@ -152,7 +154,7 @@ func MakeClientTLS(c ClientConfig, logger *zap.Logger) (credentials.TransportCre
 // NewGrpcClient returns a grpc client connection that is configured with the same conventions as the fx module
 // It is intended to be used for dynamically created, short lived, clients where using fx causes more troubles than benefits
 // Because the client is assumed to be short lived, it will not reload TLS certificates
-func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []*UnaryClientInterceptor, si []*StreamClientInterceptor, dOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []*UnaryClientInterceptor, si []*StreamClientInterceptor, handlers []stats.Handler, dOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	// We assume NewGrpcClient is used for a short lived client
 	// The reloader eagerly loads the cert, so we can ignore it for the remainder
 	creds, _, err := MakeClientTLS(conf, logger)
@@ -165,6 +167,12 @@ func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []*UnaryClientInter
 		WithUnaryClientInterceptors(ui),
 		WithStreamClientInterceptors(si),
 	}
+
+	// Stats handlers
+	for _, handler := range handlers {
+		opts = append(opts, grpc.WithStatsHandler(handler))
+	}
+
 	// Add the externally supplied options last: this allows the user to override any options we may have set already
 	opts = append(opts, dOpts...)
 
@@ -185,6 +193,12 @@ func ProvideGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
 		WithUnaryClientInterceptors(p.UnaryInterceptors),
 		WithStreamClientInterceptors(p.StreamInterceptors),
 	}
+
+	// Stats handlers
+	for _, handler := range p.StatsHandlers {
+		opts = append(opts, grpc.WithStatsHandler(handler))
+	}
+
 	// Add the externally supplied options last: this allows the user to override any options we may have set already
 	opts = append(opts, p.ClientOpts...)
 
