@@ -34,7 +34,7 @@ func (e *EnvironmentLoader) getPrefix(s *structs.Struct) string {
 }
 
 // Load loads the source into the config defined by struct s
-func (e *EnvironmentLoader) Load(s interface{}) error {
+func (e *EnvironmentLoader) Load(s any) error {
 	strct := structs.New(s)
 	strctMap := strct.Map()
 	prefix := e.getPrefix(strct)
@@ -52,11 +52,11 @@ func (e *EnvironmentLoader) Load(s interface{}) error {
 
 // processField gets leading name for the env variable and combines the current
 // field's name and generates environment variable names recursively
-func (e *EnvironmentLoader) processField(prefix string, field *structs.Field, name string, strctMap interface{}) error {
+func (e *EnvironmentLoader) processField(prefix string, field *structs.Field, name string, strctMap any) error {
 	fieldName := e.generateFieldName(prefix, name)
 
 	switch smap := strctMap.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		for key, val := range smap {
 			field := field.Field(key)
 
@@ -79,7 +79,7 @@ func (e *EnvironmentLoader) processField(prefix string, field *structs.Field, na
 }
 
 // PrintEnvs prints the generated environment variables to the std out.
-func (e *EnvironmentLoader) PrintEnvs(s interface{}) {
+func (e *EnvironmentLoader) PrintEnvs(s any) {
 	strct := structs.New(s)
 	strctMap := strct.Map()
 	prefix := e.getPrefix(strct)
@@ -97,11 +97,11 @@ func (e *EnvironmentLoader) PrintEnvs(s interface{}) {
 }
 
 // printField prints the field of the config struct for the flag.Usage
-func (e *EnvironmentLoader) printField(prefix string, field *structs.Field, name string, strctMap interface{}) {
+func (e *EnvironmentLoader) printField(prefix string, field *structs.Field, name string, strctMap any) {
 	fieldName := e.generateFieldName(prefix, name)
 
 	switch smap := strctMap.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		keys := make([]string, 0, len(smap))
 		for key := range smap {
 			keys = append(keys, key)

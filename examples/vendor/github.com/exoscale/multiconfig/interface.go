@@ -45,7 +45,7 @@ func structFields(v reflect.Value) []reflect.Value {
 }
 
 // Load will populate s by recursively calling the `ApplyDefaults` method on it
-func (l *InterfaceLoader) Load(s interface{}) error {
+func (l *InterfaceLoader) Load(s any) error {
 	v := reflect.ValueOf(s)
 	if v.Kind() != reflect.Pointer {
 		return errors.New("cannot load into a value: target must be a pointer")

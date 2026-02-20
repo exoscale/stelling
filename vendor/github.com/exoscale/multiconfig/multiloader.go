@@ -9,7 +9,7 @@ func MultiLoader(loader ...Loader) Loader {
 }
 
 // Load loads the source into the config defined by struct s
-func (m multiLoader) Load(s interface{}) error {
+func (m multiLoader) Load(s any) error {
 	for _, loader := range m {
 		if err := loader.Load(s); err != nil {
 			return err
@@ -20,7 +20,7 @@ func (m multiLoader) Load(s interface{}) error {
 }
 
 // MustLoad loads the source into the struct, it panics if gets any error
-func (m multiLoader) MustLoad(s interface{}) {
+func (m multiLoader) MustLoad(s any) {
 	if err := m.Load(s); err != nil {
 		panic(err)
 	}
