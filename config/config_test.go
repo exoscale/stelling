@@ -16,6 +16,7 @@ func TestConfigDefaultValues(t *testing.T) {
 		MyBool   bool     `default:"true"`
 		MyInt    int      `default:"9001"`
 		MyArray  []string `default:"a,b,c"`
+		MySecret Secret   `default:"mystery"`
 	}
 
 	expected := Config{
@@ -23,6 +24,7 @@ func TestConfigDefaultValues(t *testing.T) {
 		MyBool:   true,
 		MyInt:    9001,
 		MyArray:  []string{"a", "b", "c"},
+		MySecret: Secret("mystery"),
 	}
 
 	config := Config{}
@@ -60,17 +62,19 @@ func TestConfigValidation(t *testing.T) {
 func TestConfigFromYAML(t *testing.T) {
 	type Config struct {
 		MyString string `default:"MyString"`
+		MySecret Secret
 	}
 
 	expected := Config{
 		MyString: "YAMLVariable",
+		MySecret: Secret("mystery"),
 	}
 
 	confFile, err := os.CreateTemp("", "config")
 	assert.NoError(t, err, "Failed to create temporary file")
 	defer os.Remove(confFile.Name())
 
-	_, err = confFile.WriteString("mystring: YAMLVariable")
+	_, err = confFile.WriteString("mystring: YAMLVariable\nmysecret: mystery")
 	assert.NoError(t, err, "Failed to write to temporary file")
 	assert.NoError(t, confFile.Close(), "Failed to close temporary file")
 
@@ -83,13 +87,16 @@ func TestConfigFromYAML(t *testing.T) {
 func TestConfigFromEnvironment(t *testing.T) {
 	type Config struct {
 		MyString string `default:"MyString"`
+		MySecret Secret
 	}
 
 	expected := Config{
 		MyString: "EnvironmentVariable",
+		MySecret: Secret("mystery"),
 	}
 
 	t.Setenv("CONFIG_MY_STRING", "EnvironmentVariable")
+	t.Setenv("CONFIG_MY_SECRET", "mystery")
 
 	config := Config{}
 	if assert.NoError(t, Load(&config, mockArgs)) {

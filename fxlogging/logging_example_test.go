@@ -5,17 +5,20 @@ import (
 
 	sconfig "github.com/exoscale/stelling/config"
 	"github.com/exoscale/stelling/fxlogging"
+	"github.com/exoscale/stelling/fxsentry"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
 type Config struct {
 	fxlogging.Logging
+	fxsentry.Sentry
+	APIKey sconfig.Secret
 }
 
 func Example() {
 	conf := &Config{}
-	args := []string{"logging-test", "--logging.mode", "production"}
+	args := []string{"logging-test", "--logging.mode", "production", "--api-key", "my-key"}
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
 	}
@@ -31,9 +34,9 @@ func Example() {
 	app.Run()
 
 	// Output:
-	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Using configuration","conf":{"mode":"production"}}
+	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Using configuration","conf":{"Mode":"production","Dsn":"","Environment":"prod","Debug":false,"Process":"","APIKey":"*****"}}
 	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Example log"}
-	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Final configuration","conf":{"mode":"production"}}
+	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Final configuration","conf":{"Mode":"production","Dsn":"","Environment":"prod","Debug":false,"Process":"","APIKey":"*****"}}
 }
 
 func run(sd fx.Shutdowner, logger *zap.Logger) {

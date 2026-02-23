@@ -3,6 +3,7 @@ package config
 import (
 	"time"
 
+	"github.com/exoscale/stelling/config"
 	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/exoscale/stelling/fxlogging"
 	"github.com/exoscale/stelling/fxmetrics"
@@ -23,4 +24,5 @@ type Config struct {
 	Mode           string        `default:"high" validate:"oneof=low medium high"`
 	RequiredNumber int           `validate:"required"`
 	Interval       time.Duration `default:"1m"`
+	APIKey         config.Secret `default:"my-key"`
 }

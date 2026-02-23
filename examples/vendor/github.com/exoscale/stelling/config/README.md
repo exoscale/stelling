@@ -63,9 +63,23 @@ This package will attempt to load configuration information from the following s
 Variables loaded later will override previously loaded values: thus CLI flags will override env
 variables, which themselves override the values found in the configuration file.
 
-## Future improvements
-* Provide a function that can safely log the config. The idea is that if a parameter is marked with
-a `sensitive` tag, its value will be masked in the string output.
+## Secrets
+The package provides a `Secret` type that can be used instead of a string. You can deserialize any
+string value into it, but whenever you try to serialize it out it will print `'*****'`.
+The actual value is available through the `Plaintext()` method.
+
+There is nothing specific to this library about this type, you can use it anywhere you want. It is
+compatible with the `fmt` functions and any well behaved data encoder and logging library.
+
+```go
+type Config struct {
+    APIKey config.Secret
+}
+
+conf := Config{}
+fmt.Println("API Key", conf.APIKey) // Print "API Key *****"
+api.NewClient(conf.APIKey.Plaintext())
+```
 
 ## FAQ
 
