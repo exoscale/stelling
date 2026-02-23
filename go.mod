@@ -5,7 +5,7 @@ go 1.25.7
 require (
 	github.com/TheZeroSlave/zapsentry v1.23.0
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
-	github.com/exoscale/multiconfig v0.0.0-20251001132748-2c6a194123e5
+	github.com/exoscale/multiconfig v0.0.0-20260223134601-625dc5777c41
 	github.com/go-logr/zapr v1.3.0
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/oklog/ulid/v2 v2.1.1
@@ -37,6 +37,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.40.0
 	go.opentelemetry.io/otel/metric v1.40.0
 	go.opentelemetry.io/otel/sdk/metric v1.40.0
+	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
 	modernc.org/sqlite v1.46.1
@@ -86,7 +87,6 @@ require (
 	golang.org/x/text v0.34.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260217215200-42d3e9bedb6d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260217215200-42d3e9bedb6d // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/libc v1.68.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect

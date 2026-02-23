@@ -123,7 +123,7 @@ func fieldSet(field *structs.Field, v string) error {
 	case flag.Value:
 		if v := reflect.ValueOf(field.Value()); v.IsNil() {
 			typ := v.Type()
-			if typ.Kind() == reflect.Ptr {
+			if typ.Kind() == reflect.Pointer {
 				typ = typ.Elem()
 			}
 
@@ -145,31 +145,23 @@ func fieldSet(field *structs.Field, v string) error {
 			return fmt.Errorf("cannot parse value '%s' of field '%s' as bool: %w", v, field.Name(), err)
 		}
 
-		if err := field.Set(val); err != nil {
-			return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-		}
+		return convertAndSet(field, val)
 	case reflect.Int:
 		i, err := strconv.Atoi(v)
 		if err != nil {
 			return fmt.Errorf("cannot parse value '%s' of field '%s' as int: %w", v, field.Name(), err)
 		}
 
-		if err := field.Set(i); err != nil {
-			return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-		}
+		return convertAndSet(field, i)
 	case reflect.String:
-		if err := field.Set(v); err != nil {
-			return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-		}
+		return convertAndSet(field, v)
 	case reflect.Slice:
 		switch t := field.Value().(type) {
 		case []string:
-			if err := field.Set(strings.Split(v, ",")); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, strings.Split(v, ","))
 		case []int:
 			var list []int
-			for _, in := range strings.Split(v, ",") {
+			for in := range strings.SplitSeq(v, ",") {
 				i, err := strconv.ParseInt(in, 10, strconv.IntSize)
 				if err != nil {
 					return fmt.Errorf("cannot parse value '%s' of field '%s' as int: %w", in, field.Name(), err)
@@ -178,117 +170,97 @@ func fieldSet(field *structs.Field, v string) error {
 				list = append(list, int(i))
 			}
 
-			if err := field.Set(list); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, list)
 		case []int64:
 			var list []int64
-			for _, in := range strings.Split(v, ",") {
+			for in := range strings.SplitSeq(v, ",") {
 				i, err := strconv.ParseInt(in, 10, 64)
 				if err != nil {
 					return fmt.Errorf("cannot parse value '%s' of field '%s' as int64: %w", in, field.Name(), err)
 				}
 				list = append(list, i)
 			}
-			if err := field.Set(list); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, list)
 		case []int32:
 			var list []int32
-			for _, in := range strings.Split(v, ",") {
+			for in := range strings.SplitSeq(v, ",") {
 				i, err := strconv.ParseInt(in, 10, 32)
 				if err != nil {
 					return fmt.Errorf("cannot parse value '%s' of field '%s' as int32: %w", in, field.Name(), err)
 				}
 				list = append(list, int32(i))
 			}
-			if err := field.Set(list); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, list)
 		case []int16:
 			var list []int16
-			for _, in := range strings.Split(v, ",") {
+			for in := range strings.SplitSeq(v, ",") {
 				i, err := strconv.ParseInt(in, 10, 16)
 				if err != nil {
 					return fmt.Errorf("cannot parse value '%s' of field '%s' as int16: %w", in, field.Name(), err)
 				}
 				list = append(list, int16(i))
 			}
-			if err := field.Set(list); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, list)
 		case []int8:
 			var list []int8
-			for _, in := range strings.Split(v, ",") {
+			for in := range strings.SplitSeq(v, ",") {
 				i, err := strconv.ParseInt(in, 10, 8)
 				if err != nil {
 					return fmt.Errorf("cannot parse value '%s' of field '%s' as int8: %w", in, field.Name(), err)
 				}
 				list = append(list, int8(i))
 			}
-			if err := field.Set(list); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, list)
 		case []uint:
 			var list []uint
-			for _, in := range strings.Split(v, ",") {
+			for in := range strings.SplitSeq(v, ",") {
 				i, err := strconv.ParseUint(in, 10, strconv.IntSize)
 				if err != nil {
 					return fmt.Errorf("cannot parse value '%s' of field '%s' as uint: %w", in, field.Name(), err)
 				}
 				list = append(list, uint(i))
 			}
-			if err := field.Set(list); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, list)
 		case []uint64:
 			var list []uint64
-			for _, in := range strings.Split(v, ",") {
+			for in := range strings.SplitSeq(v, ",") {
 				i, err := strconv.ParseUint(in, 10, 64)
 				if err != nil {
 					return fmt.Errorf("cannot parse value '%s' of field '%s' as uint64: %w", in, field.Name(), err)
 				}
 				list = append(list, i)
 			}
-			if err := field.Set(list); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, list)
 		case []uint32:
 			var list []uint32
-			for _, in := range strings.Split(v, ",") {
+			for in := range strings.SplitSeq(v, ",") {
 				i, err := strconv.ParseUint(in, 10, 32)
 				if err != nil {
 					return fmt.Errorf("cannot parse value '%s' of field '%s' as uint32: %w", in, field.Name(), err)
 				}
 				list = append(list, uint32(i))
 			}
-			if err := field.Set(list); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, list)
 		case []uint16:
 			var list []uint16
-			for _, in := range strings.Split(v, ",") {
+			for in := range strings.SplitSeq(v, ",") {
 				i, err := strconv.ParseUint(in, 10, 16)
 				if err != nil {
 					return fmt.Errorf("cannot parse value '%s' of field '%s' as uint16: %w", in, field.Name(), err)
 				}
 				list = append(list, uint16(i))
 			}
-			if err := field.Set(list); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, list)
 		case []uint8:
 			var list []uint8
-			for _, in := range strings.Split(v, ",") {
+			for in := range strings.SplitSeq(v, ",") {
 				i, err := strconv.ParseUint(in, 10, 8)
 				if err != nil {
 					return fmt.Errorf("cannot parse value '%s' of field '%s' as uint8: %w", in, field.Name(), err)
 				}
 				list = append(list, uint8(i))
 			}
-			if err := field.Set(list); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, list)
 		default:
 			return fmt.Errorf("field '%s' of type slice is unsupported: %s (%T)",
 				field.Name(), field.Kind(), t)
@@ -297,19 +269,17 @@ func fieldSet(field *structs.Field, v string) error {
 		switch field.Value().(type) {
 		case map[string]string:
 			output := map[string]string{}
-			for _, item := range strings.Split(v, ",") {
+			for item := range strings.SplitSeq(v, ",") {
 				key, val, ok := strings.Cut(item, "=")
 				if !ok {
 					return fmt.Errorf("value '%s' of field '%s' is not a valid key/value pair ('=' missing)", item, field.Name())
 				}
 				output[key] = val
 			}
-			if err := field.Set(output); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, output)
 		case map[string]int:
 			output := map[string]int{}
-			for _, item := range strings.Split(v, ",") {
+			for item := range strings.SplitSeq(v, ",") {
 				key, val, ok := strings.Cut(item, "=")
 				if !ok {
 					return fmt.Errorf("value '%s' of field '%s' is not a valid key/value pair ('=' missing)", item, field.Name())
@@ -320,12 +290,10 @@ func fieldSet(field *structs.Field, v string) error {
 				}
 				output[key] = int(i)
 			}
-			if err := field.Set(output); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, output)
 		case map[string]int64:
 			output := map[string]int64{}
-			for _, item := range strings.Split(v, ",") {
+			for item := range strings.SplitSeq(v, ",") {
 				key, val, ok := strings.Cut(item, "=")
 				if !ok {
 					return fmt.Errorf("value '%s' of field '%s' is not a valid key/value pair ('=' missing)", item, field.Name())
@@ -336,12 +304,10 @@ func fieldSet(field *structs.Field, v string) error {
 				}
 				output[key] = i
 			}
-			if err := field.Set(output); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, output)
 		case map[string]int32:
 			output := map[string]int32{}
-			for _, item := range strings.Split(v, ",") {
+			for item := range strings.SplitSeq(v, ",") {
 				key, val, ok := strings.Cut(item, "=")
 				if !ok {
 					return fmt.Errorf("value '%s' of field '%s' is not a valid key/value pair ('=' missing)", item, field.Name())
@@ -352,12 +318,10 @@ func fieldSet(field *structs.Field, v string) error {
 				}
 				output[key] = int32(i)
 			}
-			if err := field.Set(output); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, output)
 		case map[string]int16:
 			output := map[string]int16{}
-			for _, item := range strings.Split(v, ",") {
+			for item := range strings.SplitSeq(v, ",") {
 				key, val, ok := strings.Cut(item, "=")
 				if !ok {
 					return fmt.Errorf("value '%s' of field '%s' is not a valid key/value pair ('=' missing)", item, field.Name())
@@ -368,12 +332,10 @@ func fieldSet(field *structs.Field, v string) error {
 				}
 				output[key] = int16(i)
 			}
-			if err := field.Set(output); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, output)
 		case map[string]int8:
 			output := map[string]int8{}
-			for _, item := range strings.Split(v, ",") {
+			for item := range strings.SplitSeq(v, ",") {
 				key, val, ok := strings.Cut(item, "=")
 				if !ok {
 					return fmt.Errorf("value '%s' of field '%s' is not a valid key/value pair ('=' missing)", item, field.Name())
@@ -384,12 +346,10 @@ func fieldSet(field *structs.Field, v string) error {
 				}
 				output[key] = int8(i)
 			}
-			if err := field.Set(output); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, output)
 		case map[string]uint:
 			output := map[string]uint{}
-			for _, item := range strings.Split(v, ",") {
+			for item := range strings.SplitSeq(v, ",") {
 				key, val, ok := strings.Cut(item, "=")
 				if !ok {
 					return fmt.Errorf("value '%s' of field '%s' is not a valid key/value pair ('=' missing)", item, field.Name())
@@ -400,12 +360,10 @@ func fieldSet(field *structs.Field, v string) error {
 				}
 				output[key] = uint(i)
 			}
-			if err := field.Set(output); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, output)
 		case map[string]uint64:
 			output := map[string]uint64{}
-			for _, item := range strings.Split(v, ",") {
+			for item := range strings.SplitSeq(v, ",") {
 				key, val, ok := strings.Cut(item, "=")
 				if !ok {
 					return fmt.Errorf("value '%s' of field '%s' is not a valid key/value pair ('=' missing)", item, field.Name())
@@ -416,12 +374,10 @@ func fieldSet(field *structs.Field, v string) error {
 				}
 				output[key] = i
 			}
-			if err := field.Set(output); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, output)
 		case map[string]uint32:
 			output := map[string]uint32{}
-			for _, item := range strings.Split(v, ",") {
+			for item := range strings.SplitSeq(v, ",") {
 				key, val, ok := strings.Cut(item, "=")
 				if !ok {
 					return fmt.Errorf("value '%s' of field '%s' is not a valid key/value pair ('=' missing)", item, field.Name())
@@ -432,12 +388,10 @@ func fieldSet(field *structs.Field, v string) error {
 				}
 				output[key] = uint32(i)
 			}
-			if err := field.Set(output); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, output)
 		case map[string]uint16:
 			output := map[string]uint16{}
-			for _, item := range strings.Split(v, ",") {
+			for item := range strings.SplitSeq(v, ",") {
 				key, val, ok := strings.Cut(item, "=")
 				if !ok {
 					return fmt.Errorf("value '%s' of field '%s' is not a valid key/value pair ('=' missing)", item, field.Name())
@@ -448,12 +402,10 @@ func fieldSet(field *structs.Field, v string) error {
 				}
 				output[key] = uint16(i)
 			}
-			if err := field.Set(output); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, output)
 		case map[string]uint8:
 			output := map[string]uint8{}
-			for _, item := range strings.Split(v, ",") {
+			for item := range strings.SplitSeq(v, ",") {
 				key, val, ok := strings.Cut(item, "=")
 				if !ok {
 					return fmt.Errorf("value '%s' of field '%s' is not a valid key/value pair ('=' missing)", item, field.Name())
@@ -464,9 +416,7 @@ func fieldSet(field *structs.Field, v string) error {
 				}
 				output[key] = uint8(i)
 			}
-			if err := field.Set(output); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, output)
 		default:
 			return fmt.Errorf("field '%s' of type map is unsupported: %s (%T)", field.Name(), field.Kind(), field.Value())
 		}
@@ -476,9 +426,7 @@ func fieldSet(field *structs.Field, v string) error {
 			return fmt.Errorf("cannot parse value '%s' of field '%s' as float64: %w", v, field.Name(), err)
 		}
 
-		if err := field.Set(f); err != nil {
-			return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-		}
+		return convertAndSet(field, f)
 	case reflect.Int64:
 		switch t := field.Value().(type) {
 		case time.Duration:
@@ -487,18 +435,14 @@ func fieldSet(field *structs.Field, v string) error {
 				return fmt.Errorf("cannot parse value '%s' of field '%s' as duration: %w", v, field.Name(), err)
 			}
 
-			if err := field.Set(d); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, d)
 		case int64:
 			p, err := strconv.ParseInt(v, 10, 64)
 			if err != nil {
 				return fmt.Errorf("cannot parse value '%s' of field '%s' as int64: %w", v, field.Name(), err)
 			}
 
-			if err := field.Set(p); err != nil {
-				return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-			}
+			return convertAndSet(field, p)
 		default:
 			return fmt.Errorf("field '%s' of type int64 is unsupported: %s (%T)",
 				field.Name(), field.Kind(), t)
@@ -509,39 +453,45 @@ func fieldSet(field *structs.Field, v string) error {
 			return fmt.Errorf("cannot parse value '%s' of field '%s' as uint: %w", v, field.Name(), err)
 		}
 
-		if err := field.Set(uint(u)); err != nil {
-			return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-		}
+		return convertAndSet(field, uint(u))
 	case reflect.Uint16:
 		u, err := strconv.ParseUint(v, 10, 16)
 		if err != nil {
 			return fmt.Errorf("cannot parse value '%s' of field '%s' as uint16: %w", v, field.Name(), err)
 		}
 
-		if err := field.Set(uint16(u)); err != nil {
-			return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-		}
+		return convertAndSet(field, uint16(u))
 	case reflect.Uint32:
 		u, err := strconv.ParseUint(v, 10, 32)
 		if err != nil {
 			return fmt.Errorf("cannot parse value '%s' of field '%s' as uint32: %w", v, field.Name(), err)
 		}
 
-		if err := field.Set(uint32(u)); err != nil {
-			return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-		}
+		return convertAndSet(field, uint32(u))
 	case reflect.Uint64:
 		u, err := strconv.ParseUint(v, 10, 64)
 		if err != nil {
 			return fmt.Errorf("cannot parse value '%s' of field '%s' as uint64: %w", v, field.Name(), err)
 		}
 
-		if err := field.Set(u); err != nil {
-			return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
-		}
+		return convertAndSet(field, u)
 	default:
 		return fmt.Errorf("field '%s' has unsupported type: %s", field.Name(), field.Kind())
 	}
+}
 
+func convertAndSet(field *structs.Field, val any) error {
+	vValue := reflect.ValueOf(val)
+	vType := vValue.Type()
+	fieldType := reflect.ValueOf(field.Value()).Type()
+	if vType.AssignableTo(fieldType) {
+		if err := field.Set(val); err != nil {
+			return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
+		}
+	} else if vType.ConvertibleTo(fieldType) {
+		if err := field.Set(vValue.Convert(fieldType).Interface()); err != nil {
+			return fmt.Errorf("failed to set parsed value of field '%s': %w", field.Name(), err)
+		}
+	}
 	return nil
 }

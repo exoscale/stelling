@@ -20,7 +20,7 @@ github.com/coreos/go-systemd/activation
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/exoscale/multiconfig v0.0.0-20251001132748-2c6a194123e5
+# github.com/exoscale/multiconfig v0.0.0-20260223134601-625dc5777c41
 ## explicit; go 1.24
 github.com/exoscale/multiconfig
 # github.com/exoscale/stelling v0.0.0-20260126095715-2b7e9f9914a4 => ../
