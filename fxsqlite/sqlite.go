@@ -1,6 +1,7 @@
 package fxsqlite
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -39,7 +40,7 @@ func NewDB(conf DBConfig, opts ...Option) (*sql.DB, error) {
 	// If you try to open a sqlite3 db that doesn't exist and on a place where a file can't be
 	// created, sql.Open will succeed but any operation will fail. This ensure that the failure is
 	// visible at the right place
-	if err := db.Ping(); err != nil {
+	if err := db.PingContext(context.Background()); err != nil {
 		return nil, fmt.Errorf("open db %v: %w", dsn, err)
 	}
 
