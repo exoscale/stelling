@@ -34,13 +34,15 @@ func (s Secret) GoString() string {
 }
 
 func (s Secret) Format(state fmt.State, verb rune) {
+	var oChar = byte('*')
 	width, ok := state.Width()
 	if !ok {
 		width = 5
 	}
-	var oChar = byte('*')
-	if len(s) == 0 {
+	if len(s) == 0 && ok {
 		oChar = byte(' ')
+	} else if len(s) == 0 {
+		return
 	}
 	output := make([]byte, width)
 	for i := range output {
@@ -49,6 +51,6 @@ func (s Secret) Format(state fmt.State, verb rune) {
 	_, _ = state.Write(output)
 }
 
-func (s *Secret) Plaintext() string {
-	return string(*s)
+func (s Secret) Reveal() string {
+	return string(s)
 }
