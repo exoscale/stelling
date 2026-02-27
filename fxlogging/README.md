@@ -8,6 +8,10 @@ All logging will be done on `stdout`. It is assumed that any further log managem
 provided by the underlying platform. There is no support for logging to a file, rotation or shipping
 logs, etc.
 
+All logs emitted by the fx system itself are also logged via the zap Logger. In development mode
+all events are logged at Debug level, errors are logged at Error level.
+In preproduction and production mode only Error events are logged.
+
 ## Components
 The module lazily provides the following components:
 
@@ -18,20 +22,19 @@ The module lazily provides the following components:
 * GrpcServerInterceptors that embed a `*zap.Logger`, enriched with request metadata, in the context
 * GrpcClientInterceptors that set `peer.service` metadata, which are logged by the server
 
-In case special configuration of the zap Logger is needed, that is not supported by the exposed
-`LoggingConfig`, a [value group](https://uber-go.github.io/fx/value-groups/) of `zap.Option` with name
-`zap_opts` can be inserted into the system: these will be fed through to the `zap.Logger` constructor
-without modification. The included example test provides a working example of this.
+## Options
+* WithZapOption
+  Allows passing in additional options that will be fed through to the `zap.Logger` constructor without
+  modification.
+* WithFxLoggerOption
+  Allows you to further configure the logging of the fx system itself
+* WithGrpcServerInterceptorOptions and WithGrpcClientInterceptorOptions
+  Allows customization of the provided grpc interceptor loggers.
+  See [interceptor.Option](https://pkg.go.dev/github.com/exoscale/stelling/fxlogging/interceptor#Option)
+* WithGrpcClientInterceptors
+  By default the module supplies client logging interceptors. In certain high volume cases this is not
+  desirable. With this option they can be removed from the system.
 
-Similarly the grpc server and client logging interceptors can be customized by supplying a value group of
-[interceptor.Option](https://pkg.go.dev/github.com/exoscale/stelling/fxlogging/interceptor#Option)
-with the name `logging_server_interceptor_options` and `logging_client_interceptor_options` respectively.
-This allows customization of the grpc code to log level mapping and passing in a custom decider for when
-requests or their payloads should be logged.
-
-All logs emitted by the fx system itself are also logged via the zap Logger. By default all events are logged
-at Debug level, errors are logged at Error level.
-These levels can be configured by injecting an `fxlogger.Option` using the "fxlogger_opts" value group into the system.
 
 ```go
 fx.Supply(fx.Annotate(fxlogger.WithLogLevel(zapcore.InfoLevel), fx.ResultTags(`group:"fxlogger_opts"`)))

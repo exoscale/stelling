@@ -66,7 +66,7 @@ variables, which themselves override the values found in the configuration file.
 ## Secrets
 The package provides a `Secret` type that can be used instead of a string. You can deserialize any
 string value into it, but whenever you try to serialize it out it will print `'*****'`.
-The actual value is available through the `Plaintext()` method.
+The actual value is available through the `Reveal()` method.
 
 There is nothing specific to this library about this type, you can use it anywhere you want. It is
 compatible with the `fmt` functions and any well behaved data encoder and logging library.
@@ -78,7 +78,7 @@ type Config struct {
 
 conf := Config{}
 fmt.Println("API Key", conf.APIKey) // Print "API Key *****"
-api.NewClient(conf.APIKey.Plaintext())
+api.NewClient(conf.APIKey.Reveal())
 ```
 
 ## FAQ

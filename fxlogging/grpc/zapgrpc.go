@@ -49,70 +49,70 @@ type Logger struct {
 }
 
 // Info implements grpclog.LoggerV2.
-func (l *Logger) Info(args ...interface{}) {
+func (l *Logger) Info(args ...any) {
 	l.delegate.Debug(args...)
 }
 
 // Infoln implements grpclog.LoggerV2.
-func (l *Logger) Infoln(args ...interface{}) {
+func (l *Logger) Infoln(args ...any) {
 	if l.levelEnabler.Enabled(zapcore.DebugLevel) {
 		l.delegate.Debug(sprintln(args))
 	}
 }
 
 // Infof implements grpclog.LoggerV2.
-func (l *Logger) Infof(format string, args ...interface{}) {
+func (l *Logger) Infof(format string, args ...any) {
 	l.delegate.Debugf(format, args...)
 }
 
 // Warning implements grpclog.LoggerV2.
-func (l *Logger) Warning(args ...interface{}) {
+func (l *Logger) Warning(args ...any) {
 	l.delegate.Warn(args...)
 }
 
 // Warningln implements grpclog.LoggerV2.
-func (l *Logger) Warningln(args ...interface{}) {
+func (l *Logger) Warningln(args ...any) {
 	if l.levelEnabler.Enabled(zapcore.WarnLevel) {
 		l.delegate.Warn(sprintln(args))
 	}
 }
 
 // Warningf implements grpclog.LoggerV2.
-func (l *Logger) Warningf(format string, args ...interface{}) {
+func (l *Logger) Warningf(format string, args ...any) {
 	l.delegate.Warnf(format, args...)
 }
 
 // Error implements grpclog.LoggerV2.
-func (l *Logger) Error(args ...interface{}) {
+func (l *Logger) Error(args ...any) {
 	l.delegate.Error(args...)
 }
 
 // Errorln implements grpclog.LoggerV2.
-func (l *Logger) Errorln(args ...interface{}) {
+func (l *Logger) Errorln(args ...any) {
 	if l.levelEnabler.Enabled(zapcore.ErrorLevel) {
 		l.delegate.Error(sprintln(args))
 	}
 }
 
 // Errorf implements grpclog.LoggerV2.
-func (l *Logger) Errorf(format string, args ...interface{}) {
+func (l *Logger) Errorf(format string, args ...any) {
 	l.delegate.Errorf(format, args...)
 }
 
 // Fatal implements grpclog.LoggerV2.
-func (l *Logger) Fatal(args ...interface{}) {
+func (l *Logger) Fatal(args ...any) {
 	l.delegate.Fatal(args...)
 }
 
 // Fatalln implements grpclog.LoggerV2.
-func (l *Logger) Fatalln(args ...interface{}) {
+func (l *Logger) Fatalln(args ...any) {
 	if l.levelEnabler.Enabled(zapcore.FatalLevel) {
 		l.delegate.Fatal(sprintln(args))
 	}
 }
 
 // Fatalf implements grpclog.LoggerV2.
-func (l *Logger) Fatalf(format string, args ...interface{}) {
+func (l *Logger) Fatalf(format string, args ...any) {
 	l.delegate.Fatalf(format, args...)
 }
 
@@ -121,7 +121,7 @@ func (l *Logger) V(level int) bool {
 	return l.levelEnabler.Enabled(_grpcToZapLevel[level])
 }
 
-func sprintln(args []interface{}) string {
+func sprintln(args []any) string {
 	s := fmt.Sprintln(args...)
 	// Drop the new line character added by Sprintln
 	return s[:len(s)-1]
@@ -134,5 +134,5 @@ func sprintln(args []interface{}) string {
 // Because fx also ensures the logger is a singleton, this is safe to run multiple
 // times: we can embed this function in multiple modules without risk
 func SetGrpcLogger(logger *zap.Logger) {
-	grpclog.SetLoggerV2(NewLogger(logger))
+	grpclog.SetLoggerV2(NewLogger(logger.WithOptions(zap.IncreaseLevel(zap.InfoLevel))))
 }

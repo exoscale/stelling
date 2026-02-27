@@ -34,6 +34,15 @@ func WithLogLevel(lvl zapcore.Level) Option {
 	}
 }
 
+// WithMinLevel raises the minimum level of the output to the given level
+// If the output level is already higher, this is a noop
+func WithMinLevel(lvl zapcore.Level) Option {
+	return func(l *fxevent.ZapLogger) {
+		logger := l.Logger.WithOptions(zap.IncreaseLevel(lvl))
+		l.Logger = logger
+	}
+}
+
 // WithErrorLevel sets the level at which fx will log any error events that happen during system start and stop
 func WithErrorLevel(lvl zapcore.Level) Option {
 	return func(l *fxevent.ZapLogger) {

@@ -23,11 +23,14 @@ func Example() {
 		panic(err)
 	}
 	app := fx.New(fx.Options(
-		fxlogging.NewModule(conf),
-		// zapOpts contains options to make the logs determistic so we can test the output
-		// Normal programs will 90% of the time only need the standard module
-		// It does however demonstrate how additional zap options can be injected
-		fx.Supply(fx.Annotate(zapOpts, fx.ResultTags(`group:"zap_opts,flatten"`))),
+		fxlogging.NewModule(
+			conf,
+			// these options make the logs determistic so we can test the output
+			// Normal programs will 90% of the time only need the standard module
+			// It does however demonstrate how additional zap options can be injected
+			fxlogging.WithZapOption(zap.WithCaller(false)),
+			fxlogging.WithZapOption(zap.WithClock(&fixedClock{ts: 1257894000})),
+		),
 		fx.Invoke(run),
 	))
 
@@ -42,11 +45,6 @@ func Example() {
 func run(sd fx.Shutdowner, logger *zap.Logger) {
 	logger.Info("Example log")
 	sd.Shutdown() //nolint:errcheck
-}
-
-var zapOpts = []zap.Option{
-	zap.WithCaller(false),
-	zap.WithClock(&fixedClock{ts: 1257894000}),
 }
 
 type fixedClock struct {

@@ -17,38 +17,65 @@ import (
 // It also provides the following related items:
 // * Grpc middleware
 // * An adapter to log fx system events
-func NewModule(conf LoggingConfig) fx.Option {
-	return fx.Options(
-		fx.WithLogger(fxlogger.NewFxLogger),
-		fx.Module(
-			"logging",
+func NewModule(conf LoggingConfig, opts ...Option) fx.Option {
+	modConf := &moduleConfig{
+		enableGrpcClientInterceptors: true,
+	}
+	for _, opt := range opts {
+		opt(modConf)
+	}
+
+	// We're not in 'development' mode, we will raise the minimum level in the fxlogger
+	if conf.LoggingConfig().Mode != "development" {
+		modConf.fxLoggerOptions = append(modConf.fxLoggerOptions, fxlogger.WithMinLevel(zap.ErrorLevel))
+	}
+
+	module := fx.Options(
+		fx.Provide(
+			fx.Annotate(NewLogger, fx.ParamTags(``, ``, `group:"zap_opts"`)),
+			fx.Annotate(
+				NewGrpcLoggingServerInterceptors,
+				fx.ParamTags(``, `group:"logging_server_interceptor_options"`),
+				fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
+			),
+			fx.Annotate(
+				NewGrpcInjectLoggerInterceptors,
+				fx.ParamTags(``, `group:"inject_logger_interceptor_options"`),
+				fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
+			),
+			fx.Annotate(
+				NewGrpcInjectPeerInterceptors,
+				fx.ResultTags(`group:"unary_client_interceptor"`, `group:"stream_client_interceptor"`),
+			),
+		),
+		fx.Supply(
+			fx.Private,
+			fx.Annotate(conf, fx.As(new(LoggingConfig))),
+			fx.Annotate(modConf.zapOptions, fx.ResultTags(`group:"zap_opts,flatten"`)),
+			fx.Annotate(modConf.grpcServerInterceptorOptions, fx.ResultTags(`group:"logging_server_interceptor_options,flatten"`)),
+			fx.Annotate(modConf.grpcClientInterceptorOptions, fx.ResultTags(`group:"logging_client_interceptor_options,flatten"`)),
+		),
+	)
+
+	if modConf.enableGrpcClientInterceptors {
+		module = fx.Options(
+			module,
 			fx.Provide(
-				fx.Annotate(NewLogger, fx.ParamTags(``, ``, `group:"zap_opts"`)),
-				fx.Annotate(
-					NewGrpcLoggingServerInterceptors,
-					fx.ParamTags(``, `group:"logging_server_interceptor_options"`),
-					fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
-				),
 				fx.Annotate(
 					NewGrpcLoggingClientInterceptors,
 					fx.ParamTags(``, `group:"logging_client_interceptor_options"`),
 					fx.ResultTags(`group:"unary_client_interceptor"`, `group:"stream_client_interceptor"`),
 				),
-				fx.Annotate(
-					NewGrpcInjectLoggerInterceptors,
-					fx.ParamTags(``, `group:"inject_logger_interceptor_options"`),
-					fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
-				),
-				fx.Annotate(
-					NewGrpcInjectPeerInterceptors,
-					fx.ResultTags(`group:"unary_client_interceptor"`, `group:"stream_client_interceptor"`),
-				),
 			),
-			fx.Supply(
-				fx.Annotate(conf, fx.As(new(LoggingConfig))),
-				fx.Private,
-			),
+		)
+	}
+
+	return fx.Options(
+		fx.WithLogger(fxlogger.NewFxLogger),
+		fx.Supply(
+			fx.Annotate(modConf.fxLoggerOptions, fx.ResultTags(`group:"fxlogger_opts,flatten"`)),
 		),
+		fx.Module("logging", module),
 	)
 }
 
