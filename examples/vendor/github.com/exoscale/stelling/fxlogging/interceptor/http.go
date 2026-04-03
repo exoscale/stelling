@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/exoscale/stelling/fxhttp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -58,6 +59,10 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler) http.Handler {
 			if len(rUser) > 0 {
 				fields = append(fields, zap.String("X-Forwarded-User", rUser[0]))
 			}
+		}
+
+		if rpcMethod := fxhttp.RPCMethodFromContext(ctx); rpcMethod != "" {
+			fields = append(fields, zap.String("rpc.method", rpcMethod))
 		}
 
 		l := logger.With(fields...)

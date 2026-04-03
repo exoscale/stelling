@@ -47,6 +47,7 @@ func NewModule(conf LoggingConfig, opts ...Option) fx.Option {
 				NewGrpcInjectPeerInterceptors,
 				fx.ResultTags(`group:"unary_client_interceptor"`, `group:"stream_client_interceptor"`),
 			),
+			NewHttpMiddleware,
 		),
 		fx.Supply(
 			fx.Private,

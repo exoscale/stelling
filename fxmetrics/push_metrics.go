@@ -27,6 +27,7 @@ func NewPushModule(conf PushMetricsConfig) fx.Option {
 			NewPrometheusRegistry,
 			NewGrpcServerInterceptors,
 			NewGrpcClientInterceptors,
+			NewHttpMiddleware,
 		),
 		fx.Provide(
 			func(m PushMetricsConfig) MetricsConfig { return m },

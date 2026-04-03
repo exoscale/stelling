@@ -35,7 +35,6 @@ func Example() {
 			zap.NewNop,
 			newMux,
 		),
-		fx.Invoke(registerHandler),
 		// We explicitly need to invoke this, because ordering matters
 		fx.Invoke(fxhttp.StartHttpServer),
 		fx.Invoke(run),
@@ -51,18 +50,14 @@ func Example() {
 	// Endpoint returned correct data true
 }
 
-func newMux() *http.ServeMux {
+func newMux() http.Handler {
+	// You probably want to request a slice of routes here
+	// So you can set them on the mux
 	mux := http.NewServeMux()
 	mux.HandleFunc("/foo", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("Hello Stelling"))
 	})
 	return mux
-}
-
-func registerHandler(s *http.Server, mux *http.ServeMux) {
-	// You probably want to request a slice of routes here
-	// And then create the mux in this function and set it to the server
-	s.Handler = mux
 }
 
 func run(lc fx.Lifecycle, sd fx.Shutdowner) {

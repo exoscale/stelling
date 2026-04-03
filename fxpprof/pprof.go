@@ -12,6 +12,7 @@ import (
 
 	"github.com/exoscale/stelling/fxhttp"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -32,11 +33,14 @@ func NewModule(conf PprofConfig) fx.Option {
 			"pprof",
 			fx.Supply(fx.Annotate(conf, fx.As(new(PprofConfig))), fx.Private),
 			fxhttp.NewModule(&conf.PprofConfig().Server, fxhttp.WithServerModuleName("pprof")),
+			fx.Provide(
+				fx.Private,
+				fx.Annotate(NewPprofProfilerHandler, fx.ResultTags(`name:"pprof"`)),
+			),
+			fx.Decorate(func(logger *zap.Logger) *zap.Logger {
+				return logger.Named("pprof")
+			}),
 			fx.Invoke(
-				fx.Annotate(
-					InitPprofProfiler,
-					fx.ParamTags(`name:"pprof"`),
-				),
 				fx.Annotate(
 					fxhttp.StartHttpServer,
 					fx.ParamTags("", `name:"pprof"`, ""),
@@ -114,7 +118,7 @@ func InvokeRuntimePprof(lc fx.Lifecycle, conf PprofConfig) error {
 	return nil
 }
 
-func InitPprofProfiler(server *http.Server) {
+func NewPprofProfilerHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
@@ -122,5 +126,5 @@ func InitPprofProfiler(server *http.Server) {
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
-	server.Handler = mux
+	return mux
 }

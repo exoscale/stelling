@@ -26,6 +26,7 @@ func NewOtlpModule(conf OtlpMetricsConfig) fx.Option {
 			NewOtlpMeterProvider,
 			NewGrpcServerInterceptors,
 			NewGrpcClientInterceptors,
+			NewHttpMiddleware,
 		),
 		fx.Invoke(InvokeOtlpMeterProvider),
 	)
