@@ -24,7 +24,7 @@ github.com/davecgh/go-spew/spew
 ## explicit; go 1.24
 github.com/exoscale/multiconfig
 # github.com/exoscale/stelling v0.0.0-20260126095715-2b7e9f9914a4 => ../
-## explicit; go 1.25.8
+## explicit; go 1.25.9
 github.com/exoscale/stelling/config
 github.com/exoscale/stelling/fxcert-reloader
 github.com/exoscale/stelling/fxgrpc
