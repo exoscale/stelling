@@ -25,6 +25,7 @@ The module lazily provides the following components:
 * A `*prometheus.Registry`
 * GrpcServerInterceptors that count all incoming requests by method and status
 * GrpcClientInterceptors that count all requests made with the client by method and status
+* HttpMiddleware that count all incoming requests by method and status
 
 It starts an additional webserver exposing the prometheus endpoint.
 
@@ -37,6 +38,7 @@ The module lazily provides the following components:
 * A `metric.MeterProvider` (allows you to define metrics with the otel sdk)
 * GrpcServerInterceptors that count all incoming requests by method and status
 * GrpcClientInterceptors that count all requests made with the client by method and status
+* HttpMiddleware that count all incoming requests by method and status
 
 It adds hooks to push the metrics when the system stops and at regular intervals during runtime.
 
@@ -56,6 +58,7 @@ The module lazily provides the following components:
 * A `*prometheus.Registry`
 * GrpcServerInterceptors that count all incoming requests by method and status
 * GrpcClientInterceptors that count all requests made with the client by method and status
+* HttpMiddleware that count all incoming requests by method and status
 
 It adds hooks to push the metrics when the system stops and at regular intervals during runtime.
 

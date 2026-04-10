@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"slices"
 	"time"
 
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
@@ -15,7 +16,8 @@ import (
 )
 
 type serverModuleOpts struct {
-	name string
+	name   string
+	mapper func(*http.Request) string
 }
 
 type serverModuleOption func(*serverModuleOpts)
@@ -24,6 +26,14 @@ type serverModuleOption func(*serverModuleOpts)
 func WithServerModuleName(name string) serverModuleOption {
 	return func(o *serverModuleOpts) {
 		o.name = name
+	}
+}
+
+// WithRPCMethodMapper adds a function that maps request to the name of the rpc.method
+// This information is used by various observability modules to annotate the data
+func WithRPCMethodMapper(mapper func(*http.Request) string) serverModuleOption {
+	return func(o *serverModuleOpts) {
+		o.mapper = mapper
 	}
 }
 
@@ -46,33 +56,49 @@ func NewModule(conf ServerConfig, sOpts ...serverModuleOption) fx.Option {
 		o(modOpts)
 	}
 
-	opts := fx.Options(
-		fx.Supply(
-			fx.Annotate(conf, fx.As(new(ServerConfig))),
-			fx.Private,
-		),
-	)
+	opts := fx.Options()
+	if modOpts.mapper != nil {
+		opts = fx.Options(
+			fx.Supply(RPCMethodMapper(modOpts.mapper)),
+		)
+	}
 	if modOpts.name == "" {
 		opts = fx.Options(
 			opts,
+			fx.Supply(
+				fx.Annotate(conf, fx.As(new(ServerConfig))),
+				fx.Private,
+			),
 			fx.Provide(
-				fx.Annotate(NewHTTPServer, fx.ParamTags(``, ``, `optional:"true"`)),
+				fx.Annotate(NewHTTPServer, fx.ParamTags(``, ``, `optional:"true"`, ``, `group:"http_middleware"`)),
 				newServer,
+				fx.Annotate(
+					NewInjectRPCMethodMiddleware,
+					fx.ParamTags(`optional:"true"`),
+					fx.ResultTags(`group:"http_middleware"`),
+				),
 			),
 		)
 	} else {
 		nameTag := fmt.Sprintf("name:\"%s\"", modOpts.name)
 		opts = fx.Options(
 			opts,
+			fx.Supply(
+				fx.Annotate(conf, fx.As(new(ServerConfig)), fx.ResultTags(nameTag)),
+				fx.Private,
+			),
 			fx.Provide(
 				fx.Annotate(
 					NewHTTPServer,
-					fx.ParamTags(``, ``, `optional:"true"`),
+					// We only want to add the middleware to the "main" http server
+					// So we request a different group when a named server is created: this will ensure we always
+					// receive an empty middleware list
+					fx.ParamTags(``, nameTag, `optional:"true"`, nameTag, `group:"empty_http_middleware"`),
 					fx.ResultTags(nameTag),
 				),
 				fx.Annotate(
 					newServer,
-					fx.ParamTags(nameTag, ""),
+					fx.ParamTags(nameTag, nameTag),
 					fx.ResultTags(nameTag),
 				),
 			),
@@ -88,7 +114,11 @@ func NewModule(conf ServerConfig, sOpts ...serverModuleOption) fx.Option {
 			),
 		)
 	}
-	return fx.Module("http", opts)
+	moduleName := "http"
+	if modOpts.name != "" {
+		moduleName = fmt.Sprintf("%s-%s", modOpts.name, moduleName)
+	}
+	return fx.Module(moduleName, opts)
 }
 
 // NewNamedModule adds a named http server to the system
@@ -168,7 +198,7 @@ func NewListener(ctx context.Context, socketName string, addr string) (net.Liste
 	}
 }
 
-func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, r *reloader.CertReloader) (*http.Server, error) {
+func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, r *reloader.CertReloader, handler http.Handler, middleware []*Middleware) (*http.Server, error) {
 	server := &http.Server{}
 
 	if conf.HttpServerConfig().TLS {
@@ -178,6 +208,13 @@ func NewHTTPServer(lc fx.Lifecycle, conf ServerConfig, r *reloader.CertReloader)
 		}
 		server.TLSConfig = tlsConf
 	}
+
+	middleware = slices.DeleteFunc(middleware, func(a *Middleware) bool { return a == nil })
+	slices.SortFunc(middleware, func(a, b *Middleware) int { return b.Weight - a.Weight })
+	for _, mw := range middleware {
+		handler = mw.Handler(handler)
+	}
+	server.Handler = handler
 
 	return server, nil
 }
@@ -214,4 +251,47 @@ func StartHttpServer(lc fx.Lifecycle, s *server, logger *zap.Logger) {
 			return s.server.Shutdown(ctx)
 		},
 	})
+}
+
+type Middleware struct {
+	Handler func(http.Handler) http.Handler
+	Weight  int
+}
+
+// RPCMethodMapper returns a fully qualified rpc method name for a given http request
+type RPCMethodMapper func(req *http.Request) string
+
+type rpcMethodContextKey struct{}
+
+var rpcMethodCtxKey *rpcMethodContextKey = &rpcMethodContextKey{}
+
+func NewInjectRPCMethodMiddleware(mapper RPCMethodMapper) *Middleware {
+	if mapper == nil {
+		return nil
+	}
+	return &Middleware{
+		Handler: func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if rpcMethod := mapper(r); rpcMethod != "" {
+					r = r.WithContext(injectRPCMethod(r.Context(), rpcMethod))
+				}
+				next.ServeHTTP(w, r)
+			})
+		},
+		Weight: 10,
+	}
+}
+
+func injectRPCMethod(ctx context.Context, rpcMethod string) context.Context {
+	return context.WithValue(ctx, rpcMethodCtxKey, rpcMethod)
+}
+
+// RPCMethodFromContext returns the current rpc.method stored in the context
+// Returns the empty string if not present
+func RPCMethodFromContext(ctx context.Context) string {
+	rpcMethod, ok := ctx.Value(rpcMethodCtxKey).(string)
+	if !ok {
+		return ""
+	}
+	return rpcMethod
 }

@@ -1,6 +1,10 @@
 package server
 
-import pb "google.golang.org/grpc/examples/route_guide/routeguide"
+import (
+	"net/http"
+
+	pb "google.golang.org/grpc/examples/route_guide/routeguide"
+)
 
 type RouteGuideServer struct {
 	pb.UnimplementedRouteGuideServer
@@ -11,4 +15,17 @@ type RouteGuideServer struct {
 // (fx cannot automatically cast a struct to the interfaces it implements)
 func NewServer() pb.RouteGuideServer {
 	return &RouteGuideServer{}
+}
+
+// NewHttpMux provides a handler for an http.Server
+func NewHttpMux() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	return mux
+}
+
+func RpcMapper(req *http.Request) string {
+	return "get-health"
 }

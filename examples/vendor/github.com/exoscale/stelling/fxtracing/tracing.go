@@ -2,15 +2,20 @@ package fxtracing
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 
 	"github.com/exoscale/stelling/fxgrpc"
+	"github.com/exoscale/stelling/fxhttp"
 	"github.com/go-logr/zapr"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/fx"
@@ -28,6 +33,7 @@ func NewModule(conf TracingConfig) fx.Option {
 			NewTracerProvider,
 			NewClientStatsHandler,
 			NewServerStatsHandler,
+			NewHttpMiddleware,
 		),
 	)
 }
@@ -194,4 +200,52 @@ func NewClientStatsHandler(tracerProvider trace.TracerProvider) ClientStatsHandl
 	return ClientStatsHandlerResult{
 		Handler: handler,
 	}
+}
+
+type HttpMiddlewareResult struct {
+	fx.Out
+
+	Middleware *fxhttp.Middleware `group:"http_middleware"`
+}
+
+func NewHttpMiddleware(tracerProvider trace.TracerProvider) HttpMiddlewareResult {
+	propagator := propagation.NewCompositeTextMapPropagator(
+		propagation.Baggage{},
+		propagation.TraceContext{},
+	)
+
+	mw := func(next http.Handler) http.Handler {
+		injectedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			if rpcMethod := fxhttp.RPCMethodFromContext(ctx); rpcMethod != "" {
+				trace.SpanFromContext(ctx).SetAttributes(semconv.RPCMethod(rpcMethod))
+			}
+			next.ServeHTTP(w, r)
+		})
+
+		return otelhttp.NewHandler(
+			injectedHandler,
+			"",
+			otelhttp.WithTracerProvider(tracerProvider),
+			otelhttp.WithPropagators(propagator),
+			otelhttp.WithSpanNameFormatter(httpSpanNameFormatter),
+		)
+	}
+
+	return HttpMiddlewareResult{
+		Middleware: &fxhttp.Middleware{
+			Handler: mw,
+			Weight:  20,
+		}}
+}
+
+func httpSpanNameFormatter(_ string, req *http.Request) string {
+	method := req.Method
+	if rpcMethod := fxhttp.RPCMethodFromContext(req.Context()); rpcMethod != "" {
+		return fmt.Sprintf("%s %s", method, rpcMethod)
+	}
+	if route := req.Pattern; route != "" {
+		return fmt.Sprintf("%s %s", method, route)
+	}
+	return method
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/reflection"
 )
@@ -22,12 +23,19 @@ func NewModule(conf MetricsConfig) fx.Option {
 		fx.Supply(fx.Annotate(conf, fx.As(new(MetricsConfig))), fx.Private),
 		fxhttp.NewModule(&conf.MetricsConfig().Server, fxhttp.WithServerModuleName("metrics")),
 		fx.Provide(
+			fx.Private,
+			fx.Annotate(NewMetricsHandlers, fx.ResultTags(`name:"metrics"`)),
+		),
+		fx.Provide(
 			NewPrometheusRegistry,
 			NewGrpcServerInterceptors,
 			NewGrpcClientInterceptors,
+			NewHttpMiddleware,
 		),
+		fx.Decorate(func(logger *zap.Logger) *zap.Logger {
+			return logger.Named("metrics")
+		}),
 		fx.Invoke(
-			RegisterMetricsHandlers,
 			fx.Annotate(fxhttp.StartHttpServer, fx.ParamTags("", `name:"metrics"`, "")),
 		),
 	)
@@ -73,14 +81,13 @@ func (m *Metrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 type RegisterParams struct {
 	fx.In
 
-	Reg    *prometheus.Registry
-	Server *http.Server `name:"metrics"`
+	Reg *prometheus.Registry
 }
 
-func RegisterMetricsHandlers(p RegisterParams) {
+func NewMetricsHandlers(p RegisterParams) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(p.Reg, promhttp.HandlerOpts{}))
-	p.Server.Handler = mux
+	return mux
 }
 
 type GrpcServerInterceptorParams struct {
