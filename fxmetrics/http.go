@@ -29,7 +29,7 @@ func NewHttpMetrics() *HttpMetrics {
 		handledHistogram: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Name:    "http_server_handling_seconds",
 			Help:    "Histogram of response latency (seconds) of HTTP server requests",
-			Buckets: []float64{0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064, 0.128, 0.256, 0.512, 1.024, 2.048, 4.096, 8.192},
+			Buckets: metricBuckets,
 		}, []string{"code", "method", "rpc_method"}),
 	}
 }
