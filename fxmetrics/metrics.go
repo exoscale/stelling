@@ -111,7 +111,12 @@ const GrpcInterceptorWeight = 60
 func NewGrpcServerInterceptors(p GrpcServerInterceptorParams) (GrpcServerInterceptorsResult, error) {
 	opts := []grpc_prometheus.ServerMetricsOption{}
 	if p.Conf.MetricsConfig().Histograms {
-		opts = append(opts, grpc_prometheus.WithServerHandlingTimeHistogram(p.HistogramOps...))
+		opts = append(opts,
+			grpc_prometheus.WithServerHandlingTimeHistogram(
+				append([]grpc_prometheus.HistogramOption{
+					grpc_prometheus.WithHistogramBuckets(metricBuckets)},
+					p.HistogramOps...)...,
+			))
 	}
 	serverMetrics := grpc_prometheus.NewServerMetrics(opts...)
 	if err := p.Reg.Register(serverMetrics); err != nil {
