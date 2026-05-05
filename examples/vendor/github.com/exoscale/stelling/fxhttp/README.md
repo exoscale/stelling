@@ -33,7 +33,7 @@ The module will also use `CertficateReloader` in case the configuration specifie
 
 ## Configuration
 The module provides the following configuration options:
-* `Address`: The address + port on which the http server will bind
+* `Address`: The address + port, or a unix filepath, on which the http server will bind
 * `TLS`: A boolean indicating that the server must expose using TLS
 * `CertFile`: Path to the pem encoded server TLS certificate
 * `KeyFile`: Path to the pem encoded private key of the server TLS certificate

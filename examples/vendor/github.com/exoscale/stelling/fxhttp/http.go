@@ -3,10 +3,13 @@ package fxhttp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"slices"
+	"strings"
 	"time"
 
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
@@ -148,7 +151,8 @@ type Server struct {
 	// just one socket
 	SocketName string
 	// Address is the address+port the server will bind to, as passed to net.Listen
-	Address string `default:"localhost:8080"`
+	// If the Address starts with a / we will create unix domainsocket listener
+	Address string `default:"localhost:8080" validate:"tcp_addr|unix_addr"`
 	// TLS indicates whether the http server exposes with TLS
 	TLS bool
 	// CertFile is the path to the pem encoded TLS certificate
@@ -194,6 +198,13 @@ func NewListener(ctx context.Context, socketName string, addr string) (net.Liste
 		return NamedSocketListener(socketName)
 	} else {
 		var lc net.ListenConfig
+		if strings.HasPrefix(addr, "/") || strings.HasPrefix(addr, ".") {
+			// Remove the previous socket in case one was left behind by an abrupt process termination
+			if err := os.Remove(addr); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return nil, err
+			}
+			return lc.Listen(ctx, "unix", addr)
+		}
 		return lc.Listen(ctx, "tcp", addr)
 	}
 }

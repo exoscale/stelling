@@ -6,7 +6,7 @@ require (
 	github.com/exoscale/stelling v0.0.0-20260126095715-2b7e9f9914a4
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/fx v1.24.0
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 	google.golang.org/grpc/examples v0.0.0-20260220101807-19e41284feb7
 )
 

@@ -32,7 +32,8 @@ type Server struct {
 	// just one socket
 	SocketName string
 	// Address is the address+port the server will bind to, as passed to net.Listen
-	Address string `default:"localhost:8080"`
+	// If the Address starts with a / we will create unix domainsocket listener
+	Address string `default:"localhost:8080" validate:"tcp_addr|unix_addr"`
 	// TLS indicates whether the http server exposes with TLS
 	TLS bool
 	// CertFile is the path to the pem encoded TLS certificate
@@ -229,6 +230,13 @@ func NewGrpcServer(p GrpcServerParams) (*grpc.Server, error) {
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			// See: https://github.com/grpc/grpc-go/blob/8389ddb30539e08e45391650f8c249bd8a57ffc3/internal/transport/http2_server.go#L229-L239
 			Time: time.Duration(math.MaxInt64), // Disables TCP_USER_TIMEOUT
+
+			// Tell the client to cycle the underlying tcp connection after 10 minutes.  This ensure
+			// that the client regularly issues DNS lookup, which is crucial for client that do
+			// DNS-based loadbalancing via consul SRV records.
+			// We let MaxConnectionGraceAge to its default of infinity so it'll not disrupt &
+			// shutdown long-lived http2 streams.
+			MaxConnectionAge: 10 * time.Minute,
 		}),
 	}
 	serverConf := p.Conf.GrpcServerConfig()
