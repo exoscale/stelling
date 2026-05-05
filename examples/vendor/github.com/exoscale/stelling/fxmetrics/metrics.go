@@ -111,7 +111,12 @@ const GrpcInterceptorWeight = 60
 func NewGrpcServerInterceptors(p GrpcServerInterceptorParams) (GrpcServerInterceptorsResult, error) {
 	opts := []grpc_prometheus.ServerMetricsOption{}
 	if p.Conf.MetricsConfig().Histograms {
-		opts = append(opts, grpc_prometheus.WithServerHandlingTimeHistogram(p.HistogramOps...))
+		opts = append(opts,
+			grpc_prometheus.WithServerHandlingTimeHistogram(
+				append([]grpc_prometheus.HistogramOption{
+					grpc_prometheus.WithHistogramBuckets(metricBuckets)},
+					p.HistogramOps...)...,
+			))
 	}
 	serverMetrics := grpc_prometheus.NewServerMetrics(opts...)
 	if err := p.Reg.Register(serverMetrics); err != nil {
@@ -142,9 +147,26 @@ type GrpcClientInterceptorsResult struct {
 	*fxgrpc.StreamClientInterceptor `group:"stream_client_interceptor"`
 }
 
-func NewGrpcClientInterceptors(reg *prometheus.Registry) (GrpcClientInterceptorsResult, error) {
-	clientMetrics := grpc_prometheus.NewClientMetrics()
-	if err := reg.Register(clientMetrics); err != nil {
+type GrpcClientInterceptorParams struct {
+	fx.In
+
+	Conf         MetricsConfig
+	Reg          *prometheus.Registry
+	HistogramOps []grpc_prometheus.HistogramOption `optional:"true"`
+}
+
+func NewGrpcClientInterceptors(p GrpcClientInterceptorParams) (GrpcClientInterceptorsResult, error) {
+	opts := []grpc_prometheus.ClientMetricsOption{}
+	if p.Conf.MetricsConfig().Histograms {
+		opts = append(opts,
+			grpc_prometheus.WithClientHandlingTimeHistogram(
+				append([]grpc_prometheus.HistogramOption{
+					grpc_prometheus.WithHistogramBuckets(metricBuckets)},
+					p.HistogramOps...)...,
+			))
+	}
+	clientMetrics := grpc_prometheus.NewClientMetrics(opts...)
+	if err := p.Reg.Register(clientMetrics); err != nil {
 		return GrpcClientInterceptorsResult{}, err
 	}
 	return GrpcClientInterceptorsResult{
