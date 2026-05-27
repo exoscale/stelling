@@ -39,28 +39,32 @@ type TokenExtractor interface {
 	Extract(ctx context.Context, md map[string][]string) (*oidc.IDToken, error)
 }
 
-type celAuthorizer struct {
+type authorizer struct {
 	authTokenFormat TokenFormat
 	rule            cel.Program
 	tokenExtractor  TokenExtractor
 	requireToken    bool
 }
 
-type celAuthorizerOption func(*celAuthorizer)
+type grpcAuthorizer struct {
+	authorizer
+}
+
+type authorizerOption func(*authorizer)
 
 // WithTokenExtractor will populate the request.jwt field with the IDToken produced by the extractor
 // If requireToken is set, the request will be denied if token extraction fails, without evaluating the policy
 // If requireToken is false, JWT will be nil if token extraction fails and the policy will be evaluated
-func WithTokenExtractor(te TokenExtractor, requireToken bool) celAuthorizerOption {
-	return func(ca *celAuthorizer) {
+func WithTokenExtractor(te TokenExtractor, requireToken bool) authorizerOption {
+	return func(ca *authorizer) {
 		ca.authTokenFormat = TokenFormatJWT
 		ca.tokenExtractor = te
 		ca.requireToken = requireToken
 	}
 }
 
-// compileCelProgram compiles the given expression in the context of a GrpcRequest
-func compileCelProgram(rule string) (cel.Program, error) {
+// compileGrpcCelProgram compiles the given expression in the context of a GrpcRequest
+func compileGrpcCelProgram(rule string) (cel.Program, error) {
 	env, err := cel.NewEnv(
 		cel.Types(new(schema.GrpcRequest)),
 		cel.VariableDecls(decls.NewVariable("request", types.NewObjectType("exoscale.rpc.authorizer.v1.GrpcRequest"))),
@@ -75,26 +79,28 @@ func compileCelProgram(rule string) (cel.Program, error) {
 	return env.Program(ast)
 }
 
-// NewCelAuthorizer produces an Authorizer that can evaluate a CEL policy over Grpc requests
+// NewGrpcAuthorizer produces an Authorizer that can evaluate a CEL policy over Grpc requests
 // The rule must evaluate to a bool
-func NewCelAuthorizer(rule string, opts ...celAuthorizerOption) (*celAuthorizer, error) {
-	program, err := compileCelProgram(rule)
+func NewGrpcAuthorizer(rule string, opts ...authorizerOption) (*grpcAuthorizer, error) {
+	program, err := compileGrpcCelProgram(rule)
 	if err != nil {
 		return nil, err
 	}
-	output := &celAuthorizer{
-		authTokenFormat: TokenFormatNone,
-		rule:            program,
+	output := &grpcAuthorizer{
+		authorizer: authorizer{
+			authTokenFormat: TokenFormatNone,
+			rule:            program,
+		},
 	}
 	for _, opt := range opts {
-		opt(output)
+		opt(&output.authorizer)
 	}
 	return output, nil
 }
 
 // Check evaluates the configured policy over a request
 // If the check fails, the error will contain detailed information about why the evaluation failed
-func (a *celAuthorizer) Check(ctx context.Context, service string, method string) (bool, error) {
+func (a *grpcAuthorizer) Check(ctx context.Context, service string, method string) (bool, error) {
 	req := &schema.GrpcRequest{
 		Service: service,
 		Method:  method,
