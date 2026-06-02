@@ -59,7 +59,7 @@ func TestParseTokenFormat(t *testing.T) {
 	}
 }
 
-func TestCompileCelProgram(t *testing.T) {
+func TestCompileGrpcCelProgram(t *testing.T) {
 	cases := []struct {
 		name    string
 		input   string
@@ -84,7 +84,7 @@ func TestCompileCelProgram(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			output, err := compileCelProgram(tc.input)
+			output, err := compileGrpcCelProgram(tc.input)
 			if tc.isError {
 				require.Error(t, err)
 			} else {
@@ -107,15 +107,15 @@ func (te *testExtractor) Extract(ctx context.Context, md map[string][]string) (*
 	return te.token, nil
 }
 
-func TestNewCelAuthorizer(t *testing.T) {
+func TestNewGrpcAuthorizer(t *testing.T) {
 	t.Run("Should return an error when the CEL rule is invalid", func(t *testing.T) {
-		output, err := NewCelAuthorizer("foobar")
+		output, err := NewGrpcAuthorizer("foobar")
 		require.Nil(t, output)
 		require.Error(t, err)
 	})
 
 	t.Run("Should return an authorizer with correct defaults", func(t *testing.T) {
-		output, err := NewCelAuthorizer("true")
+		output, err := NewGrpcAuthorizer("true")
 		require.NoError(t, err)
 
 		require.Equal(t, TokenFormatNone, output.authTokenFormat)
@@ -127,7 +127,7 @@ func TestNewCelAuthorizer(t *testing.T) {
 	t.Run("Should apply WithTokenExtractor option", func(t *testing.T) {
 		te := &testExtractor{}
 
-		output, err := NewCelAuthorizer("true", WithTokenExtractor(te, true))
+		output, err := NewGrpcAuthorizer("true", WithTokenExtractor(te, true))
 		require.NoError(t, err)
 
 		require.Equal(t, TokenFormatJWT, output.authTokenFormat)
@@ -165,7 +165,7 @@ func makeCert(tb testing.TB, name string) *x509.Certificate {
 	}
 }
 
-func TestCelAuthorizerCheck(t *testing.T) {
+func TestGrpcAuthorizerCheck(t *testing.T) {
 	cases := []struct {
 		name         string
 		rule         string
@@ -296,7 +296,7 @@ func TestCelAuthorizerCheck(t *testing.T) {
 				ctx = metadata.NewIncomingContext(ctx, tc.md)
 			}
 
-			opts := []celAuthorizerOption{}
+			opts := []authorizerOption{}
 			if tc.token != nil {
 				var te *testExtractor
 				if tc.tokenError == "" {
@@ -307,7 +307,7 @@ func TestCelAuthorizerCheck(t *testing.T) {
 				opts = append(opts, WithTokenExtractor(te, tc.requireToken))
 			}
 
-			authorizer, err := NewCelAuthorizer(tc.rule, opts...)
+			authorizer, err := NewGrpcAuthorizer(tc.rule, opts...)
 			require.NoError(t, err)
 
 			output, err := authorizer.Check(ctx, tc.service, tc.method)
@@ -322,23 +322,23 @@ func TestCelAuthorizerCheck(t *testing.T) {
 	}
 }
 
-func BenchmarkCelAuthorizerCheck(b *testing.B) {
+func BenchmarkGrpcAuthorizerCheck(b *testing.B) {
 	rule := "request.service == \"gprc.health.v1.Health\" || request.tls.subject.common_name == \"root-api.root-api.pod\""
 	cert := makeCert(b, "root-api.root-api.pod")
 	authInfo := credentials.TLSInfo{State: tls.ConnectionState{PeerCertificates: []*x509.Certificate{cert}}}
 	ctx := peer.NewContext(context.Background(), &peer.Peer{AuthInfo: authInfo})
 
-	authorizer, err := NewCelAuthorizer(rule)
+	authorizer, err := NewGrpcAuthorizer(rule)
 	require.NoError(b, err)
 	for i := 0; i < b.N; i++ {
 		authorizer.Check(ctx, "ExtentService", "WriteExtent") //nolint:errcheck
 	}
 }
 
-func BenchmarkCelAuthorizerCheckConcurrent(b *testing.B) {
+func BenchmarkGprcAuthorizerCheckConcurrent(b *testing.B) {
 	rule := "request.service == \"gprc.health.v1.Health\" || request.tls.subject.common_name == \"root-api.root-api.pod\""
 	cert := makeCert(b, "root-api.root-api.pod")
-	authorizer, err := NewCelAuthorizer(rule)
+	authorizer, err := NewGrpcAuthorizer(rule)
 	require.NoError(b, err)
 
 	b.RunParallel(func(pb *testing.PB) {

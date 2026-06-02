@@ -64,11 +64,11 @@ message GrpcRequest {
 
 message HttpRequest {
   // The HTTP request method, such as `GET`, `POST`
-  string method = 1;
+  string http_method = 1;
 
   // The HTTP request headers. Header names are made canonical
   // by golangs net/http.CanonicalHeaderKey
-  map<string, string> headers = 2;
+  map<string, HeaderValues> headers = 2;
 
   // The HTTP URL path
   string path = 3;
@@ -97,4 +97,7 @@ message HttpRequest {
 
   // The jwt passed into the request. May be absent.
   JWT jwt = 10;
+
+  // The openapi 'command'. May be absent
+  string method = 11;
 }

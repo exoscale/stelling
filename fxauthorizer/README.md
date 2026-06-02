@@ -21,6 +21,7 @@ This provides a flexible environment that allows expressing a wide variety of po
 ## Components
 
 * GrpcServerInterceptors that evaluate the given policy on each request
+* Http Middleware that evaluates the given policy on each request
 
 ## Configuration file
 The module supports the following configuration options:
@@ -42,5 +43,4 @@ protocols. For the most up to date definitions check [schema/schema.proto](./sch
     ```
 
 ## Roadmap
-* HTTP middleware
 * Hot reloading policies
