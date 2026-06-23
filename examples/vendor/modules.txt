@@ -24,7 +24,7 @@ github.com/davecgh/go-spew/spew
 ## explicit; go 1.24
 github.com/exoscale/multiconfig
 # github.com/exoscale/stelling v0.0.0-20260126095715-2b7e9f9914a4 => ../
-## explicit; go 1.25.9
+## explicit; go 1.25.11
 github.com/exoscale/stelling/config
 github.com/exoscale/stelling/fxcert-reloader
 github.com/exoscale/stelling/fxgrpc
@@ -280,10 +280,10 @@ go.uber.org/zap/zapcore
 # go.yaml.in/yaml/v2 v2.4.3
 ## explicit; go 1.15
 go.yaml.in/yaml/v2
-# golang.org/x/crypto v0.48.0
-## explicit; go 1.24.0
+# golang.org/x/crypto v0.51.0
+## explicit; go 1.25.0
 golang.org/x/crypto/sha3
-# golang.org/x/net v0.51.0
+# golang.org/x/net v0.55.0
 ## explicit; go 1.25.0
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
@@ -293,15 +293,15 @@ golang.org/x/net/internal/httpcommon
 golang.org/x/net/internal/httpsfv
 golang.org/x/net/internal/timeseries
 golang.org/x/net/trace
-# golang.org/x/sys v0.41.0
-## explicit; go 1.24.0
+# golang.org/x/sys v0.45.0
+## explicit; go 1.25.0
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-# golang.org/x/text v0.34.0
-## explicit; go 1.24.0
+# golang.org/x/text v0.37.0
+## explicit; go 1.25.0
 golang.org/x/text/cases
 golang.org/x/text/internal
 golang.org/x/text/internal/language
