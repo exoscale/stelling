@@ -32,6 +32,9 @@ The module lazily provides the following components:
 * WithGrpcServerInterceptorOptions and WithGrpcClientInterceptorOptions
   Allows customization of the provided grpc interceptor loggers.
   See [interceptor.Option](https://pkg.go.dev/github.com/exoscale/stelling/fxlogging/interceptor#Option)
+* WithHTTPInterceptorOptions
+  Allows customization of the provided HTTP request logger.
+  See [interceptor.HTTPOption](https://pkg.go.dev/github.com/exoscale/stelling/fxlogging/interceptor#HTTPOption)
 * WithGrpcClientInterceptors
   By default the module supplies client logging interceptors. In certain high volume cases this is not
   desirable. With this option they can be removed from the system.
