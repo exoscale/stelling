@@ -21,7 +21,7 @@ The module lazily provides the following components:
 * GrpcClientInterceptors that log all requests made with the client
 * GrpcServerInterceptors that embed a `*zap.Logger`, enriched with request metadata, in the context
 * GrpcClientInterceptors that set `peer.service` metadata, which are logged by the server
-* HttpMiddleware that logs all incoming requests on the server
+* HttpMiddleware that logs all incoming requests on the server. If present, the `x-request-id` header is logged as `request_id`.
 
 ## Options
 * WithZapOption

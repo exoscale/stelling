@@ -1,6 +1,7 @@
 package interceptor
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -28,10 +29,10 @@ func withTestRequestLogger(t *testing.T, cb func(handler http.Handler, logs *obs
 }
 
 func TestRequestLogger(t *testing.T) {
-	t.Run("Should enrich logger with headerFields", func(t *testing.T) {
+	t.Run("Should enrich logger with request id header", func(t *testing.T) {
 		rid := uuid.NewString()
 		run := func(handler http.Handler, logs *observer.ObservedLogs) {
-			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 			req.Header.Set("x-request-id", rid)
 			rr := httptest.NewRecorder()
 
@@ -47,15 +48,35 @@ func TestRequestLogger(t *testing.T) {
 			require.Contains(t, requestLog.ContextMap(), "request_id")
 			require.Equal(t, rid, requestLog.ContextMap()["request_id"])
 		}
+		withTestRequestLogger(t, run)
+	})
+
+	t.Run("Should enrich logger with headerFields", func(t *testing.T) {
+		rid := uuid.NewString()
+		run := func(handler http.Handler, logs *observer.ObservedLogs) {
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
+			req.Header.Set("x-correlation-id", rid)
+			rr := httptest.NewRecorder()
+
+			handler.ServeHTTP(rr, req)
+
+			handlerLog := requireLogMessage(t, logs.AllUntimed(), "handler log")
+			require.Contains(t, handlerLog.ContextMap(), "correlation_id")
+			require.Equal(t, rid, handlerLog.ContextMap()["correlation_id"])
+
+			requestLog := requireLogMessage(t, logs.AllUntimed(), "Handled request")
+			require.Contains(t, requestLog.ContextMap(), "correlation_id")
+			require.Equal(t, rid, requestLog.ContextMap()["correlation_id"])
+		}
 		headerFields := map[string]string{
-			"x-request-id": "request_id",
+			"x-correlation-id": "correlation_id",
 		}
 		withTestRequestLogger(t, run, WithHTTPHeaderFields(headerFields))
 	})
 
-	t.Run("Should not enrich logger when configured header is missing", func(t *testing.T) {
+	t.Run("Should not enrich logger when request id header is missing", func(t *testing.T) {
 		run := func(handler http.Handler, logs *observer.ObservedLogs) {
-			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 			rr := httptest.NewRecorder()
 
 			handler.ServeHTTP(rr, req)
@@ -66,10 +87,7 @@ func TestRequestLogger(t *testing.T) {
 			requestLog := requireLogMessage(t, logs.AllUntimed(), "Handled request")
 			require.NotContains(t, requestLog.ContextMap(), "request_id")
 		}
-		headerFields := map[string]string{
-			"x-request-id": "request_id",
-		}
-		withTestRequestLogger(t, run, WithHTTPHeaderFields(headerFields))
+		withTestRequestLogger(t, run)
 	})
 }
 

@@ -66,6 +66,10 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler, opts ...HTTPOpti
 			fields = append(fields, zap.String("rpc.method", rpcMethod))
 		}
 
+		if requestID := r.Header.Get("x-request-id"); requestID != "" {
+			fields = append(fields, zap.String("request_id", requestID))
+		}
+
 		for headerName, fieldName := range conf.headerFields {
 			if value := r.Header.Get(headerName); value != "" && fieldName != "" {
 				fields = append(fields, zap.String(fieldName, value))
