@@ -1,0 +1,19 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": [
+		"config:recommended"
+	],
+	"customManagers": [
+		{
+			"customType": "regex",
+			"managerFilePatterns": [
+				"/(^|/)Earthfile$/"
+			],
+			"matchStrings": [
+				"GO_VERSION: \"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+			],
+			"depNameTemplate": "go",
+			"datasourceTemplate": "golang-version"
+		}
+	]
+}
