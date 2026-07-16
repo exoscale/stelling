@@ -6,7 +6,8 @@ import (
 
 	sconfig "github.com/exoscale/stelling/config"
 	"github.com/exoscale/stelling/examples/config"
-	"github.com/exoscale/stelling/examples/server"
+	"github.com/exoscale/stelling/examples/grpc"
+	pb "github.com/exoscale/stelling/examples/proto"
 	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/exoscale/stelling/fxgrpc/health"
 	"github.com/exoscale/stelling/fxlogging"
@@ -15,7 +16,6 @@ import (
 	"github.com/exoscale/stelling/fxsentry"
 	"github.com/exoscale/stelling/fxtracing"
 	"go.uber.org/fx"
-	pb "google.golang.org/grpc/examples/route_guide/routeguide"
 )
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 	log.Println("starting server")
 
 	// Create the object in which we'll try to load our configuration
-	conf := &config.Config{}
+	conf := &config.Config{RequiredNumber: 42}
 
 	// Load the configuration:
 	// It will use a config file, environment variables and cli flags
@@ -85,15 +85,18 @@ func createSystem(conf *config.Config) fx.Option {
 
 		// Insert our application components
 		fx.Provide(
-			server.NewServer,
+			fx.Annotate(
+				grpc.NewGRPCServer,
+				fx.As(new(pb.GreeterServer)),
+			),
 		),
 
 		// Invoke functions are run in the order in which they are specified
 		fx.Invoke(
-			// Register the RouteGuideServer on the GrpcServer
+			// Register the GreeterServer on the GrpcServer
 			// This will materialize the dependencies from the lazy constructors
 			// and causes our system to do something meaningful
-			pb.RegisterRouteGuideServer,
+			pb.RegisterGreeterServer,
 			// Invoke the grpc server
 			fxgrpc.StartGrpcServer,
 		),

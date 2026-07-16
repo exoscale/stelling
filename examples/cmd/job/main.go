@@ -21,7 +21,7 @@ func main() {
 	log.Println("starting job")
 
 	// Create the object in which we'll try to load our configuration
-	conf := &config.Config{}
+	conf := &config.Config{RequiredNumber: 42}
 
 	// Load the configuration:
 	// It will use a config file, environment variables and cli flags
