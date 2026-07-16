@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: Stelling example public API
+  version: 0.1.0
+
+paths:
+  /stelling/greeting:
+    get:
+      operationId: get-stelling-greeting
+      summary: Say hello from Stelling
+      responses:
+        "200":
+          description: Greeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/greeting"
+        "500":
+          description: Greeting error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/greeting-error"
+
+components:
+  schemas:
+    greeting:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    greeting-error:
+      type: object
+      description: Error response
+      required: [title, status, detail]
+      properties:
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
