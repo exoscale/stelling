@@ -9,8 +9,6 @@ source:
 
     WORKDIR /build
     COPY go.mod go.sum ./
-    SAVE IMAGE --cache-hint
-
     COPY . .
 
 # --- Codegen ---
