@@ -3,7 +3,6 @@ VERSION --try 0.8
 # TODO use once internal actions set up on this repo
 ARG --global EXOSCALE_DOCKER_REGISTRY=registry.internal.exoscale.ch
 ARG --global GO_VERSION=1.26.5
-ARG --global TAG=dev
 
 # Base image with source code
 source:
@@ -72,6 +71,7 @@ build:
 deploy:
     FROM alpine
     ARG --required NAME
+    ARG TAG=dev
     COPY (+build/${NAME} --NAME=${NAME}) /app/${NAME}
 
     USER 65534
@@ -81,10 +81,13 @@ deploy:
     # SAVE IMAGE --push ${EXOSCALE_DOCKER_REGISTRY}/exoscale/stelling/${NAME}:${TAG}
 
 grpc-server:
-    FROM +deploy --NAME=grpc-server
+    ARG TAG=dev
+    FROM +deploy --NAME=grpc-server --TAG=${TAG}
 
 http-server:
-    FROM +deploy --NAME=http-server
+    ARG TAG=dev
+    FROM +deploy --NAME=http-server --TAG=${TAG}
 
 job:
-    FROM +deploy --NAME=job
+    ARG TAG=dev
+    FROM +deploy --NAME=job --TAG=${TAG}
