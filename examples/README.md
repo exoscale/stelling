@@ -4,8 +4,6 @@ This module contains the standard skeleton for Stelling-based Golang projects.
 
 You should more or less be able to copy-paste this directory and the associated Github Actions into a new repo.
 
-Note that you will need to add a "push" step for the image builds to push to your own container repo.
-
 The example contains:
 
 - Config loading
@@ -13,7 +11,7 @@ The example contains:
 - HTTP and gRPC servers
 - A job (e.g. to run as a scheduled task)
 - An Earthfile, which can be replaced by a Dockerfile/Makefile for *simple* projects
-- Github Actions (found in the top-level `.github/workflows` directory, prefixed with `example-`)
+- Github Actions (found in the top-level `.github/workflows/example.yaml`)
 - Renovate (found in the top-level `renovate.json` file)
 
 The code is heavily commented and should be straightforward to modify.
