@@ -12,7 +12,7 @@ The example contains:
 - An OpenAPI spec with code generation
 - HTTP and gRPC servers
 - A job (e.g. to run as a scheduled task)
-- A Dockerfile and Makefile (feel free to replace with EarthBuild if you want)
+- An Earthfile, which can be replaced by a Dockerfile/Makefile for *simple* projects
 - Github Actions (found in the top-level `.github/workflows` directory, prefixed with `example-`)
 
 The code is heavily commented and should be straightforward to modify.
