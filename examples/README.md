@@ -14,6 +14,7 @@ The example contains:
 - A job (e.g. to run as a scheduled task)
 - An Earthfile, which can be replaced by a Dockerfile/Makefile for *simple* projects
 - Github Actions (found in the top-level `.github/workflows` directory, prefixed with `example-`)
+- Renovate (found in the top-level `renovate.json` file)
 
 The code is heavily commented and should be straightforward to modify.
 
