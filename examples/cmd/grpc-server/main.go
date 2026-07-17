@@ -25,7 +25,7 @@ func main() {
 	log.Println("starting server")
 
 	// Create the object in which we'll try to load our configuration
-	conf := &config.Config{RequiredNumber: 42}
+	conf := &config.Config{}
 
 	// Load the configuration:
 	// It will use a config file, environment variables and cli flags

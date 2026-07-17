@@ -25,6 +25,9 @@ Detailed information on the capabilities of each module, can be found in the mod
 ### HTTP server
 
 ```
+# Set up required config
+export CONFIG_REQUIRED_NUMBER=42
+
 # Start the server
 go run ./cmd/http-server
 
