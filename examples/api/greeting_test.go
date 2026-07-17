@@ -29,12 +29,12 @@ func TestGetStellingGreeting(t *testing.T) {
 			},
 		},
 		{
-			name:     "error message causes error response",
-			greeting: "some error",
-			expected: public.GetStellingGreeting500JSONResponse{
-				Title:  "some error",
-				Detail: "greeting contains the word error",
-				Status: http.StatusInternalServerError,
+			name:     "error response",
+			greeting: "you are forbidden",
+			expected: public.GetStellingGreeting403JSONResponse{
+				Title:  "access forbidden",
+				Detail: "greeting contains the word forbidden",
+				Status: http.StatusForbidden,
 			},
 		},
 	}

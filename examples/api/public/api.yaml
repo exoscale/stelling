@@ -15,12 +15,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/greeting"
-        "500":
-          description: Greeting error
+        "403":
+          description: Greeting access denied
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/greeting-error"
+                $ref: "#/components/schemas/greeting-access-denied"
 
 components:
   schemas:
@@ -31,7 +31,7 @@ components:
         message:
           type: string
 
-    greeting-error:
+    greeting-access-denied:
       type: object
       description: Error response
       required: [title, status, detail]

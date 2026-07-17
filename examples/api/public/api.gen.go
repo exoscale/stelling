@@ -18,8 +18,8 @@ type Greeting struct {
 	Message string `json:"message"`
 }
 
-// GreetingError Error response
-type GreetingError struct {
+// GreetingAccessDenied Error response
+type GreetingAccessDenied struct {
 	Detail string `json:"detail"`
 	Status int    `json:"status"`
 	Title  string `json:"title"`
@@ -201,16 +201,16 @@ func (response GetStellingGreeting200JSONResponse) VisitGetStellingGreetingRespo
 	return err
 }
 
-type GetStellingGreeting500JSONResponse GreetingError
+type GetStellingGreeting403JSONResponse GreetingAccessDenied
 
-func (response GetStellingGreeting500JSONResponse) VisitGetStellingGreetingResponse(w http.ResponseWriter) error {
+func (response GetStellingGreeting403JSONResponse) VisitGetStellingGreetingResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }

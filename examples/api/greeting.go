@@ -14,11 +14,11 @@ func (p *APIServer) GetStellingGreeting(
 	ctx context.Context, request public.GetStellingGreetingRequestObject,
 ) (public.GetStellingGreetingResponseObject, error) {
 
-	if strings.Contains(p.message, "error") {
-		return public.GetStellingGreeting500JSONResponse{
-			Title:  "some error",
-			Detail: "greeting contains the word error",
-			Status: http.StatusInternalServerError,
+	if strings.Contains(p.message, "forbidden") {
+		return public.GetStellingGreeting403JSONResponse{
+			Title:  "access forbidden",
+			Detail: "greeting contains the word forbidden",
+			Status: http.StatusForbidden,
 		}, nil
 	}
 
