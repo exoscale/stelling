@@ -22,6 +22,38 @@ Detailed information on the capabilities of each module, can be found in the mod
 
 ## Usage
 
+### OpenAPI codegen
+
+To generate code from the OpenAPI specs we use [https://github.com/oapi-codegen/oapi-codegen/]. You can run it with:
+
+```
+earth +gen-oapi
+```
+
+In the example Github Actions there is a step to check for drift between the spec and the generated code, which should be included in every project.
+
+### Protobuf codegen
+
+If you're working with Protobuf/gRPC, it's useful to install the tooling, e.g.
+
+```
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
+```
+
+You will also need to install [buf](https://buf.build/docs/cli/installation/).
+
+See the [getting started guide](https://protobuf.dev/getting-started/gotutorial/) for more details.
+
+To run the codegen:
+
+```
+earth +gen-proto
+```
+
+In the example Github Actions there is a step to check for drift between the spec and the generated code, which should be included in every project.
+
 ### HTTP server
 
 ```
@@ -47,20 +79,6 @@ go run ./cmd/grpc-server
 # Make a request
 grpcurl -plaintext localhost:8080 exoscale.examples.v1.Greeter/Greeting
 ```
-
-### Protobuf + gRPC tooling
-
-If you're working with Protobuf/gRPC, it's useful to install the tooling, e.g.
-
-```
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
-```
-
-See the [getting started guide](https://protobuf.dev/getting-started/gotutorial/) for more details.
-
-You will also need to install [buf](https://buf.build/docs/cli/installation/).
 
 ### Configuration
 
