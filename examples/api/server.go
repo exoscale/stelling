@@ -30,6 +30,9 @@ func NewAPIServer(
 func NewAPIHTTPMux(s *APIServer) http.Handler {
 	mux := http.NewServeMux()
 
+	// Note that for orchestrators that require internal handlers outside the scope of operator
+	// endpoints, it's worth having three different routers/handlers here, one for each purpose.
+
 	// Register public handlers
 	public.HandlerFromMux(public.NewStrictHandler(s, nil), mux)
 
