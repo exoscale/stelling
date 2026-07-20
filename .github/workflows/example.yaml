@@ -22,15 +22,10 @@ jobs:
 
   # Check for drift in codegen
   drift:
-    strategy:
-      matrix:
-        include:
-          - target: +gen-oapi
-          - target: +gen-proto
     uses: exoscale/github-actions/.github/workflows/earthly-drift.yaml@shillaker/chore/add-working-dir-to-earthly-action
     secrets: inherit
     with:
-      target: ${{ matrix.target }}
+      target: +gen
       working-directory: examples
 
   # Work out version

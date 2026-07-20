@@ -35,6 +35,10 @@ gen-proto:
     SAVE ARTIFACT proto/schema.pb.go AS LOCAL proto/schema.pb.go
     SAVE ARTIFACT proto/schema_grpc.pb.go AS LOCAL proto/schema_grpc.pb.go
 
+gen:
+    BUILD +gen-oapi
+    BUILD +gen-proto
+
 # --- Quality ---
 
 # Formatting check that simply fails if not formatted correctly
