@@ -48,6 +48,6 @@ jobs:
     secrets: inherit
     with:
       working-directory: examples
-      tag-version: ${{ needs.version.outputs.version }}
+      release-version: ${{ needs.version.outputs.version }}
       tag-strategy: |
         type=sha,prefix=,format=long,enable=true
