@@ -8,7 +8,6 @@ deps:
     FROM ${EXOSCALE_DOCKER_REGISTRY}/docker.io/library/golang:${GO_VERSION}-alpine
     WORKDIR /build
     COPY go.mod go.sum ./
-    RUN go mod download
     RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
     RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 
@@ -35,24 +34,15 @@ gen-proto:
     SAVE ARTIFACT proto/schema.pb.go AS LOCAL proto/schema.pb.go
     SAVE ARTIFACT proto/schema_grpc.pb.go AS LOCAL proto/schema_grpc.pb.go
 
-gen:
+# Target to check for drift in generated files
+drift:
     BUILD +gen-oapi
     BUILD +gen-proto
 
 # --- Quality ---
 
-# Formatting check that simply fails if not formatted correctly
-format:
-    FROM +source
-    RUN unformatted="$(gofmt -l . | grep -v '^vendor/')"; test -z "$unformatted" || (echo "$unformatted" && exit 1)
-
-# Lint check that will simply fail if linting fails
-lint:
-    FROM +source
-    RUN golangci-lint run ./...
-
 # Formatting and lint fixes, applied to the local filesystem
-format-lint-fix:
+format:
     FROM +source
     RUN golangci-lint fmt ./...
     RUN golangci-lint run --fix ./...
@@ -76,7 +66,7 @@ test:
     FROM +source
     RUN go test ./...
 
-# --- Image builds ---
+# --- Image build and push ---
 
 build:
     FROM +source
@@ -84,7 +74,7 @@ build:
     RUN CGO_ENABLED=0 go build -o /app/${NAME} ./cmd/${NAME}
     SAVE ARTIFACT /app/${NAME}
 
-deploy:
+do-release:
     FROM ${EXOSCALE_DOCKER_REGISTRY}/docker.io/library/alpine:3.24
     ARG --required NAME
     ARG --required TAGS
@@ -97,17 +87,19 @@ deploy:
         SAVE IMAGE --push ${EXOSCALE_DOCKER_REGISTRY}/exoscale/stelling/${NAME}:${TAG}
     END
 
+release:
+    ARG TAGS=dev
+    BUILD +do-release --NAME=grpc-server --TAGS=${TAGS}
+    BUILD +do-release --NAME=http-server --TAGS=${TAGS}
+    BUILD +do-release --NAME=job --TAGS=${TAGS}
+
 # --- CI pipeline ---
 
-# Full CI pipeline which runs checks, then builds images.
-pipeline-ci:
+ci:
     ARG TAGS=dev
     WAIT
         BUILD +format
-        BUILD +lint
         BUILD +test
         BUILD +buf-lint
     END
-    BUILD +deploy --NAME=grpc-server --TAGS=${TAGS}
-    BUILD +deploy --NAME=http-server --TAGS=${TAGS}
-    BUILD +deploy --NAME=job --TAGS=${TAGS}
+    BUILD +release --TAGS=${TAGS}

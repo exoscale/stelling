@@ -14,18 +14,16 @@ on:
 jobs:
   # Format and fix code
   format:
-    uses: exoscale/github-actions/.github/workflows/earthly-format.yaml@shillaker/chore/add-working-dir-to-earthly-action
+    uses: exoscale/github-actions/.github/workflows/earthly-format.yaml@master
     secrets: inherit
     with:
-      target: +format-lint-fix
       working-directory: examples
 
   # Check for drift in codegen
   drift:
-    uses: exoscale/github-actions/.github/workflows/earthly-drift.yaml@shillaker/chore/add-working-dir-to-earthly-action
+    uses: exoscale/github-actions/.github/workflows/earthly-drift.yaml@master
     secrets: inherit
     with:
-      target: +gen
       working-directory: examples
 
   # Work out version
@@ -43,13 +41,13 @@ jobs:
         run: echo "version=1.0.$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
 
   # Run CI pipeline
+  # We push a versioned tag by default, but add an extra tagging strategy of a long commit SHA
   pipeline:
     needs: [format, drift, version]
-    uses: exoscale/github-actions/.github/workflows/earthly.yaml@shillaker/chore/add-working-dir-to-earthly-action
+    uses: exoscale/github-actions/.github/workflows/earthly.yaml@shillaker/feat/push-tag-on-master
     secrets: inherit
     with:
-      target: +pipeline-ci
       working-directory: examples
+      tag-version: ${{ needs.version.outputs.version }}
       tag-strategy: |
-        type=raw,value=${{ needs.version.outputs.version }},enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
         type=sha,prefix=,format=long,enable=true
