@@ -29,7 +29,6 @@ jobs:
 
   # Run CI pipeline, build, and push
   pipeline:
-    needs: [format, drift]
     uses: exoscale/github-actions/.github/workflows/earthly.yaml@shillaker/feat/push-tag-on-master
     secrets: inherit
     with:
