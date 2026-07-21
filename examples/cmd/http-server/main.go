@@ -5,8 +5,8 @@ import (
 	"os"
 
 	sconfig "github.com/exoscale/stelling/config"
+	"github.com/exoscale/stelling/examples/api"
 	"github.com/exoscale/stelling/examples/config"
-	"github.com/exoscale/stelling/examples/server"
 	"github.com/exoscale/stelling/fxhttp"
 	"github.com/exoscale/stelling/fxlogging"
 	"github.com/exoscale/stelling/fxmetrics"
@@ -77,11 +77,12 @@ func createSystem(conf *config.Config) fx.Option {
 		// It is up to you to provide an http.Handler and optionally an RpcMethodMapper
 		// Alternatively, you can provide the fxhttp.RPCMethodMapper type directly
 		// if it needs additional system dependencies
-		fxhttp.NewModule(&conf.HttpServer, fxhttp.WithRPCMethodMapper(server.RpcMapper)),
+		fxhttp.NewModule(&conf.HttpServer, fxhttp.WithRPCMethodMapper(api.RPCMapper)),
 
 		// Insert our application components
 		fx.Provide(
-			server.NewHttpMux,
+			api.NewAPIHTTPMux,
+			api.NewAPIServer,
 		),
 
 		// Invoke functions are run in the order in which they are specified

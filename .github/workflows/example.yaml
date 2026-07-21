@@ -1,0 +1,33 @@
+name: Example CI pipeline
+
+# --- Earthly workflows ---
+# For more information on our shared Earthly workflows, see:
+# - https://github.com/exoscale/github-actions
+# - https://github.com/exoscale/earthly-action
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+
+jobs:
+  # Format and fix code
+  format:
+    uses: exoscale/github-actions/.github/workflows/earthly-format.yaml@master
+    secrets: inherit
+    with:
+      working-directory: examples
+
+  # Check for drift in codegen
+  drift:
+    uses: exoscale/github-actions/.github/workflows/earthly-drift.yaml@master
+    secrets: inherit
+    with:
+      working-directory: examples
+
+  # Run CI pipeline, build, and push
+  pipeline:
+    uses: exoscale/github-actions/.github/workflows/earthly.yaml@shillaker/feat/push-tag-on-master
+    secrets: inherit
+    with:
+      working-directory: examples
