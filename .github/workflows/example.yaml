@@ -5,12 +5,10 @@ name: Example CI pipeline
 # - https://github.com/exoscale/github-actions
 # - https://github.com/exoscale/earthly-action
 
-# Change the name 'master' to your default branch
 on:
   push:
-    branches: [ master ]
+    branches: [ master, main ]
   pull_request:
-    branches: [ master ]
 
 jobs:
   # Format and fix code

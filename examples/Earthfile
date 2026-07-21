@@ -108,7 +108,7 @@ oci-image-build-http-server:
 oci-images:
     BUILD +oci-image-build-jobs
     BUILD +oci-image-build-http-server
-    BUILD +oci-image-build-gtpc-server
+    BUILD +oci-image-build-grpc-server
 
 
 # --- CI pipeline ---
