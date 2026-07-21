@@ -71,17 +71,17 @@ test:
 build:
     FROM +source
     ARG --required NAME
-    RUN CGO_ENABLED=0 go build -o /app/${NAME} ./cmd/${NAME}
-    SAVE ARTIFACT /app/${NAME}
+    RUN CGO_ENABLED=0 go build -o /app/run ./cmd/${NAME}
+    SAVE ARTIFACT /app/run
 
 do-release:
     FROM ${EXOSCALE_DOCKER_REGISTRY}/docker.io/library/alpine:3.24
     ARG --required NAME
     ARG --required TAGS
-    COPY (+build/${NAME} --NAME=${NAME}) /app/${NAME}
+    COPY (+build/run --NAME=${NAME}) /app/run
 
     USER 65534
-    CMD ["/app/${NAME}"]
+    CMD ["/app/run"]
 
     FOR TAG IN $TAGS
         SAVE IMAGE --push ${EXOSCALE_DOCKER_REGISTRY}/exoscale/stelling/${NAME}:${TAG}
