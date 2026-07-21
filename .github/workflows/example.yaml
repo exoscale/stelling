@@ -5,6 +5,7 @@ name: Example CI pipeline
 # - https://github.com/exoscale/github-actions
 # - https://github.com/exoscale/earthly-action
 
+# Change the name 'master' to your default branch
 on:
   push:
     branches: [ master ]
@@ -26,28 +27,10 @@ jobs:
     with:
       working-directory: examples
 
-  # Work out version
-  version:
-    runs-on: exo-arc-exoscale-runner
-    outputs:
-      version: ${{ steps.tag.outputs.version }}
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          fetch-depth: 0
-      - name: Compute version from commit count
-        id: tag
-        shell: bash
-        run: echo "version=1.0.$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
-
-  # Run CI pipeline
-  # We push a versioned tag by default, but add an extra tagging strategy of a long commit SHA
+  # Run CI pipeline, build, and push
   pipeline:
-    needs: [format, drift, version]
+    needs: [format, drift]
     uses: exoscale/github-actions/.github/workflows/earthly.yaml@shillaker/feat/push-tag-on-master
     secrets: inherit
     with:
       working-directory: examples
-      release-version: ${{ needs.version.outputs.version }}
-      tag-strategy: |
-        type=sha,prefix=,format=long,enable=true
