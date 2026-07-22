@@ -22,6 +22,14 @@ jobs:
     with:
       working-directory: examples
 
+  # Vulncheck - not included in main pipeline to avoid blocking releases
+  vulncheck:
+    uses: exoscale/github-actions/.github/workflows/earthly.yaml@master
+    secrets: inherit
+    with:
+      working-directory: examples
+      target: +vulncheck
+
   # Run CI pipeline, build, and push
   # https://github.com/exoscale/github-actions/blob/master/.github/workflows/earthly.yaml
   pipeline:
