@@ -21,7 +21,7 @@ The module lazily provides the following components:
 * GrpcClientInterceptors that log all requests made with the client
 * GrpcServerInterceptors that embed a `*zap.Logger`, enriched with request metadata, in the context
 * GrpcClientInterceptors that set `peer.service` metadata, which are logged by the server
-* HttpMiddleware that logs all incoming requests on the server
+* HttpMiddleware that logs all incoming requests on the server. If present, the `x-request-id` header is logged as `request_id`.
 
 ## Options
 * WithZapOption
@@ -32,6 +32,9 @@ The module lazily provides the following components:
 * WithGrpcServerInterceptorOptions and WithGrpcClientInterceptorOptions
   Allows customization of the provided grpc interceptor loggers.
   See [interceptor.Option](https://pkg.go.dev/github.com/exoscale/stelling/fxlogging/interceptor#Option)
+* WithHTTPInterceptorOptions
+  Allows customization of the provided HTTP request logger.
+  See [interceptor.HTTPOption](https://pkg.go.dev/github.com/exoscale/stelling/fxlogging/interceptor#HTTPOption)
 * WithGrpcClientInterceptors
   By default the module supplies client logging interceptors. In certain high volume cases this is not
   desirable. With this option they can be removed from the system.
