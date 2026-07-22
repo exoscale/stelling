@@ -3,7 +3,7 @@ module github.com/exoscale/stelling
 go 1.26
 
 require (
-	github.com/TheZeroSlave/zapsentry v1.23.0
+	github.com/TheZeroSlave/zapsentry v1.24.0
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/exoscale/multiconfig v0.0.0-20260223134601-625dc5777c41
 	github.com/go-logr/zapr v1.3.0
@@ -27,7 +27,7 @@ require (
 
 require (
 	github.com/coreos/go-oidc/v3 v3.17.0
-	github.com/getsentry/sentry-go v0.43.0
+	github.com/getsentry/sentry-go v0.46.0
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/google/cel-go v0.27.0
 	github.com/google/uuid v1.6.0
