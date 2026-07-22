@@ -1,8 +1,6 @@
 # Authorizer Module
 
-This module adds  [CEL](https://github.com/google/cel-spec) based middleware for authorizing gRPC and HTTP* requests.
-
-*Soon(tm)
+This module adds  [CEL](https://github.com/google/cel-spec) based middleware for authorizing gRPC and HTTP requests.
 
 The authorizer allows you to write policies targetting the following parameters:
 
@@ -35,12 +33,16 @@ protocols. For the most up to date definitions check [schema/schema.proto](./sch
 
 * Allow healthchecks for everyone, but other requests only for a specific service (using TLS)
     ```cel
-    request.service == "grpc.health.v1.Healh" || request.tls.subject.common_name == "special.client"
+    request.service == "grpc.health.v1.Healh" || request.path == '/health' || request.tls.subject.common_name == "special.client"
     ```
-* Only allow clients from a specific OIDC group
+* Only allow clients from a specific [OIDC group](https://github.com/exoscale/terraform-conf-google/blob/main/globals.tf)
     ```cel
-    "dev" in request.jwt.groups
+    "dev@exoscale.ch" in request.jwt.groups
     ```
+
+Primer for CEL writing:
+* [cheatsheet](https://celbyexample.com/at-a-glance/)
+* [reference](https://kubernetes.io/docs/reference/using-api/cel/)
 
 ## Roadmap
 * Hot reloading policies
