@@ -7,7 +7,7 @@ import (
 	sconfig "github.com/exoscale/stelling/config"
 	"github.com/exoscale/stelling/examples/config"
 	"github.com/exoscale/stelling/examples/grpc"
-	pb "github.com/exoscale/stelling/examples/proto"
+	pb "github.com/exoscale/stelling/examples/proto/exoscale/examples/v1"
 	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/exoscale/stelling/fxgrpc/health"
 	"github.com/exoscale/stelling/fxlogging"
@@ -87,16 +87,16 @@ func createSystem(conf *config.Config) fx.Option {
 		fx.Provide(
 			fx.Annotate(
 				grpc.NewGRPCServer,
-				fx.As(new(pb.GreeterServer)),
+				fx.As(new(pb.GreeterServiceServer)),
 			),
 		),
 
 		// Invoke functions are run in the order in which they are specified
 		fx.Invoke(
-			// Register the GreeterServer on the GrpcServer
+			// Register the GreeterServiceServer on the GrpcServer
 			// This will materialize the dependencies from the lazy constructors
 			// and causes our system to do something meaningful
-			pb.RegisterGreeterServer,
+			pb.RegisterGreeterServiceServer,
 			// Invoke the grpc server
 			fxgrpc.StartGrpcServer,
 		),
