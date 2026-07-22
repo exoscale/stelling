@@ -9,6 +9,30 @@ import (
 	"go.uber.org/fx"
 )
 
+type moduleOpts struct {
+	tokenExtractor interceptor.TokenExtractor
+	requireToken   bool
+}
+
+type moduleOption func(*moduleOpts)
+
+// WithTokenExtractor will populate the request.jwt field with the IDToken produced by the extractor
+// If requireToken is set, the request will be denied if token extraction fails, without evaluating the policy
+// If requireToken is false, JWT will be nil if token extraction fails and the policy will be evaluated
+func WithTokenExtractor(te interceptor.TokenExtractor, requireToken bool) moduleOption {
+	return func(o *moduleOpts) {
+		o.tokenExtractor = te
+		o.requireToken = requireToken
+	}
+}
+
+// tokenExtractorConfig bundles the tokenExtractor option so it can be threaded through fx
+// as a single optional dependency
+type tokenExtractorConfig struct {
+	extractor    interceptor.TokenExtractor
+	requireToken bool
+}
+
 // NewModule provides authorization middleware to the system:
 // * Grpc server interceptors
 // * Http server middleware (TODO)
@@ -16,12 +40,28 @@ import (
 // distinct, but share the same config.
 // If you need different rules for either protocol, you must supply
 // 2 different configurations with proper annotations to your system
-func NewModule(conf AuthorizerConfig) fx.Option {
+func NewModule(conf AuthorizerConfig, opts ...moduleOption) fx.Option {
+	modOpts := &moduleOpts{}
+	for _, o := range opts {
+		o(modOpts)
+	}
+
+	supplyOpts := fx.Options()
+	if modOpts.tokenExtractor != nil {
+		supplyOpts = fx.Options(
+			fx.Supply(
+				&tokenExtractorConfig{extractor: modOpts.tokenExtractor, requireToken: modOpts.requireToken},
+				fx.Private,
+			),
+		)
+	}
+
 	return fx.Module(
 		"authorizer",
+		supplyOpts,
 		fx.Provide(
-			NewGrpcAuthorizer,
-			NewHttpAuthorizer,
+			fx.Annotate(NewGrpcAuthorizer, fx.ParamTags(``, `optional:"true"`)),
+			fx.Annotate(NewHttpAuthorizer, fx.ParamTags(``, `optional:"true"`)),
 			fx.Annotate(
 				NewGrpcAuthorizerServerInterceptors,
 				fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
@@ -50,11 +90,17 @@ func (a *Authorizer) AuthorizerConfig() *Authorizer {
 	return a
 }
 
-func NewGrpcAuthorizer(conf AuthorizerConfig) (interceptor.GrpcAuthorizer, error) {
+func NewGrpcAuthorizer(conf AuthorizerConfig, te *tokenExtractorConfig) (interceptor.GrpcAuthorizer, error) {
+	if te != nil {
+		return interceptor.NewGrpcAuthorizer(conf.AuthorizerConfig().Rule, interceptor.WithTokenExtractor(te.extractor, te.requireToken))
+	}
 	return interceptor.NewGrpcAuthorizer(conf.AuthorizerConfig().Rule)
 }
 
-func NewHttpAuthorizer(conf AuthorizerConfig) (interceptor.HttpAuthorizer, error) {
+func NewHttpAuthorizer(conf AuthorizerConfig, te *tokenExtractorConfig) (interceptor.HttpAuthorizer, error) {
+	if te != nil {
+		return interceptor.NewHttpAuthorizer(conf.AuthorizerConfig().Rule, interceptor.WithTokenExtractor(te.extractor, te.requireToken))
+	}
 	return interceptor.NewHttpAuthorizer(conf.AuthorizerConfig().Rule)
 }
 

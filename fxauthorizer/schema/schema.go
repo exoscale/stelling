@@ -19,19 +19,33 @@ func NewHeaders(headers map[string][]string) map[string]*HeaderValues {
 	return output
 }
 
+// jwtCustomClaims holds the non-standard claims we lift out of an ID token's claim set.
+// They're optional in the OIDC spec, so a provider that doesn't set them just leaves these zero.
+type jwtCustomClaims struct {
+	Email         string   `json:"email"`
+	EmailVerified bool     `json:"email_verified"`
+	Groups        []string `json:"groups"`
+}
+
 func NewJWT(token *oidc.IDToken) *JWT {
 	if token == nil {
 		return nil
 	}
+
+	var custom jwtCustomClaims
+	// Claims() only fails if the token has no claim set at all, which can't happen for a verified
+	// token; providers that omit email/groups just leave those fields at their zero value.
+	_ = token.Claims(&custom)
+
 	return &JWT{
-		Subject: token.Subject,
-		//Email:         "",
-		//EmailVerified: token.Claims(),
-		//Groups:        []string{},
-		Issuer:   token.Issuer,
-		Audience: token.Audience,
-		IssuedAt: timestamppb.New(token.IssuedAt),
-		Expiry:   timestamppb.New(token.Expiry),
+		Subject:       token.Subject,
+		Email:         custom.Email,
+		EmailVerified: custom.EmailVerified,
+		Groups:        custom.Groups,
+		Issuer:        token.Issuer,
+		Audience:      token.Audience,
+		IssuedAt:      timestamppb.New(token.IssuedAt),
+		Expiry:        timestamppb.New(token.Expiry),
 	}
 }
 
