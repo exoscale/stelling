@@ -7,13 +7,15 @@ import (
 	sconfig "github.com/exoscale/stelling/config"
 	"github.com/exoscale/stelling/examples/config"
 	"github.com/exoscale/stelling/examples/server"
-	"github.com/exoscale/stelling/fxhttp"
+	"github.com/exoscale/stelling/fxgrpc"
+	"github.com/exoscale/stelling/fxgrpc/health"
 	"github.com/exoscale/stelling/fxlogging"
 	"github.com/exoscale/stelling/fxmetrics"
 	"github.com/exoscale/stelling/fxpprof"
 	"github.com/exoscale/stelling/fxsentry"
 	"github.com/exoscale/stelling/fxtracing"
 	"go.uber.org/fx"
+	pb "google.golang.org/grpc/examples/route_guide/routeguide"
 )
 
 func main() {
@@ -73,21 +75,27 @@ func createSystem(conf *config.Config) fx.Option {
 		// fxsentry adds a *sentry.Client to the system
 		// It will also configure the zap DPanic level to emit a sentry
 		fxsentry.NewModule(conf),
-		// fxhttp.NewModule provides a http.Server to the system
-		// It is up to you to provide an http.Handler and optionally an RpcMethodMapper
-		// Alternatively, you can provide the fxhttp.RPCMethodMapper type directly
-		// if it needs additional system dependencies
-		fxhttp.NewModule(&conf.HttpServer, fxhttp.WithRPCMethodMapper(server.RpcMapper)),
+		// fxgrpc.ServerModule provides a grpc.Server to the system
+		// You generally do not reference this yourself, but add the grpc generated
+		// RegisterMyService function to the Invoke list
+		fxgrpc.NewServerModule(conf),
+		// Add a basic grpc healthcheck service
+		// It will automatically register itself on the system grpc.Server
+		health.Module,
 
 		// Insert our application components
 		fx.Provide(
-			server.NewHttpMux,
+			server.NewServer,
 		),
 
 		// Invoke functions are run in the order in which they are specified
 		fx.Invoke(
-			// Invoke the http server
-			fxhttp.StartHttpServer,
+			// Register the RouteGuideServer on the GrpcServer
+			// This will materialize the dependencies from the lazy constructors
+			// and causes our system to do something meaningful
+			pb.RegisterRouteGuideServer,
+			// Invoke the grpc server
+			fxgrpc.StartGrpcServer,
 		),
 	)
 

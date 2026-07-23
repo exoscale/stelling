@@ -52,40 +52,6 @@ Custom Validation functions can be added. Example:
 	// NOTES: using the same tag name as an existing function
 	//        will overwrite the existing one
 
-# Valuer Interface
-
-Custom types can implement the Valuer interface to return the value that should
-be validated. This is useful when a type wraps another value and you want
-validation to run against the unwrapped value.
-
-	type Nullable[T any] struct {
-		Data T
-	}
-
-	func (n Nullable[T]) ValidatorValue() any {
-		return n.Data
-	}
-
-	type Config struct {
-		Name string `validate:"required"`
-	}
-
-	type Record struct {
-		Config Nullable[Config] `validate:"required"`
-	}
-
-	r := Record{
-		Config: Nullable[Config]{
-			Data: Config{Name: "validator"},
-		},
-	}
-
-	err := validate.Struct(r)
-
-The library also supports types like sql/driver.Valuer using
-RegisterCustomTypeFunc. See _examples/valuer/main.go and
-_examples/custom/main.go for both approaches.
-
 # Cross-Field Validation
 
 Cross-Field Validation can be done via the following tags:
@@ -920,12 +886,6 @@ This validates that a string value contains a valid hsla color
 
 	Usage: hsla
 
-# CMYK String
-
-This validates that a string value contains a valid cmyk color
-
-	Usage: cmyk
-
 # E.164 Phone Number String
 
 This validates that a string value contains a valid E.164 Phone number
@@ -1210,7 +1170,7 @@ This validates that a string value contains a valid longitude.
 
 	Usage: longitude
 
-# Employer Identification Number EIN
+# Employeer Identification Number EIN
 
 This validates that a string value contains a valid U.S. Employer Identification Number.
 

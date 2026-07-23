@@ -1,4 +1,0 @@
-{{range .Types}}
-{{ .DocComment }}
-type {{.TypeName}} {{if .IsAlias }}={{end}} {{.Schema.TypeDecl}}
-{{end}}
