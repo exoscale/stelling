@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: schema.proto
+// source: exoscale/examples/v1/schema.proto
 
 package proto
 
@@ -29,7 +29,7 @@ type GreetingRequest struct {
 
 func (x *GreetingRequest) Reset() {
 	*x = GreetingRequest{}
-	mi := &file_schema_proto_msgTypes[0]
+	mi := &file_exoscale_examples_v1_schema_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41,7 +41,7 @@ func (x *GreetingRequest) String() string {
 func (*GreetingRequest) ProtoMessage() {}
 
 func (x *GreetingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_schema_proto_msgTypes[0]
+	mi := &file_exoscale_examples_v1_schema_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -54,7 +54,7 @@ func (x *GreetingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GreetingRequest.ProtoReflect.Descriptor instead.
 func (*GreetingRequest) Descriptor() ([]byte, []int) {
-	return file_schema_proto_rawDescGZIP(), []int{0}
+	return file_exoscale_examples_v1_schema_proto_rawDescGZIP(), []int{0}
 }
 
 type GreetingResponse struct {
@@ -66,7 +66,7 @@ type GreetingResponse struct {
 
 func (x *GreetingResponse) Reset() {
 	*x = GreetingResponse{}
-	mi := &file_schema_proto_msgTypes[1]
+	mi := &file_exoscale_examples_v1_schema_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -78,7 +78,7 @@ func (x *GreetingResponse) String() string {
 func (*GreetingResponse) ProtoMessage() {}
 
 func (x *GreetingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_schema_proto_msgTypes[1]
+	mi := &file_exoscale_examples_v1_schema_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -91,7 +91,7 @@ func (x *GreetingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GreetingResponse.ProtoReflect.Descriptor instead.
 func (*GreetingResponse) Descriptor() ([]byte, []int) {
-	return file_schema_proto_rawDescGZIP(), []int{1}
+	return file_exoscale_examples_v1_schema_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GreetingResponse) GetMessage() string {
@@ -101,37 +101,37 @@ func (x *GreetingResponse) GetMessage() string {
 	return ""
 }
 
-var File_schema_proto protoreflect.FileDescriptor
+var File_exoscale_examples_v1_schema_proto protoreflect.FileDescriptor
 
-const file_schema_proto_rawDesc = "" +
+const file_exoscale_examples_v1_schema_proto_rawDesc = "" +
 	"\n" +
-	"\fschema.proto\x12\x14exoscale.examples.v1\"\x11\n" +
+	"!exoscale/examples/v1/schema.proto\x12\x14exoscale.examples.v1\"\x11\n" +
 	"\x0fGreetingRequest\",\n" +
 	"\x10GreetingResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2d\n" +
-	"\aGreeter\x12Y\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage2k\n" +
+	"\x0eGreeterService\x12Y\n" +
 	"\bGreeting\x12%.exoscale.examples.v1.GreetingRequest\x1a&.exoscale.examples.v1.GreetingResponseB-Z+github.com/exoscale/stelling/examples/protob\x06proto3"
 
 var (
-	file_schema_proto_rawDescOnce sync.Once
-	file_schema_proto_rawDescData []byte
+	file_exoscale_examples_v1_schema_proto_rawDescOnce sync.Once
+	file_exoscale_examples_v1_schema_proto_rawDescData []byte
 )
 
-func file_schema_proto_rawDescGZIP() []byte {
-	file_schema_proto_rawDescOnce.Do(func() {
-		file_schema_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_schema_proto_rawDesc), len(file_schema_proto_rawDesc)))
+func file_exoscale_examples_v1_schema_proto_rawDescGZIP() []byte {
+	file_exoscale_examples_v1_schema_proto_rawDescOnce.Do(func() {
+		file_exoscale_examples_v1_schema_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_exoscale_examples_v1_schema_proto_rawDesc), len(file_exoscale_examples_v1_schema_proto_rawDesc)))
 	})
-	return file_schema_proto_rawDescData
+	return file_exoscale_examples_v1_schema_proto_rawDescData
 }
 
-var file_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_schema_proto_goTypes = []any{
+var file_exoscale_examples_v1_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_exoscale_examples_v1_schema_proto_goTypes = []any{
 	(*GreetingRequest)(nil),  // 0: exoscale.examples.v1.GreetingRequest
 	(*GreetingResponse)(nil), // 1: exoscale.examples.v1.GreetingResponse
 }
-var file_schema_proto_depIdxs = []int32{
-	0, // 0: exoscale.examples.v1.Greeter.Greeting:input_type -> exoscale.examples.v1.GreetingRequest
-	1, // 1: exoscale.examples.v1.Greeter.Greeting:output_type -> exoscale.examples.v1.GreetingResponse
+var file_exoscale_examples_v1_schema_proto_depIdxs = []int32{
+	0, // 0: exoscale.examples.v1.GreeterService.Greeting:input_type -> exoscale.examples.v1.GreetingRequest
+	1, // 1: exoscale.examples.v1.GreeterService.Greeting:output_type -> exoscale.examples.v1.GreetingResponse
 	1, // [1:2] is the sub-list for method output_type
 	0, // [0:1] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -139,26 +139,26 @@ var file_schema_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_schema_proto_init() }
-func file_schema_proto_init() {
-	if File_schema_proto != nil {
+func init() { file_exoscale_examples_v1_schema_proto_init() }
+func file_exoscale_examples_v1_schema_proto_init() {
+	if File_exoscale_examples_v1_schema_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_schema_proto_rawDesc), len(file_schema_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_exoscale_examples_v1_schema_proto_rawDesc), len(file_exoscale_examples_v1_schema_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_schema_proto_goTypes,
-		DependencyIndexes: file_schema_proto_depIdxs,
-		MessageInfos:      file_schema_proto_msgTypes,
+		GoTypes:           file_exoscale_examples_v1_schema_proto_goTypes,
+		DependencyIndexes: file_exoscale_examples_v1_schema_proto_depIdxs,
+		MessageInfos:      file_exoscale_examples_v1_schema_proto_msgTypes,
 	}.Build()
-	File_schema_proto = out.File
-	file_schema_proto_goTypes = nil
-	file_schema_proto_depIdxs = nil
+	File_exoscale_examples_v1_schema_proto = out.File
+	file_exoscale_examples_v1_schema_proto_goTypes = nil
+	file_exoscale_examples_v1_schema_proto_depIdxs = nil
 }

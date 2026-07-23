@@ -28,8 +28,8 @@ gen-proto:
     WORKDIR /app
     COPY proto proto
     RUN buf generate proto --template proto/buf.gen.yaml -o proto
-    SAVE ARTIFACT proto/schema.pb.go AS LOCAL proto/schema.pb.go
-    SAVE ARTIFACT proto/schema_grpc.pb.go AS LOCAL proto/schema_grpc.pb.go
+    SAVE ARTIFACT proto/exoscale/examples/v1/schema.pb.go AS LOCAL proto/exoscale/examples/v1/schema.pb.go
+    SAVE ARTIFACT proto/exoscale/examples/v1/schema_grpc.pb.go AS LOCAL proto/exoscale/examples/v1/schema_grpc.pb.go
 
 # Target to check for drift in generated files
 drift:
