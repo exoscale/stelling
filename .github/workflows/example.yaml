@@ -12,7 +12,7 @@ jobs:
     uses: exoscale/github-actions/.github/workflows/earthly-format.yaml@master
     secrets: inherit
     with:
-      working-directory: examples
+      target: ./examples+format
 
   # Check for drift in codegen
   # https://github.com/exoscale/github-actions/blob/master/.github/workflows/earthly-drift.yaml
@@ -20,15 +20,14 @@ jobs:
     uses: exoscale/github-actions/.github/workflows/earthly-drift.yaml@master
     secrets: inherit
     with:
-      working-directory: examples
+      target: ./examples+drift
 
   # Vulncheck - not included in main pipeline to avoid blocking releases
   vulncheck:
     uses: exoscale/github-actions/.github/workflows/earthly.yaml@master
     secrets: inherit
     with:
-      working-directory: examples
-      target: +vulncheck
+      target: ./examples+vulncheck
 
   # Run CI pipeline, build, and push
   # https://github.com/exoscale/github-actions/blob/master/.github/workflows/earthly.yaml
@@ -36,4 +35,4 @@ jobs:
     uses: exoscale/github-actions/.github/workflows/earthly.yaml@shillaker/feat/push-tag-on-master
     secrets: inherit
     with:
-      working-directory: examples
+      target: ./examples+ci
