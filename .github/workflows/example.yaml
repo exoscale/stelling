@@ -6,25 +6,17 @@ on:
   pull_request:
 
 jobs:
-  # Format and fix code
-  # https://github.com/exoscale/github-actions/blob/master/.github/workflows/earthly-format.yaml
   format:
-    uses: exoscale/github-actions/.github/workflows/earthly-format.yaml@master
-    secrets: inherit
+    uses: ./.github/workflows/earthly-format.yaml
     with:
       target: ./examples+format
 
-  # Vulncheck - not included in main pipeline to avoid blocking releases
   vulncheck:
-    uses: exoscale/github-actions/.github/workflows/earthly.yaml@master
-    secrets: inherit
+    uses: ./.github/workflows/earthly.yaml
     with:
       target: ./examples+vulncheck
 
-  # Run CI pipeline, build, and push
-  # https://github.com/exoscale/github-actions/blob/master/.github/workflows/earthly.yaml
   pipeline:
-    uses: exoscale/github-actions/.github/workflows/earthly.yaml@master
-    secrets: inherit
+    uses: ./.github/workflows/earthly.yaml
     with:
       target: ./examples+ci

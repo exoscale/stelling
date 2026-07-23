@@ -1,10 +1,9 @@
 VERSION --try 0.8
 
-ARG --global EXOSCALE_DOCKER_REGISTRY=registry.internal.exoscale.ch
 ARG --global GO_VERSION=1.26.5
 
 source:
-    FROM ${EXOSCALE_DOCKER_REGISTRY}/docker.io/library/golang:${GO_VERSION}-alpine
+    FROM library/golang:${GO_VERSION}-alpine
     WORKDIR /build
     COPY go.mod go.sum ./
     COPY . .

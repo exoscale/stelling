@@ -1,0 +1,34 @@
+---
+name: Format code as an earthly target and create a new commit if necessary
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        required: false
+        type: string
+        default: +format
+
+env:
+  FORCE_COLOR: "1" # Force earthly to use color output
+  EARTHLY_OUTPUT: "true" # Allow outputting artifacts
+
+jobs:
+  earthly:
+    name: earthly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: ./.github/actions/earthly-action
+        with:
+          target: ${{ inputs.target }}
+      - id: commit
+        run: |-
+          git config user.name "Automated"
+          git config user.email "actions@users.noreply.github.com"
+          git add .
+          git commit -am "fix(format): automatically format all code" || exit 0
+          git push
+          echo "COMMITTED=true" >> "$GITHUB_OUTPUT"
