@@ -24,7 +24,7 @@ github.com/davecgh/go-spew/spew
 ## explicit; go 1.24
 github.com/exoscale/multiconfig
 # github.com/exoscale/stelling v0.0.0-20260126095715-2b7e9f9914a4 => ../
-## explicit; go 1.25.11
+## explicit; go 1.26.5
 github.com/exoscale/stelling/config
 github.com/exoscale/stelling/fxcert-reloader
 github.com/exoscale/stelling/fxgrpc
@@ -88,8 +88,8 @@ github.com/go-playground/locales/currency
 # github.com/go-playground/universal-translator v0.18.1
 ## explicit; go 1.18
 github.com/go-playground/universal-translator
-# github.com/go-playground/validator/v10 v10.30.1
-## explicit; go 1.24.0
+# github.com/go-playground/validator/v10 v10.30.3
+## explicit; go 1.25.0
 github.com/go-playground/validator/v10
 # github.com/google/uuid v1.6.0
 ## explicit
@@ -161,7 +161,7 @@ go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc/inte
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/request
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/semconv
-# go.opentelemetry.io/otel v1.42.0
+# go.opentelemetry.io/otel v1.43.0
 ## explicit; go 1.25.0
 go.opentelemetry.io/otel
 go.opentelemetry.io/otel/attribute
@@ -209,12 +209,12 @@ go.opentelemetry.io/otel/exporters/stdout/stdouttrace/internal
 go.opentelemetry.io/otel/exporters/stdout/stdouttrace/internal/counter
 go.opentelemetry.io/otel/exporters/stdout/stdouttrace/internal/observ
 go.opentelemetry.io/otel/exporters/stdout/stdouttrace/internal/x
-# go.opentelemetry.io/otel/metric v1.42.0
+# go.opentelemetry.io/otel/metric v1.43.0
 ## explicit; go 1.25.0
 go.opentelemetry.io/otel/metric
 go.opentelemetry.io/otel/metric/embedded
 go.opentelemetry.io/otel/metric/noop
-# go.opentelemetry.io/otel/sdk v1.42.0
+# go.opentelemetry.io/otel/sdk v1.43.0
 ## explicit; go 1.25.0
 go.opentelemetry.io/otel/sdk
 go.opentelemetry.io/otel/sdk/instrumentation
@@ -224,7 +224,7 @@ go.opentelemetry.io/otel/sdk/trace
 go.opentelemetry.io/otel/sdk/trace/internal/env
 go.opentelemetry.io/otel/sdk/trace/internal/observ
 go.opentelemetry.io/otel/sdk/trace/tracetest
-# go.opentelemetry.io/otel/sdk/metric v1.42.0
+# go.opentelemetry.io/otel/sdk/metric v1.43.0
 ## explicit; go 1.25.0
 go.opentelemetry.io/otel/sdk/metric
 go.opentelemetry.io/otel/sdk/metric/exemplar
@@ -233,7 +233,7 @@ go.opentelemetry.io/otel/sdk/metric/internal/aggregate
 go.opentelemetry.io/otel/sdk/metric/internal/observ
 go.opentelemetry.io/otel/sdk/metric/internal/reservoir
 go.opentelemetry.io/otel/sdk/metric/metricdata
-# go.opentelemetry.io/otel/trace v1.42.0
+# go.opentelemetry.io/otel/trace v1.43.0
 ## explicit; go 1.25.0
 go.opentelemetry.io/otel/trace
 go.opentelemetry.io/otel/trace/embedded
@@ -280,10 +280,10 @@ go.uber.org/zap/zapcore
 # go.yaml.in/yaml/v2 v2.4.3
 ## explicit; go 1.15
 go.yaml.in/yaml/v2
-# golang.org/x/crypto v0.51.0
+# golang.org/x/crypto v0.54.0
 ## explicit; go 1.25.0
 golang.org/x/crypto/sha3
-# golang.org/x/net v0.55.0
+# golang.org/x/net v0.56.0
 ## explicit; go 1.25.0
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
@@ -293,14 +293,14 @@ golang.org/x/net/internal/httpcommon
 golang.org/x/net/internal/httpsfv
 golang.org/x/net/internal/timeseries
 golang.org/x/net/trace
-# golang.org/x/sys v0.45.0
+# golang.org/x/sys v0.47.0
 ## explicit; go 1.25.0
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-# golang.org/x/text v0.37.0
+# golang.org/x/text v0.40.0
 ## explicit; go 1.25.0
 golang.org/x/text/cases
 golang.org/x/text/internal
@@ -319,7 +319,7 @@ google.golang.org/genproto/googleapis/api/httpbody
 ## explicit; go 1.25.0
 google.golang.org/genproto/googleapis/rpc/errdetails
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.79.1
+# google.golang.org/grpc v1.79.3
 ## explicit; go 1.24.0
 google.golang.org/grpc
 google.golang.org/grpc/attributes
