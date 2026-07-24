@@ -296,7 +296,7 @@ func TestGrpcAuthorizerCheck(t *testing.T) {
 				ctx = metadata.NewIncomingContext(ctx, tc.md)
 			}
 
-			opts := []authorizerOption{}
+			opts := []AuthorizerOption{}
 			if tc.token != nil {
 				var te *testExtractor
 				if tc.tokenError == "" {

@@ -15,10 +15,10 @@ type TokenExtractor struct {
 	skipClientIDCheck bool
 }
 
-type tokenExtractorOption func(*TokenExtractor)
+type TokenExtractorOption func(*TokenExtractor)
 
 // WithSkipClientIDCheck will disable the client_id check validation when parsing jwt tokens
-func WithSkipClientIDCheck() tokenExtractorOption {
+func WithSkipClientIDCheck() TokenExtractorOption {
 	return func(te *TokenExtractor) {
 		te.clientID = ""
 		te.skipClientIDCheck = true
@@ -27,14 +27,14 @@ func WithSkipClientIDCheck() tokenExtractorOption {
 
 // WithAuthHeader sets a custom header to read the jwt token from
 // By default the 'Authorization' header is used
-func WithAuthHeader(header string) tokenExtractorOption {
+func WithAuthHeader(header string) TokenExtractorOption {
 	return func(te *TokenExtractor) {
 		te.header = header
 	}
 }
 
 // NewTokenExtractor produces a TokenExtractor that can extract, verify and parse oidc IDTokens from request headers
-func NewTokenExtractor(jwtIssuerURL string, clientID string, opts ...tokenExtractorOption) (*TokenExtractor, error) {
+func NewTokenExtractor(jwtIssuerURL string, clientID string, opts ...TokenExtractorOption) (*TokenExtractor, error) {
 	te := &TokenExtractor{
 		header:   http.CanonicalHeaderKey("Authorization"),
 		clientID: clientID,

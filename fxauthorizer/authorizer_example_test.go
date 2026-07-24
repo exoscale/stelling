@@ -109,10 +109,6 @@ func Example_grpc() {
 	defer idp.server.Close()
 
 	// Grpc metadata keys are always lowercased, so we point the extractor at "authorization" rather than the HTTP-style "Authorization"
-	te, err := oidc.NewTokenExtractor(idp.server.URL, "", oidc.WithSkipClientIDCheck(), oidc.WithAuthHeader("authorization"))
-	if err != nil {
-		panic(err)
-	}
 	conf := &GrpcConfig{}
 	rule := "request.service == 'grpc.health.v1.Health' && 'trusted-group' in request.jwt.groups"
 	args := []string{"authorizer-test", "--authorizer.rule", rule, "--server.address", "localhost:8080", "--client.endpoint", "localhost:8080", "--client.insecure-connection"}
@@ -128,7 +124,8 @@ func Example_grpc() {
 		fxgrpc.NewServerModule(conf),
 		fxgrpc.NewClientModule(conf),
 		health.Module,
-		fxauthorizer.NewModule(conf, fxauthorizer.WithTokenExtractor(te, false)),
+		fxauthorizer.NewModule(conf, fxauthorizer.WithTokenExtractor(
+			false, idp.server.URL, "", oidc.WithSkipClientIDCheck(), oidc.WithAuthHeader("authorization"))),
 		fx.Provide(
 			zap.NewNop,
 			NewRouteGuideServer,
@@ -181,11 +178,6 @@ func Example_http() {
 	idp := newTestIDP()
 	defer idp.server.Close()
 
-	te, err := oidc.NewTokenExtractor(idp.server.URL, "", oidc.WithSkipClientIDCheck())
-	if err != nil {
-		panic(err)
-	}
-
 	conf := &HttpConfig{}
 	rule := "request.path == '/health' || 'trusted-group' in request.jwt.groups"
 	args := []string{"authorizer-test", "--authorizer.rule", rule, "--server.address", "localhost:8081"}
@@ -199,7 +191,8 @@ func Example_http() {
 		// Suppressing fx logs to ensure deterministic output
 		fx.WithLogger(func() fxevent.Logger { return fxevent.NopLogger }),
 		fxhttp.NewModule(conf),
-		fxauthorizer.NewModule(conf, fxauthorizer.WithTokenExtractor(te, false)),
+		fxauthorizer.NewModule(conf, fxauthorizer.WithTokenExtractor(
+			false, idp.server.URL, "", oidc.WithSkipClientIDCheck())),
 		fx.Provide(
 			zap.NewNop,
 			newMux,
