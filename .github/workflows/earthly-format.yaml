@@ -10,7 +10,6 @@ on:
         default: +format
 
 env:
-  FORCE_COLOR: "1" # Force earthly to use color output
   EARTHLY_OUTPUT: "true" # Allow outputting artifacts
 
 jobs:

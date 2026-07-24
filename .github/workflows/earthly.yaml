@@ -9,14 +9,6 @@ on:
         required: false
         type: string
         default: +ci
-      fetch-depth:
-        description: 'Number of commits to fetch (0 for all history, branches and tags)'
-        required: false
-        type: number
-        default: 1
-
-env:
-  FORCE_COLOR: "1" # Force earthly to use color output
 
 jobs:
   earthly:
@@ -24,8 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          fetch-depth: ${{ inputs.fetch-depth }}
       - uses: ./.github/actions/earthly-action
         with:
           target: ${{ inputs.target }}
