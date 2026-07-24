@@ -29,7 +29,7 @@ func WithSkipClientIDCheck() TokenExtractorOption {
 // By default the 'Authorization' header is used
 func WithAuthHeader(header string) TokenExtractorOption {
 	return func(te *TokenExtractor) {
-		te.header = header
+		te.header = http.CanonicalHeaderKey(header)
 	}
 }
 
@@ -75,6 +75,7 @@ func (te *TokenExtractor) Extract(ctx context.Context, md map[string][]string) (
 	if md == nil {
 		return nil, fmt.Errorf("no metadata to extract token from")
 	}
+	md = canonicalizeHeaders(md)
 	authHeader := md[te.header]
 	if len(authHeader) == 0 {
 		return nil, fmt.Errorf("authorization header '%s' is missing", te.header)
@@ -89,4 +90,14 @@ func (te *TokenExtractor) Extract(ctx context.Context, md map[string][]string) (
 		return nil, fmt.Errorf("invalid token: %w", err)
 	}
 	return parsedToken, nil
+}
+
+// canonicalizeHeaders ensures all headers are in the canonical format used by net/http
+// This is useful in a grpc context which returns headers as lowercase
+func canonicalizeHeaders(input map[string][]string) map[string][]string {
+	output := make(map[string][]string, len(input))
+	for k, v := range input {
+		output[http.CanonicalHeaderKey(k)] = v
+	}
+	return output
 }

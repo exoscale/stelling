@@ -11,35 +11,16 @@ import (
 )
 
 type moduleOpts struct {
-	tokenExtractorConfig  *tokenExtractorConfig
-	tokenExtractorOptions []oidc.TokenExtractorOption
+	requireToken bool
 }
 
 type moduleOption func(*moduleOpts)
 
-// WithTokenExtractor will populate the request.jwt field with the IDToken produced by an
-// oidc.TokenExtractor built from the given identity provider URL and client ID.
-// If requireToken is set, the request will be denied if token extraction fails, without evaluating the policy
-// If requireToken is false, JWT will be nil if token extraction fails and the policy will be evaluated
-func WithTokenExtractor(requireToken bool, identityProviderUrl string, clientId string, opts ...oidc.TokenExtractorOption) moduleOption {
+// WithRequireJWT sets whether the presence of a JWT in the Authorization header is required for auth-z
+func WithRequireJWT(requireToken bool) moduleOption {
 	return func(o *moduleOpts) {
-		o.tokenExtractorConfig = &tokenExtractorConfig{
-			identityProviderUrl: identityProviderUrl,
-			clientId:            clientId,
-			requireToken:        requireToken,
-		}
-		o.tokenExtractorOptions = opts
+		o.requireToken = requireToken
 	}
-}
-
-// tokenExtractorConfig bundles the parameters needed to build the oidc.TokenExtractor so they can
-// be threaded through fx as a single optional dependency. NewGrpcAuthorizer/NewHttpAuthorizer each
-// build their own extractor instance from it. The TokenExtractorOptions travel separately, through
-// the authorizer_oidc_token_extractor_option group, and are collected back up via ParamTags.
-type tokenExtractorConfig struct {
-	identityProviderUrl string
-	clientId            string
-	requireToken        bool
 }
 
 // NewModule provides authorization middleware to the system:
@@ -49,34 +30,16 @@ type tokenExtractorConfig struct {
 // distinct, but share the same config.
 // If you need different rules for either protocol, you must supply
 // 2 different configurations with proper annotations to your system
-func NewModule(conf AuthorizerConfig, opts ...moduleOption) fx.Option {
-	modOpts := &moduleOpts{}
-	for _, o := range opts {
-		o(modOpts)
+func NewModule(conf AuthorizerConfig, modOpts ...moduleOption) fx.Option {
+	options := &moduleOpts{}
+	for _, o := range modOpts {
+		o(options)
 	}
 
-	supplyOpts := fx.Options()
-	if modOpts.tokenExtractorConfig != nil {
-		supplyOpts = fx.Options(
-			fx.Supply(
-				fx.Private,
-				modOpts.tokenExtractorConfig,
-				// Threading the TokenExtractorOptions through a group lets us hand them to the
-				// variadic teOpts parameter of NewGrpcAuthorizer/NewHttpAuthorizer below via ParamTags
-				fx.Annotate(
-					modOpts.tokenExtractorOptions,
-					fx.ResultTags(`group:"authorizer_oidc_token_extractor_option,flatten"`),
-				),
-			),
-		)
-	}
-
-	return fx.Module(
-		"authorizer",
-		supplyOpts,
+	opts := fx.Options(
 		fx.Provide(
-			fx.Annotate(NewGrpcAuthorizer, fx.ParamTags(``, `optional:"true"`, `group:"authorizer_oidc_token_extractor_option"`)),
-			fx.Annotate(NewHttpAuthorizer, fx.ParamTags(``, `optional:"true"`, `group:"authorizer_oidc_token_extractor_option"`)),
+			fx.Annotate(NewGrpcAuthorizer, fx.ParamTags(``, `group:"authorizer_option"`)),
+			fx.Annotate(NewHttpAuthorizer, fx.ParamTags(``, `group:"authorizer_option"`)),
 			fx.Annotate(
 				NewGrpcAuthorizerServerInterceptors,
 				fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
@@ -85,8 +48,23 @@ func NewModule(conf AuthorizerConfig, opts ...moduleOption) fx.Option {
 		),
 		fx.Supply(
 			fx.Annotate(conf, fx.As(new(AuthorizerConfig))),
+			tokenRequired(options.requireToken),
 			fx.Private,
 		),
+	)
+
+	if conf.AuthorizerConfig().IdpEndpoint != "" {
+		opts = fx.Options(
+			opts,
+			fx.Provide(
+				fx.Annotate(newTokenExtractor, fx.ResultTags(`group:"authorizer_option"`)),
+			),
+		)
+	}
+
+	return fx.Module(
+		"authorizer",
+		opts,
 	)
 }
 
@@ -98,33 +76,30 @@ type AuthorizerConfig interface {
 type Authorizer struct {
 	// The CEL expression that will be evaluated for each request made to the server
 	Rule string `validate:"required"`
-	// TODO: Add oidc options when we need them
+	// The URL where we can find the IdP that signs trusted JWTs
+	IdpEndpoint string `validate:"url"`
 }
 
 func (a *Authorizer) AuthorizerConfig() *Authorizer {
 	return a
 }
 
-func NewGrpcAuthorizer(conf AuthorizerConfig, te *tokenExtractorConfig, teOpts ...oidc.TokenExtractorOption) (interceptor.GrpcAuthorizer, error) {
-	if te == nil {
-		return interceptor.NewGrpcAuthorizer(conf.AuthorizerConfig().Rule)
-	}
-	extractor, err := oidc.NewTokenExtractor(te.identityProviderUrl, te.clientId, teOpts...)
+type tokenRequired bool
+
+func newTokenExtractor(conf AuthorizerConfig, tokenRequired tokenRequired) (interceptor.AuthorizerOption, error) {
+	extractor, err := oidc.NewTokenExtractor(conf.AuthorizerConfig().IdpEndpoint, "", oidc.WithSkipClientIDCheck())
 	if err != nil {
 		return nil, err
 	}
-	return interceptor.NewGrpcAuthorizer(conf.AuthorizerConfig().Rule, interceptor.WithTokenExtractor(extractor, te.requireToken))
+	return interceptor.WithTokenExtractor(extractor, bool(tokenRequired)), nil
 }
 
-func NewHttpAuthorizer(conf AuthorizerConfig, te *tokenExtractorConfig, teOpts ...oidc.TokenExtractorOption) (interceptor.HttpAuthorizer, error) {
-	if te == nil {
-		return interceptor.NewHttpAuthorizer(conf.AuthorizerConfig().Rule)
-	}
-	extractor, err := oidc.NewTokenExtractor(te.identityProviderUrl, te.clientId, teOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return interceptor.NewHttpAuthorizer(conf.AuthorizerConfig().Rule, interceptor.WithTokenExtractor(extractor, te.requireToken))
+func NewGrpcAuthorizer(conf AuthorizerConfig, opts ...interceptor.AuthorizerOption) (interceptor.GrpcAuthorizer, error) {
+	return interceptor.NewGrpcAuthorizer(conf.AuthorizerConfig().Rule, opts...)
+}
+
+func NewHttpAuthorizer(conf AuthorizerConfig, opts ...interceptor.AuthorizerOption) (interceptor.HttpAuthorizer, error) {
+	return interceptor.NewHttpAuthorizer(conf.AuthorizerConfig().Rule, opts...)
 }
 
 // Setting this late in the chain so observability interceptors can monitor requests that fail authorization
