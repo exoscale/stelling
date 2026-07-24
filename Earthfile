@@ -2,10 +2,6 @@ VERSION --try 0.8
 
 ARG --global GO_VERSION=1.26.5
 
-ci:
-    BUILD +format
-    BUILD +test
-
 source:
     FROM library/golang:${GO_VERSION}-alpine
     WORKDIR /build
