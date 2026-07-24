@@ -35,7 +35,7 @@ func compileGrpcCelProgram(rule string) (cel.Program, error) {
 
 // NewGrpcAuthorizer produces an Authorizer that can evaluate a CEL policy over Grpc requests
 // The rule must evaluate to a bool
-func NewGrpcAuthorizer(rule string, opts ...authorizerOption) (*grpcAuthorizer, error) {
+func NewGrpcAuthorizer(rule string, opts ...AuthorizerOption) (*grpcAuthorizer, error) {
 	program, err := compileGrpcCelProgram(rule)
 	if err != nil {
 		return nil, err

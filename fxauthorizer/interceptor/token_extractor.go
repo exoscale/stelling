@@ -40,12 +40,12 @@ type authorizer struct {
 	requireToken    bool
 }
 
-type authorizerOption func(*authorizer)
+type AuthorizerOption func(*authorizer)
 
 // WithTokenExtractor will populate the request.jwt field with the IDToken produced by the extractor
 // If requireToken is set, the request will be denied if token extraction fails, without evaluating the policy
 // If requireToken is false, JWT will be nil if token extraction fails and the policy will be evaluated
-func WithTokenExtractor(te TokenExtractor, requireToken bool) authorizerOption {
+func WithTokenExtractor(te TokenExtractor, requireToken bool) AuthorizerOption {
 	return func(ca *authorizer) {
 		ca.authTokenFormat = TokenFormatJWT
 		ca.tokenExtractor = te
