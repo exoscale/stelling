@@ -12,7 +12,6 @@ import (
 
 	sconfig "github.com/exoscale/stelling/config"
 	"github.com/exoscale/stelling/fxauthorizer"
-	"github.com/exoscale/stelling/fxauthorizer/oidc"
 	"github.com/exoscale/stelling/fxgrpc"
 	"github.com/exoscale/stelling/fxgrpc/health"
 	"github.com/exoscale/stelling/fxhttp"
@@ -111,7 +110,7 @@ func Example_grpc() {
 	// Grpc metadata keys are always lowercased, so we point the extractor at "authorization" rather than the HTTP-style "Authorization"
 	conf := &GrpcConfig{}
 	rule := "request.service == 'grpc.health.v1.Health' && 'trusted-group' in request.jwt.groups"
-	args := []string{"authorizer-test", "--authorizer.rule", rule, "--server.address", "localhost:8080", "--client.endpoint", "localhost:8080", "--client.insecure-connection"}
+	args := []string{"authorizer-test", "--authorizer.idp-endpoint", idp.server.URL, "--authorizer.rule", rule, "--server.address", "localhost:8080", "--client.endpoint", "localhost:8080", "--client.insecure-connection"}
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
 	}
@@ -124,9 +123,9 @@ func Example_grpc() {
 		fxgrpc.NewServerModule(conf),
 		fxgrpc.NewClientModule(conf),
 		health.Module,
-		fxauthorizer.NewModule(conf, fxauthorizer.WithTokenExtractor(
-			false, idp.server.URL, "", oidc.WithSkipClientIDCheck(), oidc.WithAuthHeader("authorization"))),
+		fxauthorizer.NewModule(conf),
 		fx.Provide(
+			// zap.NewDevelopment,
 			zap.NewNop,
 			NewRouteGuideServer,
 			pb.NewRouteGuideClient,
@@ -180,7 +179,7 @@ func Example_http() {
 
 	conf := &HttpConfig{}
 	rule := "request.path == '/health' || 'trusted-group' in request.jwt.groups"
-	args := []string{"authorizer-test", "--authorizer.rule", rule, "--server.address", "localhost:8081"}
+	args := []string{"authorizer-test", "--authorizer.rule", rule, "--authorizer.idp-endpoint", idp.server.URL, "--server.address", "localhost:8081"}
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
 	}
@@ -191,8 +190,7 @@ func Example_http() {
 		// Suppressing fx logs to ensure deterministic output
 		fx.WithLogger(func() fxevent.Logger { return fxevent.NopLogger }),
 		fxhttp.NewModule(conf),
-		fxauthorizer.NewModule(conf, fxauthorizer.WithTokenExtractor(
-			false, idp.server.URL, "", oidc.WithSkipClientIDCheck())),
+		fxauthorizer.NewModule(conf),
 		fx.Provide(
 			zap.NewNop,
 			newMux,

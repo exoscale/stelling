@@ -23,7 +23,9 @@ This provides a flexible environment that allows expressing a wide variety of po
 
 ## Configuration file
 The module supports the following configuration options:
+
 * `Rule`: The CEL expression which will be validated for each request. Required
+* `IdpEndpoint`: The IdP server which signs the JWTs we should trust. The server needs to expose the OIDC .well-known endpoint. Optional
 
 ## Request schema
 While most parameters are shared between HTTP and gRPC requests, they have been tailored to their respective
