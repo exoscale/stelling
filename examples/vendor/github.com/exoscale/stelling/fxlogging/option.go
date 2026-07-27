@@ -11,6 +11,7 @@ type moduleConfig struct {
 	zapOptions                   []zap.Option
 	grpcServerInterceptorOptions []interceptor.Option
 	grpcClientInterceptorOptions []interceptor.Option
+	httpInterceptorOptions       []interceptor.HTTPOption
 	enableGrpcClientInterceptors bool
 }
 
@@ -50,5 +51,11 @@ func WithGrpcServerInterceptorOptions(opt interceptor.Option) Option {
 func WithGrpcClientInterceptorOptions(opt interceptor.Option) Option {
 	return func(mc *moduleConfig) {
 		mc.grpcClientInterceptorOptions = append(mc.grpcClientInterceptorOptions, opt)
+	}
+}
+
+func WithHTTPInterceptorOptions(opt interceptor.HTTPOption) Option {
+	return func(mc *moduleConfig) {
+		mc.httpInterceptorOptions = append(mc.httpInterceptorOptions, opt)
 	}
 }
