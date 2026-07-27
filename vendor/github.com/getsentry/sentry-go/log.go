@@ -60,7 +60,7 @@ func NewLogger(ctx context.Context) Logger { // nolint: dupl
 	}
 
 	client := hub.Client()
-	if client != nil && client.options.EnableLogs {
+	if client != nil && !client.options.DisableLogs {
 		// Build default attrs
 		serverAddr := client.options.ServerName
 		if serverAddr == "" {
@@ -91,7 +91,7 @@ func NewLogger(ctx context.Context) Logger { // nolint: dupl
 		}
 	}
 
-	debuglog.Println("fallback to noopLogger: enableLogs disabled")
+	debuglog.Println("fallback to noopLogger: SDK not initialized or logs disabled")
 	return &noopLogger{}
 }
 
@@ -101,7 +101,7 @@ func (l *sentryLogger) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (l *sentryLogger) log(ctx context.Context, level LogLevel, severity int, message string, entryAttrs map[string]attribute.Value, args ...interface{}) {
+func (l *sentryLogger) log(ctx context.Context, level LogLevel, severity int, message string, entryAttrs map[string]attribute.Value, format bool, args ...interface{}) {
 	if message == "" {
 		return
 	}
@@ -116,7 +116,7 @@ func (l *sentryLogger) log(ctx context.Context, level LogLevel, severity int, me
 	}
 
 	scope := hub.Scope()
-	traceID, spanID := resolveTrace(scope, ctx, l.ctx)
+	traceID, spanID := resolveTrace(scope, client, ctx, l.ctx)
 
 	// Pre-allocate with capacity hint to avoid map growth reallocations
 	estimatedCap := len(l.defaultAttributes) + len(entryAttrs) + len(args) + 8 // scope ~3 + instance ~5
@@ -138,6 +138,11 @@ func (l *sentryLogger) log(ctx context.Context, level LogLevel, severity int, me
 		attrs[k] = v
 	}
 
+	body := message
+	if format {
+		body = fmt.Sprintf(message, args...)
+	}
+
 	if len(args) > 0 {
 		attrs["sentry.message.template"] = attribute.StringValue(message)
 		for i, p := range args {
@@ -151,13 +156,14 @@ func (l *sentryLogger) log(ctx context.Context, level LogLevel, severity int, me
 		SpanID:     spanID,
 		Level:      level,
 		Severity:   severity,
-		Body:       fmt.Sprintf(message, args...),
+		Body:       body,
 		Attributes: attrs,
 	}
+	log.approximateSize = computeLogSize(log)
 
 	client.captureLog(log, scope)
 	if client.options.Debug {
-		debuglog.Printf(message, args...)
+		debuglog.Print(body)
 	}
 }
 
@@ -277,8 +283,18 @@ func (e *logEntry) String(key, value string) LogEntry {
 	return e
 }
 
+func (e *logEntry) StringSlice(key string, value []string) LogEntry {
+	e.attributes[key] = attribute.StringSliceValue(value)
+	return e
+}
+
 func (e *logEntry) Int(key string, value int) LogEntry {
 	e.attributes[key] = attribute.Int64Value(int64(value))
+	return e
+}
+
+func (e *logEntry) Int64Slice(key string, value []int64) LogEntry {
+	e.attributes[key] = attribute.Int64SliceValue(value)
 	return e
 }
 
@@ -287,8 +303,18 @@ func (e *logEntry) Int64(key string, value int64) LogEntry {
 	return e
 }
 
+func (e *logEntry) Float64Slice(key string, value []float64) LogEntry {
+	e.attributes[key] = attribute.Float64SliceValue(value)
+	return e
+}
+
 func (e *logEntry) Float64(key string, value float64) LogEntry {
 	e.attributes[key] = attribute.Float64Value(value)
+	return e
+}
+
+func (e *logEntry) BoolSlice(key string, value []bool) LogEntry {
+	e.attributes[key] = attribute.BoolSliceValue(value)
 	return e
 }
 
@@ -306,7 +332,7 @@ func (e *logEntry) Uint64(key string, value uint64) LogEntry {
 }
 
 func (e *logEntry) Emit(args ...interface{}) {
-	e.logger.log(e.ctx, e.level, e.severity, fmt.Sprint(args...), e.attributes)
+	e.logger.log(e.ctx, e.level, e.severity, fmt.Sprint(args...), e.attributes, false)
 
 	if e.level == LogLevelFatal {
 		if e.shouldPanic {
@@ -319,7 +345,7 @@ func (e *logEntry) Emit(args ...interface{}) {
 }
 
 func (e *logEntry) Emitf(format string, args ...interface{}) {
-	e.logger.log(e.ctx, e.level, e.severity, format, e.attributes, args...)
+	e.logger.log(e.ctx, e.level, e.severity, format, e.attributes, true, args...)
 
 	if e.level == LogLevelFatal {
 		if e.shouldPanic {
