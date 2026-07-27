@@ -29,7 +29,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/getsentry/sentry-go v0.43.0
 	github.com/go-jose/go-jose/v4 v4.1.4
-	github.com/google/cel-go v0.27.0
+	github.com/google/cel-go v0.29.0
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0
 	github.com/mattn/go-sqlite3 v1.14.34
@@ -81,6 +81,7 @@ require (
 	go.uber.org/dig v1.19.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
+	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.54.0 // indirect
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
 	golang.org/x/net v0.56.0 // indirect
