@@ -7,12 +7,13 @@ on:
 
 jobs:
   format:
-    uses: exoscale/github-actions/.github/workflows/earthly-format.yaml@master
-    secrets: inherit
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/earthly-format.yaml
+    with:
+      target: +format
 
   vulncheck:
-    uses: exoscale/github-actions/.github/workflows/earthly.yaml@master
-    secrets: inherit
+    uses: ./.github/workflows/earthly.yaml
     with:
       target: +vulncheck
 

@@ -1,20 +1,42 @@
 {
-	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
-	"configMigration": true,
-	"extends": [
-		"github>exoscale/github-actions:renovate-default.json"
-	],
-	"customManagers": [
-		{
-			"customType": "regex",
-			"managerFilePatterns": [
-				"/(^|/)Earthfile$/"
-			],
-			"matchStrings": [
-				"GO_VERSION: \"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
-			],
-			"depNameTemplate": "go",
-			"datasourceTemplate": "golang-version"
-		}
-	]
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "configMigration": true,
+  "extends": [
+    "config:recommended",
+    "docker:pinDigests",
+    "helpers:pinGitHubActionDigests",
+    "customManagers:dockerfileVersions",
+    "customManagers:githubActionsVersions"
+  ],
+  "schedule": ["after 8am and before 5pm every weekday"],
+  "minimumReleaseAge": "3 days",
+  "labels": [
+    "dependencies",
+    "HOLD :hand:",
+    "triggered_by:renovate"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Generic regex manager for Renovate",
+      "managerFilePatterns": [
+        ".*"
+      ],
+      "matchStrings": [
+        "renovate: datasource=(?<datasource>[a-z-]+)(?: depName=(?<depName>[^\\s]+))?.*\\n.*(?<currentValue>\\d+\\.\\d+\\.\\d+)",
+        "renovate: datasource=github-tags(?: depName=(?<depName>[^\\s]+))?.*\\n\\s+.+github.com\\/.*ref=(?<currentValue>[a-z-]+?[a-f\\d]+)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|/)Earthfile$/"
+      ],
+      "matchStrings": [
+        "GO_VERSION: \"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "depNameTemplate": "go",
+      "datasourceTemplate": "golang-version"
+    }
+  ]
 }

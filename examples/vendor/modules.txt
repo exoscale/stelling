@@ -320,9 +320,7 @@ go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
 go.uber.org/zap/internal/pool
 go.uber.org/zap/internal/stacktrace
-go.uber.org/zap/internal/ztest
 go.uber.org/zap/zapcore
-go.uber.org/zap/zaptest
 # go.yaml.in/yaml/v2 v2.4.3
 ## explicit; go 1.15
 go.yaml.in/yaml/v2
@@ -469,6 +467,7 @@ google.golang.org/grpc/status
 google.golang.org/grpc/tap
 # google.golang.org/grpc/examples v0.0.0-20260220101807-19e41284feb7
 ## explicit; go 1.24.0
+google.golang.org/grpc/examples/route_guide/routeguide
 # google.golang.org/protobuf v1.36.11
 ## explicit; go 1.23
 google.golang.org/protobuf/encoding/protodelim
