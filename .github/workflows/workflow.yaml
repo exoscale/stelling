@@ -6,16 +6,32 @@ on:
   pull_request:
 
 jobs:
-  format:
+  lint:
+    name: lint
     if: github.event_name == 'pull_request'
-    uses: ./.github/workflows/earthly-format.yaml
-    with:
-      target: +format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+          check-latest: true
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          args: --timeout 5m
 
   vulncheck:
-    uses: ./.github/workflows/earthly.yaml
-    with:
-      target: +vulncheck
+    name: vulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+          check-latest: true
+      - run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - run: govulncheck ./...
 
   test:
     strategy:
@@ -29,4 +45,15 @@ jobs:
         with:
           go-version-file: 'go.mod'
           check-latest: true
-      - run: go test ./... -cover -race
+      - run: go test ./... -race
+
+  test-example:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: 'examples/go.mod'
+          check-latest: true
+      - run: go test ./...
+        working-directory: examples/
