@@ -458,8 +458,8 @@ google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
 google.golang.org/grpc/test/bufconn
-# google.golang.org/grpc/examples v0.0.0-20230215194445-0f02ca5cc927
-## explicit; go 1.17
+# google.golang.org/grpc/examples v0.0.0-20260724205224-216640cad739
+## explicit; go 1.25.0
 google.golang.org/grpc/examples/route_guide/routeguide
 # google.golang.org/protobuf v1.36.11
 ## explicit; go 1.23
