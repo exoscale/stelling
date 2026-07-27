@@ -32,7 +32,7 @@ func compileHttpCelProgram(rule string) (cel.Program, error) {
 
 // NewHttpAuthorizer produces an Authorizer that can evaluate a CEL policy over Grpc requests
 // The rule must evaluate to a bool
-func NewHttpAuthorizer(rule string, opts ...authorizerOption) (*httpAuthorizer, error) {
+func NewHttpAuthorizer(rule string, opts ...AuthorizerOption) (*httpAuthorizer, error) {
 	program, err := compileHttpCelProgram(rule)
 	if err != nil {
 		return nil, err
