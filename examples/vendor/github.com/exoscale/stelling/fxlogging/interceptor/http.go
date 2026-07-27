@@ -33,7 +33,8 @@ type NeverEnabler struct{}
 
 func (NeverEnabler) Enabled(zapcore.Level) bool { return false }
 
-func NewRequestLogger(logger *zap.Logger, wrapped http.Handler) http.Handler {
+func NewRequestLogger(logger *zap.Logger, wrapped http.Handler, opts ...HTTPOption) http.Handler {
+	conf := newHTTPInterceptorConfig(opts)
 	logger = logger.WithOptions(zap.WithCaller(false), zap.AddStacktrace(NeverEnabler{}))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -63,6 +64,16 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler) http.Handler {
 
 		if rpcMethod := fxhttp.RPCMethodFromContext(ctx); rpcMethod != "" {
 			fields = append(fields, zap.String("rpc.method", rpcMethod))
+		}
+
+		if requestID := r.Header.Get("x-request-id"); requestID != "" {
+			fields = append(fields, zap.String("request_id", requestID))
+		}
+
+		for headerName, fieldName := range conf.headerFields {
+			if value := r.Header.Get(headerName); value != "" && fieldName != "" {
+				fields = append(fields, zap.String(fieldName, value))
+			}
 		}
 
 		l := logger.With(fields...)
