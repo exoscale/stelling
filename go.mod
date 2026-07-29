@@ -41,7 +41,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.2
-	modernc.org/sqlite v1.54.0
+	modernc.org/sqlite v1.55.0
 	moul.io/zapgorm2 v1.3.0
 )
 
