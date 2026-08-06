@@ -1,0 +1,30 @@
+openapi: 3.0.3
+info:
+  title: Stelling example public API
+  version: 0.1.0
+
+paths:
+  /stelling/greeting:
+    get:
+      operationId: get-stelling-greeting
+      summary: Say hello from Stelling
+      responses:
+        "200":
+          description: Greeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/greeting"
+        "400":
+          $ref: 'https://raw.githubusercontent.com/exoscale/stelling/refs/heads/emilehreich/sc-190388/-stelling-shared-types-for-oapi-codegen/fxhttp/api-shared-types/types.yaml#/components/responses/error-response'
+
+components:
+  schemas:
+    greeting:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    
