@@ -234,7 +234,7 @@ func TestHttpAuthorizerCheck(t *testing.T) {
 				req.Header = tc.md
 			}
 
-			opts := []authorizerOption{}
+			opts := []AuthorizerOption{}
 			if tc.token != nil {
 				var te *testExtractor
 				if tc.tokenError == "" {

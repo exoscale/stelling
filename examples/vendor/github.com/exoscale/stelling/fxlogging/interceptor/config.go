@@ -16,7 +16,13 @@ type interceptorConfig struct {
 	metadataFields  map[string]string
 }
 
+type httpInterceptorConfig struct {
+	headerFields map[string]string
+}
+
 type Option func(*interceptorConfig)
+
+type HTTPOption func(*httpInterceptorConfig)
 
 // WithLevelFunc provides a custom implementation that maps a gRPC status code to a logging level
 func WithLevelFunc(f func(*otelgrpc.InterceptorInfo, codes.Code) zapcore.Level) Option {
@@ -67,6 +73,15 @@ func WithMetadataFields(m map[string]string) Option {
 	}
 }
 
+// WithHTTPHeaderFields configures the HTTP request logger to extract values from
+// incoming HTTP headers and add them to the request logger. The map is
+// headerName->loggerFieldName.
+func WithHTTPHeaderFields(m map[string]string) HTTPOption {
+	return func(c *httpInterceptorConfig) {
+		c.headerFields = m
+	}
+}
+
 func newInterceptorConfig(opts []Option) *interceptorConfig {
 	conf := &interceptorConfig{
 		levelFunc:       DefaultServerCodeToLevel,
@@ -75,6 +90,18 @@ func newInterceptorConfig(opts []Option) *interceptorConfig {
 		startLogFilter:  defaultStartLogFilter,
 		extraFieldsFunc: defaultExtraFieldsFunc,
 		metadataFields:  map[string]string{},
+	}
+
+	for _, opt := range opts {
+		opt(conf)
+	}
+
+	return conf
+}
+
+func newHTTPInterceptorConfig(opts []HTTPOption) *httpInterceptorConfig {
+	conf := &httpInterceptorConfig{
+		headerFields: map[string]string{},
 	}
 
 	for _, opt := range opts {

@@ -5,7 +5,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/getsentry/sentry-go/internal/protocol"
 	"github.com/getsentry/sentry-go/internal/ratelimit"
+	"github.com/getsentry/sentry-go/report"
 )
 
 const defaultCapacity = 100
@@ -22,17 +24,20 @@ type RingBuffer[T any] struct {
 	category       ratelimit.Category
 	priority       ratelimit.Priority
 	overflowPolicy OverflowPolicy
+	recorder       report.ClientReportRecorder
 
 	batchSize     int
 	timeout       time.Duration
 	lastFlushTime time.Time
 
-	offered   int64
-	dropped   int64
+	// atomic.Int64 instead of int64 + atomic ops: 64-bit atomics on plain
+	// mid-struct fields panic on 32-bit platforms (4-byte field alignment).
+	offered   atomic.Int64
+	dropped   atomic.Int64
 	onDropped func(item T, reason string)
 }
 
-func NewRingBuffer[T any](category ratelimit.Category, capacity int, overflowPolicy OverflowPolicy, batchSize int, timeout time.Duration) *RingBuffer[T] {
+func NewRingBuffer[T any](category ratelimit.Category, capacity int, overflowPolicy OverflowPolicy, batchSize int, timeout time.Duration, recorder report.ClientReportRecorder) *RingBuffer[T] {
 	if capacity <= 0 {
 		capacity = defaultCapacity
 	}
@@ -45,12 +50,17 @@ func NewRingBuffer[T any](category ratelimit.Category, capacity int, overflowPol
 		timeout = 0
 	}
 
+	if recorder == nil {
+		recorder = report.NoopRecorder()
+	}
+
 	return &RingBuffer[T]{
 		items:          make([]T, capacity),
 		capacity:       capacity,
 		category:       category,
 		priority:       category.GetPriority(),
 		overflowPolicy: overflowPolicy,
+		recorder:       recorder,
 		batchSize:      batchSize,
 		timeout:        timeout,
 		lastFlushTime:  time.Now(),
@@ -64,7 +74,7 @@ func (b *RingBuffer[T]) SetDroppedCallback(callback func(item T, reason string))
 }
 
 func (b *RingBuffer[T]) Offer(item T) bool {
-	atomic.AddInt64(&b.offered, 1)
+	b.offered.Add(1)
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -83,21 +93,24 @@ func (b *RingBuffer[T]) Offer(item T) bool {
 		b.head = (b.head + 1) % b.capacity
 		b.tail = (b.tail + 1) % b.capacity
 
-		atomic.AddInt64(&b.dropped, 1)
+		b.dropped.Add(1)
+		b.recordDroppedItem(oldItem)
 		if b.onDropped != nil {
 			b.onDropped(oldItem, "buffer_full_drop_oldest")
 		}
 		return true
 
 	case OverflowPolicyDropNewest:
-		atomic.AddInt64(&b.dropped, 1)
+		b.dropped.Add(1)
+		b.recordDroppedItem(item)
 		if b.onDropped != nil {
 			b.onDropped(item, "buffer_full_drop_newest")
 		}
 		return false
 
 	default:
-		atomic.AddInt64(&b.dropped, 1)
+		b.dropped.Add(1)
+		b.recordDroppedItem(item)
 		if b.onDropped != nil {
 			b.onDropped(item, "unknown_overflow_policy")
 		}
@@ -233,11 +246,11 @@ func (b *RingBuffer[T]) Utilization() float64 {
 }
 
 func (b *RingBuffer[T]) OfferedCount() int64 {
-	return atomic.LoadInt64(&b.offered)
+	return b.offered.Load()
 }
 
 func (b *RingBuffer[T]) DroppedCount() int64 {
-	return atomic.LoadInt64(&b.dropped)
+	return b.dropped.Load()
 }
 
 func (b *RingBuffer[T]) AcceptedCount() int64 {
@@ -343,6 +356,14 @@ func (b *RingBuffer[T]) PollIfReady() []T {
 
 	b.lastFlushTime = time.Now()
 	return result
+}
+
+func (b *RingBuffer[T]) recordDroppedItem(item T) {
+	if ti, ok := any(item).(protocol.TelemetryItem); ok {
+		b.recorder.RecordItem(report.ReasonBufferOverflow, ti)
+	} else {
+		b.recorder.RecordOne(report.ReasonBufferOverflow, b.category)
+	}
 }
 
 type BufferMetrics struct {

@@ -39,6 +39,10 @@ func NewModule(conf LoggingConfig, opts ...Option) fx.Option {
 				fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
 			),
 			fx.Annotate(
+				NewHttpMiddleware,
+				fx.ParamTags(``, `group:"logging_http_interceptor_options"`),
+			),
+			fx.Annotate(
 				NewGrpcInjectLoggerInterceptors,
 				fx.ParamTags(``, `group:"inject_logger_interceptor_options"`),
 				fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
@@ -47,7 +51,6 @@ func NewModule(conf LoggingConfig, opts ...Option) fx.Option {
 				NewGrpcInjectPeerInterceptors,
 				fx.ResultTags(`group:"unary_client_interceptor"`, `group:"stream_client_interceptor"`),
 			),
-			NewHttpMiddleware,
 		),
 		fx.Supply(
 			fx.Private,
@@ -55,6 +58,7 @@ func NewModule(conf LoggingConfig, opts ...Option) fx.Option {
 			fx.Annotate(modConf.zapOptions, fx.ResultTags(`group:"zap_opts,flatten"`)),
 			fx.Annotate(modConf.grpcServerInterceptorOptions, fx.ResultTags(`group:"logging_server_interceptor_options,flatten"`)),
 			fx.Annotate(modConf.grpcClientInterceptorOptions, fx.ResultTags(`group:"logging_client_interceptor_options,flatten"`)),
+			fx.Annotate(modConf.httpInterceptorOptions, fx.ResultTags(`group:"logging_http_interceptor_options,flatten"`)),
 		),
 	)
 

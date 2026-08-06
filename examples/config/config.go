@@ -13,16 +13,6 @@ import (
 	"github.com/exoscale/stelling/fxtracing"
 )
 
-// Config values can be overridden in an environment variable using the CONFIG_ prefix.
-// For example:
-// export CONFIG_GREETING_MESSAGE="some new greeting"
-
-// Define config sub-categories with separate structs like this. For example, you could group all
-// parameters related to connecting to Prometheus in a Prometheus struct.
-type Greeting struct {
-	Message string `default:"this is the default greeting!"`
-}
-
 type Config struct {
 	fxgrpc.Server
 	fxlogging.Logging
@@ -31,8 +21,6 @@ type Config struct {
 	fxtracing.Tracing
 	fxsentry.Sentry
 	HttpServer fxhttp.Server
-
-	Greeting
 
 	FeatureFlag    bool
 	Mode           string        `default:"high" validate:"oneof=low medium high"`
