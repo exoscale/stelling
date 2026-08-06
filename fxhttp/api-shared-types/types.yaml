@@ -1,0 +1,29 @@
+openapi: 3.0.3
+info:
+  title: Shared API Components
+  version: 1.0.0
+
+components:
+  schemas:
+    
+  responses:
+        
+    error-response:
+      type: object
+      description: RFC 9457 Problem Details error response
+      required: [type, title, status, detail]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          description: An absolute or relative URI reference pointing to human-readable documentation concerning the specific problem type encountered.
+        title:
+          type: string
+          description: A brief summary defining the class of failure, optimal for quick user interface groupings.
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
+          description: A highly contextual, readable explanation breaking down explicitly what triggered this error scenario.
