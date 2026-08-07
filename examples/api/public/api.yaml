@@ -16,7 +16,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/greeting"
         "400":
-          $ref: 'https://raw.githubusercontent.com/exoscale/stelling/refs/heads/emilehreich/sc-190388/-stelling-shared-types-for-oapi-codegen/fxhttp/api-shared-types/types.yaml#/components/responses/error-response'
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error-response"
 
 components:
   schemas:
@@ -27,4 +31,12 @@ components:
         message:
           type: string
 
-    
+    error-response:
+      type: object
+      description: RFC 9457 Problem Details error response
+      # Tell oapi-codegen to use the 'sharedTypes' alias and 'ErrorResponse' type
+      x-go-type: sharedTypes.ErrorResponse
+      # Explicitly inject the Go import at the top of the generated file
+      x-go-type-import:
+        name: sharedTypes
+        path: github.com/exoscale/stelling/fxhttp/types

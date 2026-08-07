@@ -1,5 +1,5 @@
-package: api
-output: httpserver.gen.go
+package: examples
+output: server.gen.go
 generate:
   models: true
   std-http-server: true
