@@ -5,11 +5,11 @@ go 1.26.5
 replace github.com/exoscale/stelling => ../
 
 require (
-	github.com/exoscale/stelling v0.0.0-20260602150821-48e2c93c5b8f
+	github.com/exoscale/stelling v0.0.0-20260729133505-d07e38c8d99b
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/fx v1.24.0
 	go.uber.org/zap v1.28.0
-	google.golang.org/grpc/examples v0.0.0-20260220101807-19e41284feb7
+	google.golang.org/grpc/examples v0.0.0-20260724205224-216640cad739
 )
 
 require (

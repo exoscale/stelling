@@ -1,0 +1,4 @@
+package: types
+output: shared-types.gen.go
+generate:
+  models: true
