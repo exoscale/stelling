@@ -1,0 +1,6 @@
+package: examples
+output: server.gen.go
+generate:
+  models: true
+  std-http-server: true
+  strict-server: true

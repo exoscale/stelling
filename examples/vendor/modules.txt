@@ -26,13 +26,14 @@ github.com/dprotaso/go-yit
 # github.com/exoscale/multiconfig v0.0.0-20260223134601-625dc5777c41
 ## explicit; go 1.24
 github.com/exoscale/multiconfig
-# github.com/exoscale/stelling v0.0.0-20260602150821-48e2c93c5b8f => ../
+# github.com/exoscale/stelling v0.0.0-20260729133505-d07e38c8d99b => ../
 ## explicit; go 1.26.5
 github.com/exoscale/stelling/config
 github.com/exoscale/stelling/fxcert-reloader
 github.com/exoscale/stelling/fxgrpc
 github.com/exoscale/stelling/fxgrpc/health
 github.com/exoscale/stelling/fxhttp
+github.com/exoscale/stelling/fxhttp/types
 github.com/exoscale/stelling/fxlogging
 github.com/exoscale/stelling/fxlogging/fxlogger
 github.com/exoscale/stelling/fxlogging/grpc
@@ -472,8 +473,8 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/grpc/examples v0.0.0-20260220101807-19e41284feb7
-## explicit; go 1.24.0
+# google.golang.org/grpc/examples v0.0.0-20260724205224-216640cad739
+## explicit; go 1.25.0
 google.golang.org/grpc/examples/route_guide/routeguide
 # google.golang.org/protobuf v1.36.11
 ## explicit; go 1.23

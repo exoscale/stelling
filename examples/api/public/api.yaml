@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: Stelling example public API
+  version: 0.1.0
+
+paths:
+  /stelling/greeting:
+    get:
+      operationId: get-stelling-greeting
+      summary: Say hello from Stelling
+      responses:
+        "200":
+          description: Greeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/greeting"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error-response"
+
+components:
+  schemas:
+    greeting:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    error-response:
+      type: object
+      description: RFC 9457 Problem Details error response
+      # Tell oapi-codegen to use the 'sharedTypes' alias and 'ErrorResponse' type
+      x-go-type: sharedTypes.ErrorResponse
+      # Explicitly inject the Go import at the top of the generated file
+      x-go-type-import:
+        name: sharedTypes
+        path: github.com/exoscale/stelling/fxhttp/types
