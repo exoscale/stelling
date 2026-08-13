@@ -21,7 +21,7 @@ require (
 	go.uber.org/zap v1.28.0
 	google.golang.org/grpc v1.83.0
 	google.golang.org/grpc/examples v0.0.0-20260724205224-216640cad739
-	google.golang.org/protobuf v1.36.11
+	google.golang.org/protobuf v1.36.12
 	zombiezen.com/go/sqlite v1.4.2
 )
 
