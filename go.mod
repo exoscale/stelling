@@ -1,6 +1,6 @@
 module github.com/exoscale/stelling
 
-go 1.26.5
+go 1.26.6
 
 require (
 	github.com/TheZeroSlave/zapsentry v1.24.0
