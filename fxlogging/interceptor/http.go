@@ -22,6 +22,10 @@ func NewWrapResponseWriter(w http.ResponseWriter) *WrapResponseWriter {
 	return &WrapResponseWriter{ResponseWriter: w}
 }
 
+func (w *WrapResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
 func (w *WrapResponseWriter) WriteHeader(statusCode int) {
 	w.StatusCode = statusCode
 	w.ResponseWriter.WriteHeader(statusCode)
