@@ -91,6 +91,14 @@ func TestRequestLogger(t *testing.T) {
 	})
 }
 
+func TestWrapResponseWriterSupportsResponseController(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	writer := NewWrapResponseWriter(recorder)
+
+	require.NoError(t, http.NewResponseController(writer).Flush())
+	require.True(t, recorder.Flushed)
+}
+
 func requireLogMessage(t *testing.T, entries []observer.LoggedEntry, message string) observer.LoggedEntry {
 	t.Helper()
 	for _, entry := range entries {
