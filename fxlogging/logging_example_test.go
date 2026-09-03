@@ -37,9 +37,9 @@ func Example() {
 	app.Run()
 
 	// Output:
-	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Using configuration","conf":{"Mode":"production","Dsn":"","Environment":"prod","Debug":false,"Process":"","APIKey":"*****"}}
+	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Using configuration","conf":{"Mode":"production","Dsn":"","Environment":"prod","Version":"","Debug":false,"Process":"","APIKey":"*****"}}
 	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Example log"}
-	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Final configuration","conf":{"Mode":"production","Dsn":"","Environment":"prod","Debug":false,"Process":"","APIKey":"*****"}}
+	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Final configuration","conf":{"Mode":"production","Dsn":"","Environment":"prod","Version":"","Debug":false,"Process":"","APIKey":"*****"}}
 }
 
 func run(sd fx.Shutdowner, logger *zap.Logger) {

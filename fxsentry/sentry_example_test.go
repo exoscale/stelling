@@ -20,7 +20,7 @@ type Config struct {
 
 func Example() {
 	conf := &Config{}
-	args := []string{"sentry-test", "--logging.mode", "production"}
+	args := []string{"sentry-test", "--logging.mode", "production", "--sentry.version", "1.0.1"}
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
 	}
@@ -37,9 +37,9 @@ func Example() {
 	app.Run()
 
 	// Output:
-	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Using configuration","conf":{"Mode":"production","Dsn":"","Environment":"prod","Debug":false,"Process":""}}
+	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Using configuration","conf":{"Mode":"production","Dsn":"","Environment":"prod","Version":"1.0.1","Debug":false,"Process":""}}
 	// {"level":"dpanic","ts":"2009-11-10T23:00:00.000Z","msg":"Example sentry","error":"test error","extra-data":"some-value"}
-	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Final configuration","conf":{"Mode":"production","Dsn":"","Environment":"prod","Debug":false,"Process":""}}
+	// {"level":"info","ts":"2009-11-10T23:00:00.000Z","msg":"Final configuration","conf":{"Mode":"production","Dsn":"","Environment":"prod","Version":"1.0.1","Debug":false,"Process":""}}
 }
 
 func testDPanic(logger *zap.Logger) {

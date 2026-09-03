@@ -32,6 +32,8 @@ type Sentry struct {
 	Dsn string
 	// Environment is reported as the 'environment' tag in any sentry events
 	Environment string `default:"prod"`
+	// Version is reported as the 'release' tag if set, otherwise we try to get the VCS stamp
+	Version string
 	// Debug controls whether sentry emits debugs logs about its own actions
 	Debug bool
 	// Process is the name of the current process, will be reported in the 'process' tag
@@ -50,6 +52,7 @@ func (s *Sentry) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("dsn", s.Dsn)
 	enc.AddString("environment", s.Environment)
+	enc.AddString("version", s.Version)
 	enc.AddBool("debug", s.Debug)
 	enc.AddString("process", s.Process)
 
@@ -63,11 +66,15 @@ func NewSentryClient(conf SentryConfig) (*sentry.Client, error) {
 	if err != nil {
 		hostname = ""
 	}
+
 	version := "undefined"
-	// We're not using info.Main.Version because it always shows `(devel)` for the main
-	// module, unless installed through go install
-	// Hopefully the resolution to this issue improves things: https://github.com/golang/go/issues/50603
-	if info, ok := debug.ReadBuildInfo(); ok {
+	if sentryConf.Version != "" {
+		version = sentryConf.Version
+	} else if info, ok := debug.ReadBuildInfo(); ok {
+		// We're not using info.Main.Version because it always shows `(devel)` for the main
+		// module, unless installed through go install
+		// Hopefully the resolution to this issue improves things: https://github.com/golang/go/issues/50603
+
 		// I think a common lisper snuck code into go: why use a map when you have lists!
 		for _, item := range info.Settings {
 			if item.Key == "vcs.revision" {
