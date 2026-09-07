@@ -1,4 +1,4 @@
-# cel.dev/expr v0.25.2
+# cel.dev/expr v0.25.3
 ## explicit; go 1.23.0
 cel.dev/expr
 # github.com/BurntSushi/toml v1.6.0
@@ -457,7 +457,7 @@ google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
 google.golang.org/grpc/test/bufconn
-# google.golang.org/grpc/examples v0.0.0-20260724205224-216640cad739
+# google.golang.org/grpc/examples v0.0.0-20260904081815-298389d61dd6
 ## explicit; go 1.25.0
 google.golang.org/grpc/examples/route_guide/routeguide
 # google.golang.org/protobuf v1.36.12
