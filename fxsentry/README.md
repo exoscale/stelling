@@ -3,7 +3,8 @@
 This module provides [sentry](https://pkg.go.dev/github.com/getsentry/sentry-go) support.
 
 ## Components
-The module adds support for sentry in two ways:
+
+The module adds support for sentry:
 
 * It configures the zap logger to emit sentries on DPanic and Panic.
   The error is mapped to the sentry exception.
@@ -17,6 +18,7 @@ The module adds support for sentry in two ways:
   See the included example for details.
 
 ## Configuration
+
 The module provides the following configuration options:
 * `Dsn`: The sentry DSN. The module is disabled when it is `""`
 * `Environment`: The value of the environment field in the generated sentries. Defaults to `production`

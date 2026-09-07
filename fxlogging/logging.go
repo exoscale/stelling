@@ -39,9 +39,10 @@ func NewModule(conf LoggingConfig, opts ...Option) fx.Option {
 				fx.ResultTags(`group:"unary_server_interceptor"`, `group:"stream_server_interceptor"`),
 			),
 			fx.Annotate(
-				NewHttpMiddleware,
+				NewHttpRequestLoggerMiddleware,
 				fx.ParamTags(``, `group:"logging_http_interceptor_options"`),
 			),
+			NewHttpPanicLoggerMiddleware,
 			fx.Annotate(
 				NewGrpcInjectLoggerInterceptors,
 				fx.ParamTags(``, `group:"inject_logger_interceptor_options"`),

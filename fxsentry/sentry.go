@@ -19,7 +19,7 @@ func NewModule(conf SentryConfig) fx.Option {
 	return fx.Options(
 		fx.Supply(fx.Annotate(conf, fx.As(new(SentryConfig))), fx.Private),
 		fx.Provide(ProvideSentryClient),
-		fx.Decorate(ProvideSentryLogger),
+		fx.Decorate(DecorateLogger),
 	)
 }
 
@@ -125,14 +125,16 @@ func ProvideSentryClient(lc fx.Lifecycle, conf SentryConfig) (*sentry.Client, er
 	return client, nil
 }
 
-func ProvideSentryLogger(logger *zap.Logger, client *sentry.Client) *zap.Logger {
+func DecorateLogger(logger *zap.Logger, client *sentry.Client) (*zap.Logger, error) {
 	cfg := zapsentry.Configuration{
 		Level:             zapcore.DPanicLevel,
 		EnableBreadcrumbs: false,
 	}
 
-	// Returns a noopcore if we error, so we can still safely attach to the logger
-	core, _ := zapsentry.NewCore(cfg, zapsentry.NewSentryClientFromClient(client))
+	core, err := zapsentry.NewCore(cfg, zapsentry.NewSentryClientFromClient(client))
+	if err != nil {
+		return nil, err
+	}
 
-	return zapsentry.AttachCoreToLogger(core, logger)
+	return zapsentry.AttachCoreToLogger(core, logger), nil
 }
