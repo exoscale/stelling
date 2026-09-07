@@ -111,3 +111,17 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler, opts ...HTTPOpti
 
 	})
 }
+
+func NewPanicLogger(logger *zap.Logger, next http.Handler) http.Handler {
+	// recover only stops the panic sequence when called from a defered function
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				logger.DPanic("panic handling request", zap.Any("error", err), zap.Any("request", r))
+				// We panic again to get the default server behaviour
+				panic(err)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
