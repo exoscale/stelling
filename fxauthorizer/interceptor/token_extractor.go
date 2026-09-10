@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"cel.dev/cel-go/cel"
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/google/cel-go/cel"
 )
 
 type TokenFormat int

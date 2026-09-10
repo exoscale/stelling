@@ -26,10 +26,10 @@ require (
 )
 
 require (
+	cel.dev/cel-go v0.32.0
 	github.com/coreos/go-oidc/v3 v3.20.0
 	github.com/getsentry/sentry-go v0.49.0
 	github.com/go-jose/go-jose/v4 v4.1.5
-	github.com/google/cel-go v0.32.0
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0
 	github.com/mattn/go-sqlite3 v1.14.50
