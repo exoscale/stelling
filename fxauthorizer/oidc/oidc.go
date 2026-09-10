@@ -71,25 +71,24 @@ func newOIDCVerifier(jwtIssuerURL string, jwtClientID string, skipClientIDCheck 
 	return oidcProvider.Verifier(oidcConfig), nil
 }
 
-func (te *TokenExtractor) Extract(ctx context.Context, md map[string][]string) (*oidc.IDToken, error) {
+func (te *TokenExtractor) Extract(ctx context.Context, md map[string][]string) (string, error) {
 	if md == nil {
-		return nil, fmt.Errorf("no metadata to extract token from")
+		return "", fmt.Errorf("no metadata to extract token from")
 	}
 	md = canonicalizeHeaders(md)
 	authHeader := md[te.header]
 	if len(authHeader) == 0 {
-		return nil, fmt.Errorf("authorization header '%s' is missing", te.header)
+		return "", fmt.Errorf("authorization header '%s' is missing", te.header)
 	}
 	var token string
 	n, err := fmt.Sscanf(authHeader[0], "Bearer %s", &token)
 	if err != nil || n != 1 {
-		return nil, fmt.Errorf("malformed authorization header")
+		return "", fmt.Errorf("malformed authorization header")
 	}
-	parsedToken, err := te.verifier.Verify(ctx, token)
-	if err != nil {
-		return nil, fmt.Errorf("invalid token: %w", err)
+	if _, err := te.verifier.Verify(ctx, token); err != nil {
+		return "", fmt.Errorf("invalid token: %w", err)
 	}
-	return parsedToken, nil
+	return token, nil
 }
 
 // canonicalizeHeaders ensures all headers are in the canonical format used by net/http

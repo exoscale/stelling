@@ -23,6 +23,9 @@ cel.dev/cel-go/common/types/traits
 cel.dev/cel-go/interpreter
 cel.dev/cel-go/parser
 cel.dev/cel-go/parser/gen
+# cel.dev/cel-go/ext/security v0.32.0
+## explicit; go 1.23.0
+cel.dev/cel-go/ext/security/jwt
 # cel.dev/expr v0.25.3
 ## explicit; go 1.23.0
 cel.dev/expr
