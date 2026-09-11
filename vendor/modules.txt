@@ -48,7 +48,7 @@ github.com/cenkalti/backoff/v5
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/coreos/go-oidc/v3 v3.20.0
+# github.com/coreos/go-oidc/v3 v3.21.0
 ## explicit; go 1.25.0
 github.com/coreos/go-oidc/v3/oidc
 # github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
