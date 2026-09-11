@@ -39,12 +39,14 @@ protocols. For the most up to date definitions check [schema/schema.proto](./sch
     ```
 * Only allow clients from a specific [OIDC group](https://github.com/exoscale/terraform-conf-google/blob/main/globals.tf)
     ```cel
-    "dev@exoscale.ch" in request.jwt.groups
+    "dev@exoscale.ch" in jwt.parse(request.jwt).claim('groups').orValue([])
     ```
 
 Primer for CEL writing:
 * [cheatsheet](https://celbyexample.com/at-a-glance/)
 * [reference](https://kubernetes.io/docs/reference/using-api/cel/)
+* [function reference](https://cel.dev/reference/api-reference)
+* [how to work with optionals](https://github.com/cel-expr/cel-spec/wiki/proposal-246)
 
 ## Roadmap
 * Hot reloading policies

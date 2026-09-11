@@ -17,7 +17,6 @@ import (
 	"github.com/exoscale/stelling/fxhttp"
 	"github.com/go-jose/go-jose/v4"
 	"go.uber.org/fx"
-	"go.uber.org/fx/fxevent"
 	"go.uber.org/zap"
 	pb "google.golang.org/grpc/examples/route_guide/routeguide"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -79,15 +78,19 @@ func (idp *testIDP) signToken(subject string, groups []string) string {
 		panic(err)
 	}
 	claims, err := json.Marshal(struct {
-		Issuer  string   `json:"iss"`
-		Subject string   `json:"sub"`
-		Groups  []string `json:"groups"`
-		Expiry  int64    `json:"exp"`
+		Issuer   string   `json:"iss"`
+		Subject  string   `json:"sub"`
+		Groups   []string `json:"groups"`
+		Expiry   int64    `json:"exp"`
+		Audience string   `json:"aud"`
+		IssuedAt int64    `json:"iat"`
 	}{
-		Issuer:  idp.server.URL,
-		Subject: subject,
-		Groups:  groups,
-		Expiry:  time.Now().Add(time.Hour).Unix(),
+		Issuer:   idp.server.URL,
+		Subject:  subject,
+		Groups:   groups,
+		Expiry:   time.Now().Add(time.Hour).Unix(),
+		Audience: "auth-proxy",
+		IssuedAt: time.Now().Unix(),
 	})
 	if err != nil {
 		panic(err)
@@ -109,7 +112,7 @@ func Example_grpc() {
 
 	// Grpc metadata keys are always lowercased, so we point the extractor at "authorization" rather than the HTTP-style "Authorization"
 	conf := &GrpcConfig{}
-	rule := "request.service == 'grpc.health.v1.Health' && 'trusted-group' in request.jwt.groups"
+	rule := "request.service == 'grpc.health.v1.Health' && 'trusted-group' in jwt.parse(request.jwt).claim('groups').orValue([])"
 	args := []string{"authorizer-test", "--authorizer.idp-endpoint", idp.server.URL, "--authorizer.rule", rule, "--server.address", "localhost:8080", "--client.endpoint", "localhost:8080", "--client.insecure-connection"}
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
@@ -118,15 +121,12 @@ func Example_grpc() {
 	jwt := idp.signToken("trusted-client", []string{"trusted-group"})
 
 	opts := fx.Options(
-		// Suppressing fx logs to ensure deterministic output
-		fx.WithLogger(func() fxevent.Logger { return fxevent.NopLogger }),
 		fxgrpc.NewServerModule(conf),
 		fxgrpc.NewClientModule(conf),
 		health.Module,
 		fxauthorizer.NewModule(conf),
 		fx.Provide(
-			// zap.NewDevelopment,
-			zap.NewNop,
+			zap.NewDevelopment,
 			NewRouteGuideServer,
 			pb.NewRouteGuideClient,
 			healthpb.NewHealthClient,
@@ -178,7 +178,7 @@ func Example_http() {
 	defer idp.server.Close()
 
 	conf := &HttpConfig{}
-	rule := "request.path == '/health' || 'trusted-group' in request.jwt.groups"
+	rule := "request.path == '/health' || 'trusted-group' in jwt.parse(request.jwt).claim('groups').orValue([])"
 	args := []string{"authorizer-test", "--authorizer.rule", rule, "--authorizer.idp-endpoint", idp.server.URL, "--server.address", "localhost:8081"}
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
@@ -187,12 +187,10 @@ func Example_http() {
 	jwt := idp.signToken("trusted-client", []string{"trusted-group"})
 
 	opts := fx.Options(
-		// Suppressing fx logs to ensure deterministic output
-		fx.WithLogger(func() fxevent.Logger { return fxevent.NopLogger }),
 		fxhttp.NewModule(conf),
 		fxauthorizer.NewModule(conf),
 		fx.Provide(
-			zap.NewNop,
+			zap.NewDevelopment,
 			newMux,
 		),
 		fx.Invoke(

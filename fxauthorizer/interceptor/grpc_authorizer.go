@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"cel.dev/cel-go/cel"
+	"cel.dev/cel-go/common/decls"
+	"cel.dev/cel-go/common/types"
+	"cel.dev/cel-go/ext/security/jwt"
 	"github.com/exoscale/stelling/fxauthorizer/schema"
-	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/decls"
-	"github.com/google/cel-go/common/types"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
@@ -20,6 +21,7 @@ type grpcAuthorizer struct {
 // compileGrpcCelProgram compiles the given expression in the context of a GrpcRequest
 func compileGrpcCelProgram(rule string) (cel.Program, error) {
 	env, err := cel.NewEnv(
+		jwt.Library(),
 		cel.Types(new(schema.GrpcRequest)),
 		cel.VariableDecls(decls.NewVariable("request", types.NewObjectType("exoscale.rpc.authorizer.v1.GrpcRequest"))),
 	)
@@ -71,7 +73,7 @@ func (a *grpcAuthorizer) Check(ctx context.Context, service string, method strin
 			return false, fmt.Errorf("failed to extract JWT: %w", err)
 		}
 
-		req.Jwt = schema.NewJWT(token)
+		req.Jwt = token
 	}
 
 	peerInfo, ok := peer.FromContext(ctx)

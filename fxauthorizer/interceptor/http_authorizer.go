@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"net/http"
 
+	"cel.dev/cel-go/cel"
+	"cel.dev/cel-go/common/decls"
+	"cel.dev/cel-go/common/types"
+	"cel.dev/cel-go/ext/security/jwt"
 	"github.com/exoscale/stelling/fxauthorizer/schema"
-	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/decls"
-	"github.com/google/cel-go/common/types"
 )
 
 type httpAuthorizer struct {
@@ -17,6 +18,7 @@ type httpAuthorizer struct {
 // compileHttpCelProgram compiles the given expression in the context of an HttpRequest
 func compileHttpCelProgram(rule string) (cel.Program, error) {
 	env, err := cel.NewEnv(
+		jwt.Library(),
 		cel.Types(new(schema.HttpRequest)),
 		cel.VariableDecls(decls.NewVariable("request", types.NewObjectType("exoscale.rpc.authorizer.v1.HttpRequest"))),
 	)
@@ -72,7 +74,7 @@ func (a *httpAuthorizer) Check(r *http.Request, method string) (bool, error) {
 			return false, fmt.Errorf("failed to extract JWT: %w", err)
 		}
 
-		req.Jwt = schema.NewJWT(token)
+		req.Jwt = token
 	}
 
 	// If no info, we'll continue and set nil for the TLS info

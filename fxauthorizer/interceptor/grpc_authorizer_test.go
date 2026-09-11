@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -96,13 +95,13 @@ func TestCompileGrpcCelProgram(t *testing.T) {
 }
 
 type testExtractor struct {
-	token    *oidc.IDToken
+	token    string
 	theError error
 }
 
-func (te *testExtractor) Extract(ctx context.Context, md map[string][]string) (*oidc.IDToken, error) {
+func (te *testExtractor) Extract(ctx context.Context, md map[string][]string) (string, error) {
 	if te.theError != nil {
-		return nil, te.theError
+		return "", te.theError
 	}
 	return te.token, nil
 }
@@ -173,7 +172,7 @@ func TestGrpcAuthorizerCheck(t *testing.T) {
 		method       string
 		md           map[string][]string
 		tls          *x509.Certificate
-		token        *oidc.IDToken
+		token        string
 		requireToken bool
 		tokenError   string
 		expected     bool
@@ -245,31 +244,31 @@ func TestGrpcAuthorizerCheck(t *testing.T) {
 		// OIDC based attribute tests
 		{
 			name:     "Should allow if oidc expression matches",
-			rule:     "request.service == \"MyService\" && request.jwt.subject == \"user@exoscale.com\"",
+			rule:     "request.service == \"MyService\" && jwt.parse(request.jwt).?subject.orValue(\"\") == \"user@exoscale.com\"",
 			service:  "MyService",
-			token:    &oidc.IDToken{Subject: "user@exoscale.com"},
+			token:    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGV4b3NjYWxlLmNvbSIsImlzcyI6Imh0dHBzOi8vZGV4LmludGVybmFsLmV4b3NjYWxlLmNoIiwiYXVkIjoicmVzdGlzaCIsImV4cCI6NDk0NDcwMzMzMiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.l9typOxP_oMSS8Yxxv_qRBA689Uorn_maPljGqwvnXw", // Created with jwt.io
 			expected: true,
 		},
 		{
 			name:     "Should deny if oidc expression does not match",
-			rule:     "request.service == \"MyService\" && request.jwt.subject == \"user@exoscale.com\"",
+			rule:     "request.service == \"MyService\" && jwt.parse(request.jwt).?subject.orValue(\"\") == \"user@exoscale.com\"",
 			service:  "MyService",
-			token:    &oidc.IDToken{Subject: "other.user@exoscale.com"},
+			token:    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJvdGhlci51c2VyQGV4b3NjYWxlLmNvbSIsImlzcyI6Imh0dHBzOi8vZGV4LmludGVybmFsLmV4b3NjYWxlLmNoIiwiYXVkIjoicmVzdGlzaCIsImV4cCI6NDk0NDcwMzMzMiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.FfyOpQ0FDxm0ieAlT5ffP9ZDF1ckfKDBrDkmY50S1fI", // Created with jwt.io
 			expected: false,
 			theError: "policy denied",
 		},
 		{
 			name:     "Should deny oidc expression if token is not present",
-			rule:     "request.service == \"MyService\" && request.jwt.subject == \"user@exoscale.com\"",
+			rule:     "request.service == \"MyService\" && jwt.parse(request.jwt).?subject.orValue(\"\") == \"user@exoscale.com\"",
 			service:  "MyService",
 			expected: false,
-			theError: "policy denied",
+			theError: "policy evaluation failed: parse token failed: invalid token format: expected 2 or 3 parts, got 1",
 		},
 		{
 			name:         "Should deny if token extraction fails with required option set",
 			rule:         "request.service == \"MyService\"",
 			service:      "MyService",
-			token:        &oidc.IDToken{},
+			token:        "foo",
 			requireToken: true,
 			tokenError:   "invalid signature",
 			expected:     false,
@@ -297,7 +296,7 @@ func TestGrpcAuthorizerCheck(t *testing.T) {
 			}
 
 			opts := []AuthorizerOption{}
-			if tc.token != nil {
+			if tc.token != "" {
 				var te *testExtractor
 				if tc.tokenError == "" {
 					te = &testExtractor{token: tc.token}

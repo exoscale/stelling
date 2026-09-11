@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/stretchr/testify/require"
 )
 
@@ -85,7 +84,7 @@ func TestHttpAuthorizerCheck(t *testing.T) {
 		URL          string
 		md           map[string][]string
 		tls          *x509.Certificate
-		token        *oidc.IDToken
+		token        string
 		requireToken bool
 		tokenError   string
 		expected     bool
@@ -174,35 +173,35 @@ func TestHttpAuthorizerCheck(t *testing.T) {
 		// OIDC based attribute tests
 		{
 			name:       "Should allow if oidc expression matches",
-			rule:       "request.http_method == \"GET\" && request.jwt.subject == \"user@exoscale.com\"",
+			rule:       "request.http_method == \"GET\" && jwt.parse(request.jwt).?subject.orValue(\"\") == \"user@exoscale.com\"",
 			httpMethod: "GET",
 			URL:        "/",
-			token:      &oidc.IDToken{Subject: "user@exoscale.com"},
+			token:      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGV4b3NjYWxlLmNvbSIsImlzcyI6Imh0dHBzOi8vZGV4LmludGVybmFsLmV4b3NjYWxlLmNoIiwiYXVkIjoicmVzdGlzaCIsImV4cCI6NDk0NDcwMzMzMiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.l9typOxP_oMSS8Yxxv_qRBA689Uorn_maPljGqwvnXw", // Created with jwt.io
 			expected:   true,
 		},
 		{
 			name:       "Should deny if oidc expression does not match",
-			rule:       "request.http_method == \"GET\" && request.jwt.subject == \"user@exoscale.com\"",
+			rule:       "request.http_method == \"GET\" && jwt.parse(request.jwt).?subject.orValue(\"\") == \"user@exoscale.com\"",
 			httpMethod: "GET",
 			URL:        "/",
-			token:      &oidc.IDToken{Subject: "other.user@exoscale.com"},
+			token:      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJvdGhlci51c2VyQGV4b3NjYWxlLmNvbSIsImlzcyI6Imh0dHBzOi8vZGV4LmludGVybmFsLmV4b3NjYWxlLmNoIiwiYXVkIjoicmVzdGlzaCIsImV4cCI6NDk0NDcwMzMzMiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.FfyOpQ0FDxm0ieAlT5ffP9ZDF1ckfKDBrDkmY50S1fI", // Created with jwt.io
 			expected:   false,
 			theError:   "policy denied",
 		},
 		{
 			name:       "Should deny oidc expression if token is not present",
-			rule:       "request.http_method == \"GET\" && request.jwt.subject == \"user@exoscale.com\"",
+			rule:       "request.http_method == \"GET\" && jwt.parse(request.jwt).?subject.orValue(\"\") == \"user@exoscale.com\"",
 			httpMethod: "GET",
 			URL:        "/",
 			expected:   false,
-			theError:   "policy denied",
+			theError:   "policy evaluation failed: parse token failed: invalid token format: expected 2 or 3 parts, got 1",
 		},
 		{
 			name:         "Should deny if token extraction fails with required option set",
 			rule:         "request.http_method == \"GET\"",
 			httpMethod:   "GET",
 			URL:          "/",
-			token:        &oidc.IDToken{},
+			token:        "foo",
 			requireToken: true,
 			tokenError:   "invalid signature",
 			expected:     false,
@@ -235,7 +234,7 @@ func TestHttpAuthorizerCheck(t *testing.T) {
 			}
 
 			opts := []AuthorizerOption{}
-			if tc.token != nil {
+			if tc.token != "" {
 				var te *testExtractor
 				if tc.tokenError == "" {
 					te = &testExtractor{token: tc.token}

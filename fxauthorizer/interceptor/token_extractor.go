@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 )
 
 type TokenFormat int
@@ -29,8 +28,8 @@ func ParseTokenFormat(input string) (TokenFormat, error) {
 }
 
 type TokenExtractor interface {
-	// Extract returns a parsed IDToken from a set of request headers
-	Extract(ctx context.Context, md map[string][]string) (*oidc.IDToken, error)
+	// Extract returns a validated raw JWT string from a set of request headers
+	Extract(ctx context.Context, md map[string][]string) (string, error)
 }
 
 type authorizer struct {

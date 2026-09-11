@@ -121,7 +121,7 @@ func TestTokenExtractorExtract(t *testing.T) {
 		te := NewSimpleTestExtractor(t)
 
 		token, err := te.Extract(context.Background(), nil)
-		require.Nil(t, token)
+		require.Empty(t, token)
 		require.EqualError(t, err, "no metadata to extract token from")
 	})
 
@@ -129,7 +129,7 @@ func TestTokenExtractorExtract(t *testing.T) {
 		te := NewSimpleTestExtractor(t)
 
 		token, err := te.Extract(context.Background(), map[string][]string{})
-		require.Nil(t, token)
+		require.Empty(t, token)
 		require.EqualError(t, err, "authorization header 'Authorization' is missing")
 	})
 
@@ -139,7 +139,7 @@ func TestTokenExtractorExtract(t *testing.T) {
 		token, err := te.Extract(context.Background(), map[string][]string{
 			"Authorization": {"foobar"},
 		})
-		require.Nil(t, token)
+		require.Empty(t, token)
 		require.EqualError(t, err, "malformed authorization header")
 	})
 
@@ -149,7 +149,7 @@ func TestTokenExtractorExtract(t *testing.T) {
 		token, err := te.Extract(context.Background(), map[string][]string{
 			"Authorization": {"Bearer foobar"},
 		})
-		require.Nil(t, token)
+		require.Empty(t, token)
 		require.Contains(t, err.Error(), "invalid token: oidc: malformed jwt:")
 	})
 
@@ -169,7 +169,7 @@ func TestTokenExtractorExtract(t *testing.T) {
 		token, err := te.Extract(context.Background(), map[string][]string{
 			"Authorization": {"Bearer " + token2},
 		})
-		require.Nil(t, token)
+		require.Empty(t, token)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid token: failed to verify signature")
 	})
@@ -193,7 +193,7 @@ func TestTokenExtractorExtract(t *testing.T) {
 		token, err := te.Extract(context.Background(), map[string][]string{
 			"Authorization": {"Bearer " + token2},
 		})
-		require.Nil(t, token)
+		require.Empty(t, token)
 		require.EqualError(t, err, "invalid token: failed to verify signature: failed to verify id token signature")
 	})
 

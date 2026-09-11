@@ -33,17 +33,6 @@ message TLSName {
   string common_name = 9;
 }
 
-message JWT {
-  string subject = 1;
-  string email = 2;
-  bool email_verified = 3;
-  repeated string groups = 4;
-  string issuer = 5;
-  repeated string audience = 6;
-  google.protobuf.Timestamp issued_at = 7;
-  google.protobuf.Timestamp expiry = 8;
-}
-
 message HeaderValues {
   repeated string value = 1;
 }
@@ -58,8 +47,8 @@ message GrpcRequest {
   map<string, HeaderValues> headers = 3;
   // The TLS information. May be absent for non TLS protected requests.
   TLS tls = 4;
-  // The jwt passed into the request. May be absent.
-  JWT jwt = 5;
+  // The jwt string passed into the request. May be absent.
+  string jwt = 5;
 }
 
 message HttpRequest {
@@ -95,8 +84,8 @@ message HttpRequest {
   // The TLS information. May be absent for non TLS protected requests.
   TLS tls = 9;
 
-  // The jwt passed into the request. May be absent.
-  JWT jwt = 10;
+  // The jwt string passed into the request. May be absent.
+  string jwt = 10;
 
   // The openapi 'command'. May be absent
   string method = 11;
