@@ -47,7 +47,7 @@ func (s *injectLoggerRouteGuideServer) ListFeatures(req *pb.Rectangle, stream pb
 func TestInjectLoggerInterceptor(t *testing.T) {
 	var client pb.RouteGuideClient
 	var defaultGRPCFields = []string{
-		"otlp.trace_id",
+		"trace_id",
 		"rpc.system",
 		"service.name",
 		"rpc.method",
@@ -91,7 +91,7 @@ func TestInjectLoggerInterceptor(t *testing.T) {
 		require.Len(t, logs, 1)
 		log := logs[0]
 		require.Equal(t, "GetFeature", log.Message)
-		require.NotEmpty(t, log.ContextMap()["otlp.trace_id"])
+		require.NotEmpty(t, log.ContextMap()["trace_id"])
 		require.NotEmpty(t, log.ContextMap()["rpc.method"])
 		require.NotEmpty(t, log.ContextMap()["rpc.service"])
 		require.NotEmpty(t, log.ContextMap()["rpc.system"])
@@ -112,7 +112,7 @@ func TestInjectLoggerInterceptor(t *testing.T) {
 		require.Len(t, logs, 1)
 		log := logs[0]
 		require.Equal(t, "ListFeatures", log.Message)
-		require.NotEmpty(t, log.ContextMap()["otlp.trace_id"])
+		require.NotEmpty(t, log.ContextMap()["trace_id"])
 		require.NotEmpty(t, log.ContextMap()["rpc.method"])
 		require.NotEmpty(t, log.ContextMap()["rpc.service"])
 		require.NotEmpty(t, log.ContextMap()["rpc.system"])

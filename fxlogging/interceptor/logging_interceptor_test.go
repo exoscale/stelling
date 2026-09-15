@@ -101,8 +101,8 @@ func TestLoggingServerInterceptor(t *testing.T) {
 			require.Contains(t, fields, "rpc.request.duration")
 			require.Contains(t, fields, "sock.net.peer.address")
 			require.Equal(t, "bufconn", fields["sock.net.peer.address"])
-			require.Contains(t, fields, "otlp.trace_id")
-			require.True(t, strings.HasPrefix(fields["otlp.trace_id"].(string), "local-"))
+			require.Contains(t, fields, "trace_id")
+			require.True(t, strings.HasPrefix(fields["trace_id"].(string), "local-"))
 			require.Contains(t, fields, "rpc.kind")
 			require.Equal(t, "server", fields["rpc.kind"])
 		}

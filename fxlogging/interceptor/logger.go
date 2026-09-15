@@ -35,7 +35,7 @@ func loggerWithDefaultFields(ctx context.Context, logger *zap.Logger, info *otel
 	service, method := MethodFromInterceptorInfo(info)
 
 	return logger.With(
-		zap.String("otlp.trace_id", traceid),
+		zap.String("trace_id", traceid),
 		zap.String("rpc.system", "grpc"),
 		zap.String("service.name", serviceName()),
 		zap.String("rpc.method", method),
