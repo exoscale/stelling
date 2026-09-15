@@ -9,17 +9,20 @@ import (
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
+	"go.uber.org/zap/zaptest/observer"
 )
 
-func TestTraceIdFromContext(t *testing.T) {
+func TestTraceInfoFromContext(t *testing.T) {
 	t.Run("Should extract the trace-id set by contextWithTraceId", func(t *testing.T) {
 		expected := "my-custom-trace-id"
 		ctx := contextWithTraceId(context.Background(), expected)
 
-		traceId, ok := traceIdFromContext(ctx)
+		traceId, spanId, ok := traceInfoFromContext(ctx)
 		require.True(t, ok)
 		require.Equal(t, expected, traceId)
+		require.Empty(t, spanId)
 	})
 
 	t.Run("Should extract the trace-id set by otel tracing", func(t *testing.T) {
@@ -33,20 +36,22 @@ func TestTraceIdFromContext(t *testing.T) {
 		ctx, span := tp.Tracer("my-test").Start(context.Background(), "test")
 		defer span.End()
 
-		traceId, ok := traceIdFromContext(ctx)
+		traceId, spanId, ok := traceInfoFromContext(ctx)
 		require.True(t, ok)
 		require.NotEmpty(t, traceId)
+		require.NotEmpty(t, spanId)
 		require.False(t, strings.HasPrefix(traceId, "local-"))
 	})
 
 	t.Run("Should generate a new trace-id", func(t *testing.T) {
 		ctx := context.Background()
-		traceId, ok := traceIdFromContext(ctx)
+		traceId, spanId, ok := traceInfoFromContext(ctx)
 		require.False(t, ok)
 		require.True(t, strings.HasPrefix(traceId, "local-"))
+		require.Empty(t, spanId)
 	})
 
-	t.Run("Should prefer custom trace-id over otel trace-id", func(t *testing.T) {
+	t.Run("Should prefer otel trace-id over custom trace-id", func(t *testing.T) {
 		// The NoopTracerProvider doesn't supply TraceIDs, so we can't use it
 		// in this test
 		exporter, err := stdouttrace.New()
@@ -60,9 +65,12 @@ func TestTraceIdFromContext(t *testing.T) {
 		expected := "my-custom-trace-id"
 		ctx = contextWithTraceId(ctx, expected)
 
-		traceId, ok := traceIdFromContext(ctx)
+		traceId, spanId, ok := traceInfoFromContext(ctx)
 		require.True(t, ok)
-		require.Equal(t, expected, traceId)
+		require.NotEmpty(t, traceId)
+		require.NotEmpty(t, spanId)
+		require.False(t, strings.HasPrefix(traceId, "local-"))
+		require.NotEqual(t, expected, traceId)
 	})
 }
 
@@ -79,5 +87,35 @@ func TestLoggerFromContext(t *testing.T) {
 		ctx := ContextWithLogger(context.Background(), logger)
 
 		require.Equal(t, logger, LoggerFromContext(ctx))
+	})
+
+	t.Run("Should enrich with otel span context if present", func(t *testing.T) {
+		// Injecting the logger first to ensure it correctly overwrites any traceId and spanId
+		core, observer := observer.New(zapcore.DebugLevel)
+		logger := zaptest.NewLogger(t, zaptest.WrapOptions(zap.WrapCore(func(_ zapcore.Core) zapcore.Core { return core }))).With(
+			zap.String("trace_id", "foo"),
+			zap.String("span_id", "bar"),
+		)
+		ctx := ContextWithLogger(context.Background(), logger)
+
+		// The NoopTracerProvider doesn't supply TraceIDs, so we can't use it
+		// in this test
+		exporter, err := stdouttrace.New()
+		require.NoError(t, err)
+		tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+		t.Cleanup(func() { _ = tp.Shutdown(context.Background()) })
+
+		ctx, span := tp.Tracer("my-test").Start(ctx, "test")
+		defer span.End()
+
+		ctxLogger := LoggerFromContext(ctx)
+		ctxLogger.Debug("test")
+		logs := observer.TakeAll()
+		require.Len(t, logs, 1)
+		log := logs[0]
+		require.NotEmpty(t, log.ContextMap()["trace_id"])
+		require.NotEqual(t, "foo", log.ContextMap()["trace_id"])
+		require.NotEmpty(t, log.ContextMap()["span_id"])
+		require.NotEqual(t, "bar", log.ContextMap()["span_id"])
 	})
 }
