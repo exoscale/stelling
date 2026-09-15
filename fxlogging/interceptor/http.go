@@ -47,7 +47,7 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler, opts ...HTTPOpti
 
 		ctx := r.Context()
 
-		traceid, ok := traceIdFromContext(ctx)
+		traceid, spanid, ok := traceInfoFromContext(ctx)
 		if !ok {
 			ctx = contextWithTraceId(ctx, traceid)
 		}
@@ -58,6 +58,10 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler, opts ...HTTPOpti
 			zap.String("http.method", r.Method),
 			zap.String("http.uri", r.RequestURI),
 			zap.String("trace_id", traceid),
+		}
+
+		if spanid != "" {
+			fields = append(fields, zap.String("span_id", spanid))
 		}
 
 		if rUser, ok := r.Header["X-Forwarded-User"]; ok {
