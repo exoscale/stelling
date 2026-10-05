@@ -1,7 +1,6 @@
 package interceptor
 
 import (
-	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -123,8 +122,8 @@ func NewPanicLogger(logger *zap.Logger, next http.Handler) http.Handler {
 		defer func() {
 			if err := recover(); err != nil {
 				// When a client disconnects mid-response, net/http aborts the handler by panicking with ErrAbortHandler.
-				// Go's http.Server suppresses logging for ErrAbortHandler, so this middleware must do the same.
-				if perr, ok := err.(error); !ok || !errors.Is(perr, http.ErrAbortHandler) {
+				// Go's http.Server suppresses logging for ErrAbortHandler, so this middleware does the same.
+				if err != http.ErrAbortHandler {
 					logger.DPanic("panic handling request", zap.Any("error", err), zap.Any("request", r))
 				}
 				// We panic again to get the default server behaviour
