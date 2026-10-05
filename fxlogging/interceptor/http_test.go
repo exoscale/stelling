@@ -2,6 +2,7 @@ package interceptor
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -97,6 +98,37 @@ func TestWrapResponseWriterSupportsResponseController(t *testing.T) {
 
 	require.NoError(t, http.NewResponseController(writer).Flush())
 	require.True(t, recorder.Flushed)
+}
+
+func TestPanicLogger(t *testing.T) {
+	tests := []struct {
+		name       string
+		panicValue any
+		wantLogged bool
+	}{
+		{"client disconnect mid SSE stream", http.ErrAbortHandler, false},
+		{"handler panic", errors.New("boom"), true},
+		{"non-error panic", "boom", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			core, logs := observer.New(zapcore.DebugLevel)
+			handler := NewPanicLogger(zap.New(core), http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				panic(tt.panicValue)
+			}))
+
+			require.PanicsWithValue(t, tt.panicValue, func() {
+				handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/chat/completions", nil))
+			})
+
+			if tt.wantLogged {
+				requireLogMessage(t, logs.AllUntimed(), "panic handling request")
+			} else {
+				require.Empty(t, logs.AllUntimed())
+			}
+		})
+	}
 }
 
 func requireLogMessage(t *testing.T, entries []observer.LoggedEntry, message string) observer.LoggedEntry {
