@@ -22,6 +22,7 @@ The module lazily provides the following components:
 * GrpcServerInterceptors that embed a `*zap.Logger`, enriched with request metadata, in the context
 * GrpcClientInterceptors that set `peer.service` metadata, which are logged by the server
 * HttpMiddleware that logs all incoming requests on the server. If present, the `x-request-id` header is logged as `request_id`.
+* HttpMiddleware that logs all panics at DPanic level. This will ensure a sentry is emitted when combined with the sentry module.
 
 ## Options
 * WithZapOption

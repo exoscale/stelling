@@ -22,6 +22,10 @@ func NewWrapResponseWriter(w http.ResponseWriter) *WrapResponseWriter {
 	return &WrapResponseWriter{ResponseWriter: w}
 }
 
+func (w *WrapResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
 func (w *WrapResponseWriter) WriteHeader(statusCode int) {
 	w.StatusCode = statusCode
 	w.ResponseWriter.WriteHeader(statusCode)
@@ -43,7 +47,7 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler, opts ...HTTPOpti
 
 		ctx := r.Context()
 
-		traceid, ok := traceIdFromContext(ctx)
+		traceid, spanid, ok := traceInfoFromContext(ctx)
 		if !ok {
 			ctx = contextWithTraceId(ctx, traceid)
 		}
@@ -53,7 +57,11 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler, opts ...HTTPOpti
 		fields := []zapcore.Field{
 			zap.String("http.method", r.Method),
 			zap.String("http.uri", r.RequestURI),
-			zap.String("otlp.trace_id", traceid),
+			zap.String("trace_id", traceid),
+		}
+
+		if spanid != "" {
+			fields = append(fields, zap.String("span_id", spanid))
 		}
 
 		if rUser, ok := r.Header["X-Forwarded-User"]; ok {
@@ -105,5 +113,23 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler, opts ...HTTPOpti
 			)
 		}
 
+	})
+}
+
+func NewPanicLogger(logger *zap.Logger, next http.Handler) http.Handler {
+	// recover only stops the panic sequence when called from a defered function
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				// When a client disconnects mid-response, net/http aborts the handler by panicking with ErrAbortHandler.
+				// Go's http.Server suppresses logging for ErrAbortHandler, so this middleware does the same.
+				if err != http.ErrAbortHandler {
+					logger.DPanic("panic handling request", zap.Any("error", err), zap.Any("request", r))
+				}
+				// We panic again to get the default server behaviour
+				panic(err)
+			}
+		}()
+		next.ServeHTTP(w, r)
 	})
 }

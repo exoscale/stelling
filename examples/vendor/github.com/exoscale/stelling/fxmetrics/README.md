@@ -14,6 +14,7 @@ The following metric collectors are registered by default:
 * [Go collector](https://pkg.go.dev/github.com/prometheus/client_golang@v1.14.0/prometheus/collectors#NewGoCollector) instrumenting the go runtime
 * [Process collector](https://pkg.go.dev/github.com/prometheus/client_golang@v1.14.0/prometheus/collectors#NewProcessCollector) instrumenting the current process
 * Version collector exposing the current git revision sha and timestamp using [go buildinfo](https://pkg.go.dev/runtime/debug#BuildInfo)
+  Alternatively, the revision and timestamp can be set at link time to `github.com/exoscale/stelling.Revision` and `github.com/exoscale/stelling.RevisionTimestamp`
 
 Additional custom metrics can of course be registered.
 
