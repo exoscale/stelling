@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/TheZeroSlave/zapsentry"
+	"github.com/exoscale/stelling"
 	sentry "github.com/getsentry/sentry-go"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -18,7 +19,7 @@ func NewModule(conf SentryConfig) fx.Option {
 	return fx.Options(
 		fx.Supply(fx.Annotate(conf, fx.As(new(SentryConfig))), fx.Private),
 		fx.Provide(ProvideSentryClient),
-		fx.Decorate(ProvideSentryLogger),
+		fx.Decorate(DecorateLogger),
 	)
 }
 
@@ -63,15 +64,18 @@ func NewSentryClient(conf SentryConfig) (*sentry.Client, error) {
 	if err != nil {
 		hostname = ""
 	}
-	version := "undefined"
+	// Revision can be set at link time with
+	// `go build -ldflags="-X 'github.com/exoscale/stelling.Revision=v1.0.0'"`
+	// This takes precedence over the BuildInfo
+	revision := stelling.Revision
 	// We're not using info.Main.Version because it always shows `(devel)` for the main
 	// module, unless installed through go install
 	// Hopefully the resolution to this issue improves things: https://github.com/golang/go/issues/50603
-	if info, ok := debug.ReadBuildInfo(); ok {
+	if info, ok := debug.ReadBuildInfo(); ok && revision == "unknown" {
 		// I think a common lisper snuck code into go: why use a map when you have lists!
 		for _, item := range info.Settings {
 			if item.Key == "vcs.revision" {
-				version = item.Value
+				revision = item.Value
 				break
 			}
 		}
@@ -81,7 +85,7 @@ func NewSentryClient(conf SentryConfig) (*sentry.Client, error) {
 		Dsn:              sentryConf.Dsn,
 		ServerName:       hostname,
 		Environment:      sentryConf.Environment,
-		Release:          version,
+		Release:          revision,
 		Debug:            sentryConf.Debug,
 		AttachStacktrace: true,
 	}
@@ -121,14 +125,16 @@ func ProvideSentryClient(lc fx.Lifecycle, conf SentryConfig) (*sentry.Client, er
 	return client, nil
 }
 
-func ProvideSentryLogger(logger *zap.Logger, client *sentry.Client) *zap.Logger {
+func DecorateLogger(logger *zap.Logger, client *sentry.Client) (*zap.Logger, error) {
 	cfg := zapsentry.Configuration{
 		Level:             zapcore.DPanicLevel,
 		EnableBreadcrumbs: false,
 	}
 
-	// Returns a noopcore if we error, so we can still safely attach to the logger
-	core, _ := zapsentry.NewCore(cfg, zapsentry.NewSentryClientFromClient(client))
+	core, err := zapsentry.NewCore(cfg, zapsentry.NewSentryClientFromClient(client))
+	if err != nil {
+		return nil, err
+	}
 
-	return zapsentry.AttachCoreToLogger(core, logger)
+	return zapsentry.AttachCoreToLogger(core, logger), nil
 }

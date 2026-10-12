@@ -22,27 +22,27 @@ func contextWithTraceId(ctx context.Context, traceid string) context.Context {
 	return context.WithValue(ctx, traceIdCtxKey, traceid)
 }
 
-// traceIdFromContext will extract a traceid from the context, if any
+// traceInfoFromContext will extract a traceid and spanid from the context, if any
 // It will look for one in this order:
-// 1. A trace-id set using contextWithTraceId
-// 2. The OTEL trace-id from the context
+// 1. The OTEL trace-id from the context
+// 2. A trace-id set using contextWithTraceId
 // 3. A new random trace-id
 // If a new trace-id was generated, the second return argument of this function
 // will return 'false'. It is recommended to save this id on the context
 // so that future calls produce the same trace-id
-func traceIdFromContext(ctx context.Context) (string, bool) {
+func traceInfoFromContext(ctx context.Context) (string, string, bool) {
+	spanCtx := oteltrace.SpanContextFromContext(ctx)
+	if spanCtx.IsValid() {
+		return spanCtx.TraceID().String(), spanCtx.SpanID().String(), true
+	}
 	id := ctx.Value(traceIdCtxKey)
 	if id != nil {
 		idstr, ok := id.(string)
 		if ok && idstr != "" {
-			return idstr, true
+			return idstr, "", true
 		}
 	}
-	spanCtx := oteltrace.SpanContextFromContext(ctx)
-	if spanCtx.HasTraceID() {
-		return spanCtx.TraceID().String(), true
-	}
-	return fmt.Sprintf("local-%s", ulid.Make()), false
+	return fmt.Sprintf("local-%s", ulid.Make()), "", false
 }
 
 // ContextWithLogger returns a copy of the given context with a Logger embedded into it
@@ -51,6 +51,7 @@ func ContextWithLogger(ctx context.Context, logger *zap.Logger) context.Context 
 }
 
 // LoggerFromContext extracts the zap Logger from the given context
+// Sets the current trace_id and span_id from context, if any
 // If no Logger is present, a NopLogger is returned
 // Will never return nil
 func LoggerFromContext(ctx context.Context) *zap.Logger {
@@ -61,6 +62,16 @@ func LoggerFromContext(ctx context.Context) *zap.Logger {
 	logger, ok := l.(*zap.Logger)
 	if !ok {
 		return nopLogger
+	}
+	// We only cover this case, to get the actual spanId
+	// If there's no spanId, then the traceId is typically fixed when the logger
+	// is injected into context, and we don't need to try and enrich it again
+	spanCtx := oteltrace.SpanContextFromContext(ctx)
+	if spanCtx.IsValid() {
+		return logger.With(
+			zap.String("trace_id", spanCtx.TraceID().String()),
+			zap.String("span_id", spanCtx.SpanID().String()),
+		)
 	}
 	return logger
 }

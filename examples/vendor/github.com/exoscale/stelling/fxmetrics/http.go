@@ -58,6 +58,8 @@ type HttpMiddlewareResult struct {
 	Middleware *fxhttp.Middleware `group:"http_middleware"`
 }
 
+const metricsMiddlewareWeight = 30
+
 func NewHttpMiddleware(reg *prometheus.Registry) (HttpMiddlewareResult, error) {
 	metrics := NewHttpMetrics()
 	if err := reg.Register(metrics); err != nil {
@@ -88,7 +90,7 @@ func NewHttpMiddleware(reg *prometheus.Registry) (HttpMiddlewareResult, error) {
 	return HttpMiddlewareResult{
 		Middleware: &fxhttp.Middleware{
 			Handler: mw,
-			Weight:  30,
+			Weight:  metricsMiddlewareWeight,
 		},
 	}, nil
 }
