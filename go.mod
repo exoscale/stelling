@@ -32,7 +32,7 @@ require (
 	github.com/getsentry/sentry-go v0.49.0
 	github.com/go-jose/go-jose/v4 v4.1.5
 	github.com/google/uuid v1.6.0
-	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0
+	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.1
 	github.com/mattn/go-sqlite3 v1.14.52
 	go.opentelemetry.io/contrib/bridges/prometheus v0.71.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0
