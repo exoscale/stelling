@@ -29,7 +29,46 @@ The module will also use `CertficateReloader` in case the configuration specifie
 * WithServerModuleName
   This option allows creating additional "named" http servers. It is intended to be used by other stelling
   modules, such as the metrics. Named servers do not provide all the features of the main server: for example
-  no middleware will be installed.j
+  no middleware will be installed.
+## Errors
+The package defines a standard shape for error responses: `fxhttp.Error`, which follows
+[RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457):
+
+```json
+{"type": "#/http-problem-types/request-invalid-parameters", "title": "Bad Request", "status": 400, "detail": "invalid id"}
+```
+
+Service specific members can be added through `Extensions`. They are serialized as top level
+members and can not override the standard ones. The `Cause` is never serialized.
+
+`WriteError(w, r, err)` writes any error in this shape, with `Content-Type: application/json`:
+
+* If `err` wraps an `*fxhttp.Error`, it is written as is. Missing fields are defaulted from the status.
+* If `err` wraps a `*apierror.Error`, see the [apierror](apierror) package, it is written with the `DefaultStatus`
+  of its category.
+* Any other error is written as a 500 with the error message as `detail`.
+
+The signature of `WriteError` matches the error hooks of common routers and code generators, so it
+can be passed to them directly. For example with [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen):
+
+```go
+strictHandler := api.NewStrictHandlerWithOptions(server, nil, api.StrictHTTPServerOptions{
+    RequestErrorHandlerFunc:  fxhttp.WriteError,
+    ResponseErrorHandlerFunc: fxhttp.WriteError,
+})
+handler := api.HandlerWithOptions(strictHandler, api.StdHTTPServerOptions{
+    ErrorHandlerFunc: fxhttp.WriteError,
+})
+```
+
+Return an `*fxhttp.Error` from your handler to control the status and content of the response.
+
+`WriteError` records the error on the request: the logging module adds it to the request log line, and the
+tracing module records server errors on the request span.
+
+The shape is defined in Go only: if your API is described by a specification, it should describe
+this shape itself. See the [openapi](./openapi) package to serve APIs described by OpenAPI specifications. `fxhttp.Error` implements `json.Unmarshaler`, which makes it easy to write a test
+asserting the two stay in sync, and to parse error responses in clients.
 
 ## Configuration
 The module provides the following configuration options:
@@ -39,3 +78,13 @@ The module provides the following configuration options:
 * `KeyFile`: Path to the pem encoded private key of the server TLS certificate
 * `ClientCAFile`: Path to a pem encoded CA cert bundle used to validate clients. No client validation happens if unset.
 
+## Client transport
+Services build their http clients with `NewTransport`, which is based on `http.DefaultTransport` and is also able
+to reach servers listening on a unix domain socket, through urls built with `UnixSocketURL`. Redirects to a socket
+are refused.
+
+`WrapTransport` installs the middleware of the `http_client_middleware` value group on the transport: the tracing
+and metrics modules lazily provide middleware that trace and count all requests. Inject them with
+`fx.ParamTags(`group:"http_client_middleware"`)`.
+
+`ErrorFromResponse` parses the error response of a server into an `*fxhttp.Error`.
