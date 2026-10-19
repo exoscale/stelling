@@ -13,6 +13,7 @@ This package provides 2 modules:
 The module lazily provides the following components:
 
 * A `*http.Server`
+* A `*fxhttp.DrainState`, which reports whether the process is shutting down
 
 You must supply a single `http.Handler` in the system, which will be set as the servers handler.
 This way, the module does not enforce any opinions on how the server mux is constructed.
@@ -22,6 +23,10 @@ This allows fine grained control over the start and stop order of components tha
 
 The module will also use `CertficateReloader` in case the configuration specifies TLS options.
 
+When the server stops, it enters draining before it stops accepting connections. Use the `*fxhttp.DrainState`
+to fail readiness checks or stop admitting new work. While draining, HTTP/1.x responses carry `Connection: close`
+so clients reconnect to another instance.
+
 ## Options
 * WithRPCMethodMapper
   Passes in a function which returns the name of the rpc method a particular request is calling.
@@ -30,6 +35,16 @@ The module will also use `CertficateReloader` in case the configuration specifie
   This option allows creating additional "named" http servers. It is intended to be used by other stelling
   modules, such as the metrics. Named servers do not provide all the features of the main server: for example
   no middleware will be installed.
+* WithRequestID
+  Ensures every request carries an `x-request-id`: the incoming one is kept, or a new one is generated.
+  The id is available through `RequestIDFromContext`, and logged by the logging module.
+
+## Exoscale IAM identity
+Services behind the Exoscale public API receive the id of the authenticated IAM identity in the
+`x-exoscale-iam-identity-id` header. `IAMIdentityHandler` stores it in the request context, where
+`IAMIdentityIDFromContext` retrieves it. Only install it on routes that are exclusively reachable through
+the public API, as the header is trusted as is.
+
 ## Errors
 The package defines a standard shape for error responses: `fxhttp.Error`, which follows
 [RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457):

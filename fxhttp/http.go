@@ -19,8 +19,9 @@ import (
 )
 
 type serverModuleOpts struct {
-	name   string
-	mapper func(*http.Request) string
+	name      string
+	mapper    func(*http.Request) string
+	requestID bool
 }
 
 type serverModuleOption func(*serverModuleOpts)
@@ -40,15 +41,29 @@ func WithRPCMethodMapper(mapper func(*http.Request) string) serverModuleOption {
 	}
 }
 
+// WithRequestID ensures every request carries a request id, see RequestIDFromContext
+// It only applies to the main http server
+func WithRequestID() serverModuleOption {
+	return func(o *serverModuleOpts) {
+		o.requestID = true
+	}
+}
+
 // server is a tuple of http.Server with its accompanying address or socket name
 type server struct {
 	server     *http.Server
 	addr       string
 	socketName string
+	drain      *DrainState
 }
 
-func newServer(s *http.Server, conf ServerConfig) *server {
-	return &server{s, conf.HttpServerConfig().Address, conf.HttpServerConfig().SocketName}
+func newServer(s *http.Server, conf ServerConfig, drain *DrainState) *server {
+	return &server{
+		server:     s,
+		addr:       conf.HttpServerConfig().Address,
+		socketName: conf.HttpServerConfig().SocketName,
+		drain:      drain,
+	}
 }
 
 // NewModule provides a configured *http.Server to the system
@@ -75,13 +90,21 @@ func NewModule(conf ServerConfig, sOpts ...serverModuleOption) fx.Option {
 			fx.Provide(
 				fx.Annotate(NewHTTPServer, fx.ParamTags(``, ``, `optional:"true"`, ``, `group:"http_middleware"`)),
 				newServer,
+				NewDrainState,
 				fx.Annotate(
 					NewInjectRPCMethodMiddleware,
 					fx.ParamTags(`optional:"true"`),
 					fx.ResultTags(`group:"http_middleware"`),
 				),
+				fx.Annotate(newDrainMiddleware, fx.ResultTags(`group:"http_middleware"`)),
 			),
 		)
+		if modOpts.requestID {
+			opts = fx.Options(
+				opts,
+				fx.Provide(fx.Annotate(newRequestIDMiddleware, fx.ResultTags(`group:"http_middleware"`))),
+			)
+		}
 	} else {
 		nameTag := fmt.Sprintf("name:\"%s\"", modOpts.name)
 		opts = fx.Options(
@@ -101,7 +124,8 @@ func NewModule(conf ServerConfig, sOpts ...serverModuleOption) fx.Option {
 				),
 				fx.Annotate(
 					newServer,
-					fx.ParamTags(nameTag, nameTag),
+					// Named servers follow the drain state of the main server, if there is one
+					fx.ParamTags(nameTag, nameTag, `optional:"true"`),
 					fx.ResultTags(nameTag),
 				),
 			),
@@ -258,12 +282,18 @@ func StartHttpServer(lc fx.Lifecycle, s *server, logger *zap.Logger) {
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
+			if s.drain != nil {
+				s.drain.EnterDraining()
+			}
 			logger.Info("Stopping http server")
 			return s.server.Shutdown(ctx)
 		},
 	})
 }
 
+// Middleware wraps the handler of the main http server, to process the requests it receives
+// Modules add them to the http_middleware value group. Middleware with a higher weight are closer to the handler
+// The http clients have their own middleware, see ClientMiddleware
 type Middleware struct {
 	Handler func(http.Handler) http.Handler
 	Weight  int
