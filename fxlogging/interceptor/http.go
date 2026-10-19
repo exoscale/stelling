@@ -45,7 +45,8 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler, opts ...HTTPOpti
 
 		ww := NewWrapResponseWriter(w)
 
-		ctx := r.Context()
+		// Allow handlers to record the error response they write, so it can be logged
+		ctx := fxhttp.ContextWithErrorRecorder(r.Context())
 
 		traceid, spanid, ok := traceInfoFromContext(ctx)
 		if !ok {
@@ -74,7 +75,7 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler, opts ...HTTPOpti
 			fields = append(fields, zap.String("rpc.method", rpcMethod))
 		}
 
-		if requestID := r.Header.Get("x-request-id"); requestID != "" {
+		if requestID := r.Header.Get(fxhttp.RequestIDHeader); requestID != "" {
 			fields = append(fields, zap.String("request_id", requestID))
 		}
 
@@ -89,6 +90,18 @@ func NewRequestLogger(logger *zap.Logger, wrapped http.Handler, opts ...HTTPOpti
 		r = r.WithContext(ctx)
 
 		wrapped.ServeHTTP(ww, r)
+
+		if e := fxhttp.RecordedError(ctx); e != nil {
+			errFields := []zapcore.Field{
+				zap.String("error.type", e.Type),
+				zap.String("error.title", e.Title),
+				zap.String("error.detail", e.Detail),
+			}
+			if e.Cause != nil {
+				errFields = append(errFields, zap.Error(e.Cause))
+			}
+			l = l.With(errFields...)
+		}
 
 		if r.Method == "GET" && ww.StatusCode == 200 && strings.HasSuffix(r.RequestURI, "/healthz") {
 			l.Debug(
