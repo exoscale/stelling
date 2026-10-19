@@ -27,6 +27,7 @@ The module lazily provides the following components:
 * GrpcServerInterceptors that count all incoming requests by method and status
 * GrpcClientInterceptors that count all requests made with the client by method and status
 * HttpMiddleware that count all incoming requests by method and status
+* HttpClientMiddleware that count all requests made with the `fxhttp` clients by method and status
 
 It starts an additional webserver exposing the prometheus endpoint.
 
@@ -40,6 +41,7 @@ The module lazily provides the following components:
 * GrpcServerInterceptors that count all incoming requests by method and status
 * GrpcClientInterceptors that count all requests made with the client by method and status
 * HttpMiddleware that count all incoming requests by method and status
+* HttpClientMiddleware that count all requests made with the `fxhttp` clients by method and status
 
 It adds hooks to push the metrics when the system stops and at regular intervals during runtime.
 
@@ -60,6 +62,7 @@ The module lazily provides the following components:
 * GrpcServerInterceptors that count all incoming requests by method and status
 * GrpcClientInterceptors that count all requests made with the client by method and status
 * HttpMiddleware that count all incoming requests by method and status
+* HttpClientMiddleware that count all requests made with the `fxhttp` clients by method and status
 
 It adds hooks to push the metrics when the system stops and at regular intervals during runtime.
 
