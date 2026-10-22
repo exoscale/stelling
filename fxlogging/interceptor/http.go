@@ -26,6 +26,16 @@ func (w *WrapResponseWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
 
+func (w *WrapResponseWriter) Write(data []byte) (int, error) {
+	// From `http.ResponseWriter.Write` documentation:
+	// > If [ResponseWriter.WriteHeader] has not yet been called, Write calls
+	// > WriteHeader(http.StatusOK) before writing the data.
+	if w.StatusCode == 0 {
+		w.StatusCode = http.StatusOK
+	}
+	return w.ResponseWriter.Write(data)
+}
+
 func (w *WrapResponseWriter) WriteHeader(statusCode int) {
 	w.StatusCode = statusCode
 	w.ResponseWriter.WriteHeader(statusCode)
