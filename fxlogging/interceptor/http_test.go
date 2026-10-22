@@ -15,21 +15,25 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
-func withTestRequestLogger(t *testing.T, cb func(handler http.Handler, logs *observer.ObservedLogs), opts ...HTTPOption) {
+func withTestRequestLogger(t *testing.T, handler http.Handler, cb func(handler http.Handler, logs *observer.ObservedLogs), opts ...HTTPOption) {
 	t.Helper()
 
 	core, logs := observer.New(zapcore.DebugLevel)
 	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zap.WrapCore(func(_ zapcore.Core) zapcore.Core { return core })))
 
-	handler := NewRequestLogger(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	wrappedHandler := NewRequestLogger(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		LoggerFromContext(r.Context()).Info("handler log")
-		w.WriteHeader(http.StatusAccepted)
+		handler.ServeHTTP(w, r)
 	}), opts...)
 
-	cb(handler, logs)
+	cb(wrappedHandler, logs)
 }
 
 func TestRequestLogger(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+	})
+
 	t.Run("Should enrich logger with request id header", func(t *testing.T) {
 		rid := uuid.NewString()
 		run := func(handler http.Handler, logs *observer.ObservedLogs) {
@@ -49,7 +53,7 @@ func TestRequestLogger(t *testing.T) {
 			require.Contains(t, requestLog.ContextMap(), "request_id")
 			require.Equal(t, rid, requestLog.ContextMap()["request_id"])
 		}
-		withTestRequestLogger(t, run)
+		withTestRequestLogger(t, handler, run)
 	})
 
 	t.Run("Should enrich logger with headerFields", func(t *testing.T) {
@@ -72,7 +76,7 @@ func TestRequestLogger(t *testing.T) {
 		headerFields := map[string]string{
 			"x-correlation-id": "correlation_id",
 		}
-		withTestRequestLogger(t, run, WithHTTPHeaderFields(headerFields))
+		withTestRequestLogger(t, handler, run, WithHTTPHeaderFields(headerFields))
 	})
 
 	t.Run("Should not enrich logger when request id header is missing", func(t *testing.T) {
@@ -88,16 +92,38 @@ func TestRequestLogger(t *testing.T) {
 			requestLog := requireLogMessage(t, logs.AllUntimed(), "Handled request")
 			require.NotContains(t, requestLog.ContextMap(), "request_id")
 		}
-		withTestRequestLogger(t, run)
+		withTestRequestLogger(t, handler, run)
 	})
 }
 
-func TestWrapResponseWriterSupportsResponseController(t *testing.T) {
-	recorder := httptest.NewRecorder()
-	writer := NewWrapResponseWriter(recorder)
+func TestWrapResponseWriter(t *testing.T) {
+	t.Run("Should support ResponseController", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		writer := NewWrapResponseWriter(recorder)
 
-	require.NoError(t, http.NewResponseController(writer).Flush())
-	require.True(t, recorder.Flushed)
+		require.NoError(t, http.NewResponseController(writer).Flush())
+		require.True(t, recorder.Flushed)
+	})
+
+	t.Run("Should log 200 OK if WriteStatus not called before Write", func(t *testing.T) {
+		run := func(handler http.Handler, logs *observer.ObservedLogs) {
+			recorder := httptest.NewRecorder()
+			writer := NewWrapResponseWriter(recorder)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
+
+			handler.ServeHTTP(writer, req)
+
+			requestLog := requireLogMessage(t, logs.AllUntimed(), "Handled request")
+			require.EqualValues(t, http.StatusOK, requestLog.ContextMap()["http.status"])
+		}
+
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, err := w.Write(make([]byte, 0))
+			require.NoError(t, err)
+		})
+
+		withTestRequestLogger(t, handler, run)
+	})
 }
 
 func TestPanicLogger(t *testing.T) {
