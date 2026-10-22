@@ -34,6 +34,7 @@ func NewModule(conf TracingConfig) fx.Option {
 			NewClientStatsHandler,
 			NewServerStatsHandler,
 			NewHttpMiddleware,
+			NewHttpClientMiddleware,
 		),
 	)
 }
@@ -216,11 +217,23 @@ func NewHttpMiddleware(tracerProvider trace.TracerProvider) HttpMiddlewareResult
 
 	mw := func(next http.Handler) http.Handler {
 		injectedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
+			// Allow handlers to record the error response they write, so it can be added to the span
+			ctx := fxhttp.ContextWithErrorRecorder(r.Context())
+			span := trace.SpanFromContext(ctx)
 			if rpcMethod := fxhttp.RPCMethodFromContext(ctx); rpcMethod != "" {
-				trace.SpanFromContext(ctx).SetAttributes(semconv.RPCMethod(rpcMethod))
+				span.SetAttributes(semconv.RPCMethod(rpcMethod))
 			}
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(ctx))
+
+			// Only server errors are span errors: client errors are expected outcomes
+			if e := fxhttp.RecordedError(ctx); e != nil && e.Status >= http.StatusInternalServerError {
+				span.SetAttributes(semconv.ErrorTypeKey.String(e.Type))
+				if e.Cause != nil {
+					span.RecordError(e.Cause)
+				} else {
+					span.RecordError(e)
+				}
+			}
 		})
 
 		return otelhttp.NewHandler(
@@ -237,6 +250,33 @@ func NewHttpMiddleware(tracerProvider trace.TracerProvider) HttpMiddlewareResult
 			Handler: mw,
 			Weight:  20,
 		}}
+}
+
+type HttpClientMiddlewareResult struct {
+	fx.Out
+
+	Middleware *fxhttp.ClientMiddleware `group:"http_client_middleware"`
+}
+
+// NewHttpClientMiddleware traces the requests of the http clients and propagates the trace context to the server
+func NewHttpClientMiddleware(tracerProvider trace.TracerProvider) HttpClientMiddlewareResult {
+	propagator := propagation.NewCompositeTextMapPropagator(
+		propagation.Baggage{},
+		propagation.TraceContext{},
+	)
+
+	return HttpClientMiddlewareResult{
+		Middleware: &fxhttp.ClientMiddleware{
+			RoundTripper: func(next http.RoundTripper) http.RoundTripper {
+				return otelhttp.NewTransport(
+					next,
+					otelhttp.WithTracerProvider(tracerProvider),
+					otelhttp.WithPropagators(propagator),
+				)
+			},
+			Weight: 20,
+		},
+	}
 }
 
 func httpSpanNameFormatter(_ string, req *http.Request) string {

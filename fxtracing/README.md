@@ -8,7 +8,8 @@ The module lazily provides the following components:
 * A `trace.TracerProvider`
 * A server stats.Handler that traces all incoming requests
 * A client stats.Handler that traces all requests made with the client
-* HttpMiddleware that traces all incoming server requests
+* HttpMiddleware that traces all incoming server requests. Server errors written by `fxhttp.WriteError` are recorded on the span
+* HttpClientMiddleware that traces all requests made with the `fxhttp` clients, and propagates the trace context
 
 At the moment we do not expose any advanced otelgrpc, or samplerprovider options.
 
