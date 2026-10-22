@@ -21,7 +21,7 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"google.golang.org/grpc/stats"
+	"google.golang.org/grpc"
 )
 
 // NewModule provides an opentelemetry TracingProvider to the system
@@ -159,7 +159,7 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 type ServerStatsHandlerResult struct {
 	fx.Out
 
-	Handler stats.Handler `group:"server_stats_handler"`
+	ServerOpt grpc.DialOption `group:"grpc_server_options"`
 }
 
 // NewServerStatsHandler returns a grpc stats.Handler for use in a server that automatically traces requests
@@ -169,20 +169,22 @@ func NewServerStatsHandler(tracerProvider trace.TracerProvider) ServerStatsHandl
 		propagation.TraceContext{},
 	)
 
-	handler := otelgrpc.NewServerHandler(
-		otelgrpc.WithTracerProvider(tracerProvider),
-		otelgrpc.WithPropagators(propagator),
+	serverOpt := grpc.WithStatsHandler(
+		otelgrpc.NewServerHandler(
+			otelgrpc.WithTracerProvider(tracerProvider),
+			otelgrpc.WithPropagators(propagator),
+		),
 	)
 
 	return ServerStatsHandlerResult{
-		Handler: handler,
+		ServerOpt: serverOpt,
 	}
 }
 
 type ClientStatsHandlerResult struct {
 	fx.Out
 
-	Handler stats.Handler `group:"client_stats_handler"`
+	ClientOpt grpc.DialOption `group:"grpc_client_options"`
 }
 
 // NewClientStatsHandler returns a grpc stats.Handler for use in a client that automatically traces requests
@@ -192,13 +194,15 @@ func NewClientStatsHandler(tracerProvider trace.TracerProvider) ClientStatsHandl
 		propagation.TraceContext{},
 	)
 
-	handler := otelgrpc.NewClientHandler(
-		otelgrpc.WithTracerProvider(tracerProvider),
-		otelgrpc.WithPropagators(propagator),
+	clientOpt := grpc.WithStatsHandler(
+		otelgrpc.NewClientHandler(
+			otelgrpc.WithTracerProvider(tracerProvider),
+			otelgrpc.WithPropagators(propagator),
+		),
 	)
 
 	return ClientStatsHandlerResult{
-		Handler: handler,
+		ClientOpt: clientOpt,
 	}
 }
 
