@@ -93,7 +93,6 @@ type GrpcClientParams struct {
 	Lc                 fx.Lifecycle
 	Conf               ClientConfig
 	Logger             *zap.Logger
-	StatsHandlers      []stats.Handler            `group:"client_stats_handler"`
 	UnaryInterceptors  []*UnaryClientInterceptor  `group:"unary_client_interceptor"`
 	StreamInterceptors []*StreamClientInterceptor `group:"stream_client_interceptor"`
 	ClientOpts         []grpc.DialOption          `group:"grpc_client_options"`
@@ -192,11 +191,6 @@ func ProvideGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
 		grpc.WithTransportCredentials(creds),
 		WithUnaryClientInterceptors(p.UnaryInterceptors),
 		WithStreamClientInterceptors(p.StreamInterceptors),
-	}
-
-	// Stats handlers
-	for _, handler := range p.StatsHandlers {
-		opts = append(opts, grpc.WithStatsHandler(handler))
 	}
 
 	// Add the externally supplied options last: this allows the user to override any options we may have set already
