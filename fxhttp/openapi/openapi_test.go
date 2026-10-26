@@ -261,6 +261,36 @@ func TestNewHandler(t *testing.T) {
 		require.Equal(t, "identity-1", identityID)
 	})
 
+	t.Run("Should apply the surface middleware after request validation", func(t *testing.T) {
+		called := false
+		surfaces := testSurfaces(t)
+		surfaces[0].Middleware = []func(http.Handler) http.Handler{func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				called = true
+				next.ServeHTTP(w, r)
+			})
+		}}
+		h, err := NewHandler(surfaces)
+		require.NoError(t, err)
+
+		_ = requireError(t, serve(t, h, http.MethodGet, "/things/not-a-uuid", ""), http.StatusBadRequest)
+		require.False(t, called)
+	})
+
+	t.Run("Should not check the security requirements", func(t *testing.T) {
+		secured := strings.Replace(internalSpec, "      operationId: get-health\n", "      operationId: get-health\n      security: [{apiKey: []}]\n", 1) + `
+components:
+  securitySchemes:
+    apiKey: {type: apiKey, in: header, name: X-Api-Key}
+`
+		surfaces := testSurfaces(t)
+		surfaces[1].Spec = mustLoadSpec(t, secured, publicRefs())
+
+		h, err := NewHandler(surfaces)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, serve(t, h, http.MethodGet, "/internal/health", "").Code)
+	})
+
 	t.Run("Should use the given request error handler", func(t *testing.T) {
 		h, err := NewHandler(testSurfaces(t), WithRequestErrorHandler(func(w http.ResponseWriter, r *http.Request, err error) {
 			fxhttp.WriteError(w, r, &fxhttp.Error{Status: http.StatusBadRequest, Title: "Invalid Request", Detail: err.Error()})
@@ -278,6 +308,26 @@ func TestNewHandler(t *testing.T) {
 		surfaces[1].SpecAliases = []string{"/internal.yaml"}
 		_, err = NewHandler(surfaces)
 		require.ErrorContains(t, err, "require ServeSpec")
+	})
+
+	t.Run("Should reject base paths not declared by the servers of the spec", func(t *testing.T) {
+		surfaces := testSurfaces(t)
+		surfaces[1].BasePath = "/private"
+		_, err := NewHandler(surfaces)
+		require.ErrorContains(t, err, `base path "/private" is not declared by the servers of the spec`)
+
+		surfaces = testSurfaces(t)
+		surfaces[1].Spec = mustLoadSpec(t, strings.Replace(internalSpec, "servers:\n  - url: /internal\n", "", 1), publicRefs())
+		_, err = NewHandler(surfaces)
+		require.ErrorContains(t, err, "must declare the base path")
+	})
+
+	t.Run("Should reject surfaces serving the same path", func(t *testing.T) {
+		surfaces := testSurfaces(t)
+		surfaces[1].ServeSpec = true
+		surfaces[1].SpecAliases = []string{"/api.yaml"}
+		_, err := NewHandler(surfaces)
+		require.ErrorContains(t, err, `path "/api.yaml" is already served by surface "public"`)
 	})
 }
 

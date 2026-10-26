@@ -23,9 +23,11 @@ This allows fine grained control over the start and stop order of components tha
 
 The module will also use `CertficateReloader` in case the configuration specifies TLS options.
 
-When the server stops, it enters draining before it stops accepting connections. Use the `*fxhttp.DrainState`
-to fail readiness checks or stop admitting new work. While draining, HTTP/1.x responses carry `Connection: close`
-so clients reconnect to another instance.
+When the server stops, it enters draining and keeps serving for `DrainDelay` before it stops accepting
+connections. Use the `*fxhttp.DrainState` to fail readiness checks or stop admitting new work. While draining,
+HTTP/1.x responses carry `Connection: close` so clients reconnect to another instance.
+Set `DrainDelay` to the time your load balancer takes to stop routing traffic, eg the readiness probe period times
+its failure threshold, and keep the stop timeout of the fx app above it.
 
 ## Options
 * WithRPCMethodMapper
@@ -61,7 +63,8 @@ members and can not override the standard ones. The `Cause` is never serialized.
 * If `err` wraps an `*fxhttp.Error`, it is written as is. Missing fields are defaulted from the status.
 * If `err` wraps a `*apierror.Error`, see the [apierror](apierror) package, it is written with the `DefaultStatus`
   of its category.
-* Any other error is written as a 500 with the error message as `detail`.
+* Any other error is written as a 500 without `detail`: its message can reveal internals, so it is only kept as
+  the `Cause`, for logs.
 
 The signature of `WriteError` matches the error hooks of common routers and code generators, so it
 can be passed to them directly. For example with [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen):
@@ -92,11 +95,12 @@ The module provides the following configuration options:
 * `CertFile`: Path to the pem encoded server TLS certificate
 * `KeyFile`: Path to the pem encoded private key of the server TLS certificate
 * `ClientCAFile`: Path to a pem encoded CA cert bundle used to validate clients. No client validation happens if unset.
+* `DrainDelay`: How long the server keeps serving once draining, before it stops accepting connections. Defaults to 0
 
 ## Client transport
 Services build their http clients with `NewTransport`, which is based on `http.DefaultTransport` and is also able
 to reach servers listening on a unix domain socket, through urls built with `UnixSocketURL`. Redirects to a socket
-are refused.
+are refused, unless they come from that same socket.
 
 `WrapTransport` installs the middleware of the `http_client_middleware` value group on the transport: the tracing
 and metrics modules lazily provide middleware that trace and count all requests. Inject them with

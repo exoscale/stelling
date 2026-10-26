@@ -66,12 +66,19 @@ type unixSocketRoundTripper struct {
 }
 
 // RoundTrip sends req as a plain http request: the dialer of the transport connects to the socket encoded in its host
-// Redirects to a socket are refused: a remote server must not make the client reach the local sockets of its host
+// Redirects to a socket are refused, unless they come from that same socket: a remote server must not make the
+// client reach the local sockets of its host
 func (rt unixSocketRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.Response != nil {
+	if prev := req.Response; prev != nil &&
+		(prev.Request.URL.Scheme != unixSocketScheme || prev.Request.URL.Host != req.URL.Host) {
 		return nil, errors.New("redirects to a unix domain socket are not allowed")
 	}
 	rewrite := req.Clone(req.Context())
 	rewrite.URL.Scheme = "http"
-	return rt.t.RoundTrip(rewrite)
+	resp, err := rt.t.RoundTrip(rewrite)
+	if resp != nil {
+		// The response belongs to the request the client sent, not to its rewrite, so redirects see the socket url
+		resp.Request = req
+	}
+	return resp, err
 }

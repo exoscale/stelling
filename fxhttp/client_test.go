@@ -24,6 +24,10 @@ func TestUnixSocketTransport(t *testing.T) {
 	lis, err := (&net.ListenConfig{}).Listen(context.Background(), "unix", socket)
 	require.NoError(t, err)
 	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/moved" {
+			http.Redirect(w, r, "/things/42", http.StatusMovedPermanently)
+			return
+		}
 		_, _ = io.WriteString(w, r.URL.Path+"?"+r.URL.RawQuery)
 	})}
 	go func() { _ = srv.Serve(lis) }()
@@ -40,6 +44,18 @@ func TestUnixSocketTransport(t *testing.T) {
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, "/things/42?expand=true", string(body))
+
+	t.Run("Should follow redirects within the socket", func(t *testing.T) {
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, UnixSocketURL(socket)+"/moved", nil)
+		require.NoError(t, err)
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		defer func() { _ = resp.Body.Close() }()
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.Equal(t, "/things/42?", string(body))
+	})
 
 	t.Run("Should refuse redirects to a socket", func(t *testing.T) {
 		remote := httptest.NewServer(http.RedirectHandler(UnixSocketURL(socket)+"/things/42", http.StatusFound))

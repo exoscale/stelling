@@ -156,7 +156,7 @@ func ErrorFromAPIError(p *apierror.Error, status int) *Error {
 // errorFrom converts any error into an *Error
 // If err wraps an *Error, it is returned with its defaults applied
 // If err wraps an *apierror.Error, it is converted with the DefaultStatus of its category
-// Any other error results in a 500 with the error message as detail
+// Any other error results in a 500 without detail: its message can reveal internals, so it is only kept as the Cause
 func errorFrom(err error) *Error {
 	if e, ok := errors.AsType[*Error](err); ok {
 		return e.withDefaults()
@@ -164,12 +164,12 @@ func errorFrom(err error) *Error {
 	if p := apierror.From(err); p != nil {
 		return ErrorFromAPIError(p, DefaultStatus(apierror.CategoryOf(p)))
 	}
-	return (&Error{Status: http.StatusInternalServerError, Detail: err.Error(), Cause: err}).withDefaults()
+	return (&Error{Status: http.StatusInternalServerError, Cause: err}).withDefaults()
 }
 
 // WriteError writes err to w as a json error response
 // If err wraps an *Error, it is written as is. If it wraps an *apierror.Error, it is written with the DefaultStatus
-// of its category. Any other error is written as a 500 with the error message as detail
+// of its category. Any other error is written as a 500 without detail
 // Its signature matches the error handler hooks of common http routers and code generators,
 // so it can be passed to them as is
 // The written error is recorded on the request, see ContextWithErrorRecorder

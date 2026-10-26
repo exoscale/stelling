@@ -55,6 +55,7 @@ type server struct {
 	addr       string
 	socketName string
 	drain      *DrainState
+	drainDelay time.Duration
 }
 
 func newServer(s *http.Server, conf ServerConfig, drain *DrainState) *server {
@@ -63,6 +64,7 @@ func newServer(s *http.Server, conf ServerConfig, drain *DrainState) *server {
 		addr:       conf.HttpServerConfig().Address,
 		socketName: conf.HttpServerConfig().SocketName,
 		drain:      drain,
+		drainDelay: conf.HttpServerConfig().DrainDelay,
 	}
 }
 
@@ -185,6 +187,9 @@ type Server struct {
 	KeyFile string `validate:"required_if=TLS true,omitempty,file"`
 	// ClientCAFile is the path to a pem encoded CA cert bundle used to validate clients
 	ClientCAFile string `validate:"excluded_without=TLS,omitempty,file"`
+	// DrainDelay is how long the server keeps serving once draining, before it stops accepting connections
+	// It gives readiness checks and load balancers the time to stop routing traffic to the instance
+	DrainDelay time.Duration
 }
 
 func (s *Server) HttpServerConfig() *Server {
@@ -199,6 +204,7 @@ func (s *Server) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("socket-name", s.SocketName)
 	enc.AddString("address", s.Address)
 	enc.AddBool("tls", s.TLS)
+	enc.AddDuration("drain-delay", s.DrainDelay)
 
 	if s.TLS {
 		enc.AddString("cert-file", s.CertFile)
@@ -282,8 +288,13 @@ func StartHttpServer(lc fx.Lifecycle, s *server, logger *zap.Logger) {
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			if s.drain != nil {
-				s.drain.EnterDraining()
+			// Only the server entering draining waits: the servers sharing its drain state already did
+			if s.drain != nil && s.drain.EnterDraining() && s.drainDelay > 0 {
+				logger.Info("Draining http server", zap.Duration("delay", s.drainDelay))
+				select {
+				case <-time.After(s.drainDelay):
+				case <-ctx.Done():
+				}
 			}
 			logger.Info("Stopping http server")
 			return s.server.Shutdown(ctx)

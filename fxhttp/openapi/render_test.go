@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// errorsSpec lists its error types instead of declaring its error responses, and composes schemas with allOf
+// errorsSpec lists its error types instead of declaring its error responses
 const errorsSpec = `
 openapi: 3.0.0
 info: {title: things, version: "1"}
@@ -47,19 +47,13 @@ paths:
           content: {application/json: {schema: {$ref: '#/components/schemas/thing'}}}
 components:
   schemas:
-    named:
+    thing:
       type: object
-      required: [name]
+      required: [name, id]
       properties:
         name: {type: string}
-    thing:
-      allOf:
-        - $ref: '#/components/schemas/named'
-        - type: object
-          required: [id]
-          properties:
-            id: {type: string}
-            owner: {$ref: '#/components/schemas/owner'}
+        id: {type: string}
+        owner: {$ref: '#/components/schemas/owner'}
     owner:
       type: object
       properties:
@@ -77,7 +71,6 @@ func mustRender(t *testing.T, spec string, opts ...Option) *openapi3.T {
 	t.Helper()
 	data, err := mustLoadSpec(t, spec, nil).Render(opts...)
 	require.NoError(t, err)
-	require.NotContains(t, string(data), "allOf")
 	require.NotContains(t, string(data), ErrorsExtension)
 
 	doc, err := openapi3.NewLoader().LoadFromData(data)
@@ -107,15 +100,6 @@ func TestRender(t *testing.T) {
 		require.ElementsMatch(t, []string{"type", "title", "status", "detail"}, schema.Required)
 		require.Equal(t, "#/components/schemas/owner", schema.Properties["owner"].Ref)
 		openapitest.AssertErrorResponses(t, doc, &fxhttp.Error{Status: http.StatusNotFound, Extensions: map[string]any{"owner": map[string]any{"email": "a@b.c"}}})
-	})
-
-	t.Run("Should flatten allOf into plain objects", func(t *testing.T) {
-		thing := doc.Components.Schemas["thing"].Value
-		require.Empty(t, thing.AllOf)
-		require.True(t, thing.Type.Is(openapi3.TypeObject))
-		require.ElementsMatch(t, []string{"name", "id", "owner"}, keys(thing.Properties))
-		require.ElementsMatch(t, []string{"name", "id"}, thing.Required)
-		require.Equal(t, "#/components/schemas/owner", thing.Properties["owner"].Ref, "references of the members are kept")
 	})
 
 	t.Run("Should leave operations without x-errors untouched", func(t *testing.T) {
@@ -151,11 +135,6 @@ func TestRenderFailures(t *testing.T) {
 			spec: strings.Replace(errorsSpec, "      responses:\n        '200':\n          description: The thing\n", "      responses:\n        '404': {description: Not found}\n        '200':\n          description: The thing\n", 1),
 			opts: errorsOptions(),
 			err:  "declared both in responses and in x-errors",
-		},
-		"conflicting allOf members": {
-			spec: strings.Replace(errorsSpec, "            id: {type: string}", "            id: {type: string}\n            name: {type: integer}", 1),
-			opts: errorsOptions(),
-			err:  `property "name" is defined differently`,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

@@ -12,6 +12,7 @@ type Surface struct {
 	// Name identifies the surface. The operation id of its specification endpoint is `get-<name>-openapi-spec`
 	Name string
 	// BasePath is the path under which the surface is mounted, eg "/internal". Empty or "/" mounts it at the root
+	// The servers of the spec must declare it, eg `- url: /internal`
 	BasePath string
 	// Spec describes the surface: requests are validated against it before reaching the handlers
 	Spec *Spec
@@ -81,5 +82,29 @@ func (s *Surface) validate() error {
 	if len(s.SpecAliases) > 0 && !s.ServeSpec {
 		return fmt.Errorf("surface %q: spec aliases require ServeSpec", s.Name)
 	}
-	return nil
+	return s.validateServers()
+}
+
+// validateServers checks the servers of the spec declare the base path: the request validator routes the requests
+// with them, while the mux routes them with the base path
+func (s *Surface) validateServers() error {
+	servers := s.Spec.Document().Servers
+	if len(servers) == 0 {
+		if s.basePath() != "" {
+			return fmt.Errorf("surface %q: the spec must declare the base path %q in its servers", s.Name, s.BasePath)
+		}
+		return nil
+	}
+	var paths []string
+	for _, server := range servers {
+		p, err := server.BasePath()
+		if err != nil {
+			return fmt.Errorf("surface %q: server %q: %w", s.Name, server.URL, err)
+		}
+		if p = strings.TrimSuffix(p, "/"); p == s.basePath() {
+			return nil
+		}
+		paths = append(paths, p)
+	}
+	return fmt.Errorf("surface %q: base path %q is not declared by the servers of the spec %q", s.Name, s.BasePath, paths)
 }

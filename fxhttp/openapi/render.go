@@ -18,9 +18,8 @@ import (
 //     references are rewritten to point to them
 //   - the error responses of the operations listing their error types in x-errors are declared,
 //     with the error-response schema of fxhttp.Error and an example per error type, see WithErrorTypes
-//   - allOf compositions are flattened into plain object schemas
 //
-// The result is validated, and is guaranteed to only contain local references and no allOf
+// The result is validated, and is guaranteed to only contain local references
 // The served specification of a surface is the rendered one
 func (s *Spec) Render(opts ...Option) ([]byte, error) {
 	o := newOptions(opts)
@@ -36,9 +35,6 @@ func (s *Spec) Render(opts ...Option) ([]byte, error) {
 	if err := renderErrorResponses(doc, catalog, o.errorExtensions); err != nil {
 		return nil, err
 	}
-	if err := flattenAllOf(doc); err != nil {
-		return nil, err
-	}
 
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
@@ -51,13 +47,10 @@ func (s *Spec) Render(opts ...Option) ([]byte, error) {
 	}
 	data := buf.Bytes()
 
-	// The result must stand on its own: no external reference, no allOf, and valid, examples included
+	// The result must stand on its own: no external reference, and valid, examples included
 	rendered, err := openapi3.NewLoader().LoadFromData(data)
 	if err != nil {
 		return nil, fmt.Errorf("rendered spec is not self contained: %w", err)
-	}
-	if err := assertNoAllOf(rendered); err != nil {
-		return nil, err
 	}
 	if err := rendered.Validate(context.Background()); err != nil {
 		return nil, fmt.Errorf("rendered spec is invalid: %w", err)

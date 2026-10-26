@@ -133,8 +133,6 @@ production. Request validation failures and server errors (5xx) are always allow
 * The error responses of the operations using `x-errors` are declared, grouped by status. Their description lists
   the error types, with an example for each of them. Their schema is `error-response`, generated from `fxhttp.Error`
   and the extensions registered with `WithErrorExtension`. It replaces any `error-response` schema of the specification
-* `allOf` compositions of object schemas are flattened: they may be used for convenience, but do not appear in the
-  rendered specification. Compositions which can not be flattened without changing their meaning fail
 * `x-errors` is removed
 
 The result is validated, examples included. It is the specification served at `<BasePath>/openapi.yaml`.
@@ -159,7 +157,8 @@ in `Surface.SpecOptions` for the served specification and `RenderTarget.Options`
 * Every operation taking parameters or a request body lists its error types in `x-errors`, or declares a 400
   response with an `error-response` schema describing `fxhttp.Error`
 * 5xx responses are not part of the contract, but are written in the same shape
-* `servers` declares the base path of the surface, eg `- url: /internal`
+* `servers` declares the base path of the surface, eg `- url: /internal`. A surface whose `BasePath` is not
+  declared fails at startup
 
 `openapitest.AssertErrorResponses` asserts a rendered specification follows these conventions, and that
 `fxhttp.Error` validates against its `error-response` schema:

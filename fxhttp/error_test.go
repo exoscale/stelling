@@ -101,10 +101,10 @@ func TestErrorFrom(t *testing.T) {
 		require.Equal(t, &Error{Status: http.StatusNotFound}, orig)
 	})
 
-	t.Run("Should map any other error to a 500 with its message", func(t *testing.T) {
+	t.Run("Should map any other error to a 500 without exposing its message", func(t *testing.T) {
 		cause := errors.New("database unavailable")
 		e := errorFrom(cause)
-		require.Equal(t, &Error{Status: http.StatusInternalServerError, Type: TypeInternalServer, Title: "Internal Server Error", Detail: "database unavailable", Cause: cause}, e)
+		require.Equal(t, &Error{Status: http.StatusInternalServerError, Type: TypeInternalServer, Title: "Internal Server Error", Cause: cause}, e)
 	})
 }
 
@@ -118,12 +118,12 @@ func TestWriteError(t *testing.T) {
 		require.JSONEq(t, `{"type":"#/http-problem-types/request-invalid-parameters","title":"Bad Request","status":400,"detail":"invalid id"}`, rec.Body.String())
 	})
 
-	t.Run("Should write a 500 for regular errors", func(t *testing.T) {
+	t.Run("Should write a 500 without the message for regular errors", func(t *testing.T) {
 		rec := httptest.NewRecorder()
 		WriteError(rec, nil, errors.New("boom"))
 
 		require.Equal(t, http.StatusInternalServerError, rec.Code)
-		require.JSONEq(t, `{"type":"#/http-problem-types/internal-server-error","title":"Internal Server Error","status":500,"detail":"boom"}`, rec.Body.String())
+		require.JSONEq(t, `{"type":"#/http-problem-types/internal-server-error","title":"Internal Server Error","status":500,"detail":""}`, rec.Body.String())
 	})
 
 	t.Run("Should drop extensions that can not be serialized", func(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/exoscale/stelling/fxhttp"
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers/legacy"
 	middleware "github.com/oapi-codegen/nethttp-middleware"
 )
@@ -26,6 +27,17 @@ func NewHandler(surfaces []*Surface, opts ...Option) (http.Handler, error) {
 	}
 	mux := http.NewServeMux()
 
+	// The surface serving each pattern: the mux panics on duplicate patterns
+	served := map[string]string{}
+	handle := func(s *Surface, pattern string, h http.Handler) error {
+		if other, ok := served[pattern]; ok {
+			return fmt.Errorf("surface %q: path %q is already served by surface %q", s.Name, pattern, other)
+		}
+		served[pattern] = s.Name
+		mux.Handle(pattern, h)
+		return nil
+	}
+
 	for _, s := range surfaces {
 		if err := s.validate(); err != nil {
 			return nil, err
@@ -39,13 +51,15 @@ func NewHandler(surfaces []*Surface, opts ...Option) (http.Handler, error) {
 			RequestErrorHandler:  o.requestErrorHandler,
 			ResponseErrorHandler: o.writeResponseError,
 		})
-		h = middleware.OapiRequestValidatorWithOptions(s.Spec.Document(), &middleware.Options{
-			ErrorHandlerWithOpts:  newValidatorErrorHandler(o.requestErrorHandler),
-			SilenceServersWarning: true,
-		})(h)
 		for _, m := range slices.Backward(s.Middleware) {
 			h = m(h)
 		}
+
+		h = middleware.OapiRequestValidatorWithOptions(s.Spec.Document(), &middleware.Options{
+			Options:               openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc},
+			ErrorHandlerWithOpts:  newValidatorErrorHandler(o.requestErrorHandler),
+			SilenceServersWarning: true,
+		})(h)
 		if o.contractViolation != nil {
 			if h, err = newContractCheck(s, catalog, o.contractViolation, h); err != nil {
 				return nil, err
@@ -54,21 +68,26 @@ func NewHandler(surfaces []*Surface, opts ...Option) (http.Handler, error) {
 
 		mountPath := s.basePath() + "/"
 		if !s.ServeSpec {
-			mux.Handle(mountPath, h)
+			if err := handle(s, mountPath, h); err != nil {
+				return nil, err
+			}
 			continue
 		}
 
-		served, err := s.Spec.Render(append(slices.Clone(opts), s.SpecOptions...)...)
+		rendered, err := s.Spec.Render(append(slices.Clone(opts), s.SpecOptions...)...)
 		if err != nil {
 			return nil, fmt.Errorf("surface %q: %w", s.Name, err)
 		}
-		specHandler := newSpecHandler(s.specPath(), served)
+		specHandler := newSpecHandler(s.specPath(), rendered)
 
 		// The base path itself serves the spec, to make the API discoverable
-		mux.Handle(mountPath, newDiscoveryHandler(mountPath, specHandler, h))
-		mux.Handle(s.specPath(), specHandler)
-		for _, alias := range s.SpecAliases {
-			mux.Handle(alias, specHandler)
+		if err := handle(s, mountPath, newDiscoveryHandler(mountPath, specHandler, h)); err != nil {
+			return nil, err
+		}
+		for _, p := range append([]string{s.specPath()}, s.SpecAliases...) {
+			if err := handle(s, p, specHandler); err != nil {
+				return nil, err
+			}
 		}
 	}
 
