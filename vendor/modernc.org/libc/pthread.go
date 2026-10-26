@@ -13,7 +13,6 @@ import (
 	"time"
 	"unsafe"
 
-	"golang.org/x/sys/cpu"
 	"modernc.org/libc/errno"
 	"modernc.org/libc/pthread"
 	"modernc.org/libc/sys/types"
@@ -21,6 +20,9 @@ import (
 )
 
 var (
+	mutexes   = map[uintptr]*mutex{}
+	mutexesMu sync.Mutex
+
 	threads   = map[int32]*TLS{}
 	threadsMu sync.Mutex
 
@@ -365,16 +367,13 @@ func Xpthread_cond_wait(t *TLS, pCond, pMutex uintptr) int32 {
 
 	condsMu.Unlock()
 
-	mu := lookupMutex(pMutex)
+	mutexesMu.Lock()
+	mu := mutexes[pMutex]
+	mutexesMu.Unlock()
 
-	// Release and reacquire through the mutex's own unlock and lock: the
-	// embedded sync.Mutex is the lock itself only for a NORMAL mutex, a
-	// RECURSIVE one holds it only briefly (#62). A recursive mutex releases
-	// one level, like musl's pthread_cond_wait, so one locked more than once
-	// stays held while waiting.
-	mu.unlock()
+	mu.Unlock()
 	<-t.wait
-	mu.lock(t.ID)
+	mu.Lock()
 	return 0
 }
 
@@ -385,16 +384,6 @@ func Xpthread_cond_timedwait(t *TLS, pCond, pMutex, pAbsTime uintptr) int32 {
 	}
 	if pCond == 0 {
 		return errno.EINVAL
-	}
-
-	deadlineSecs := (*ctime.Timespec)(unsafe.Pointer(pAbsTime)).Ftv_sec
-	deadlineNsecs := (*ctime.Timespec)(unsafe.Pointer(pAbsTime)).Ftv_nsec
-	deadline := time.Unix(int64(deadlineSecs), int64(deadlineNsecs))
-	d := deadline.Sub(time.Now())
-	if d <= 0 {
-		// Return before registering as a waiter: a registration left behind
-		// would take a later pthread_cond_signal meant for a real waiter.
-		return errno.ETIMEDOUT
 	}
 
 	condsMu.Lock()
@@ -410,69 +399,39 @@ func Xpthread_cond_timedwait(t *TLS, pCond, pMutex, pAbsTime uintptr) int32 {
 
 	condsMu.Unlock()
 
-	mu := lookupMutex(pMutex)
+	mutexesMu.Lock()
+	mu := mutexes[pMutex]
+	mutexesMu.Unlock()
 
-	// See Xpthread_cond_wait for why this goes through unlock and lock.
-	to := time.After(d)
-	mu.unlock()
+	deadlineSecs := (*ctime.Timespec)(unsafe.Pointer(pAbsTime)).Ftv_sec
+	deadlineNsecs := (*ctime.Timespec)(unsafe.Pointer(pAbsTime)).Ftv_nsec
+	deadline := time.Unix(int64(deadlineSecs), int64(deadlineNsecs))
+	d := deadline.Sub(time.Now())
+	switch {
+	case d <= 0:
+		return errno.ETIMEDOUT
+	default:
+		to := time.After(d)
+		mu.Unlock()
 
-	defer mu.lock(t.ID)
+		defer mu.Lock()
 
-	select {
-	case <-t.wait:
-		return 0
-	case <-to:
-		cond.Lock()
-
-		defer cond.Unlock()
-
-		delete(cond.waiters, t)
 		select {
 		case <-t.wait:
-		default:
+			return 0
+		case <-to:
+			cond.Lock()
+
+			defer cond.Unlock()
+
+			delete(cond.waiters, t)
+			select {
+			case <-t.wait:
+			default:
+			}
+			return errno.ETIMEDOUT
 		}
-		return errno.ETIMEDOUT
 	}
-}
-
-// mutexShards maps pthread_mutex_t addresses to their Go side, sharded by
-// address so threads using distinct mutexes rarely contend on a table lock.
-var mutexShards [64]mutexShard
-
-type mutexShard struct {
-	sync.Mutex
-	m map[uintptr]*mutex
-	_ cpu.CacheLinePad
-}
-
-func init() {
-	for i := range mutexShards {
-		mutexShards[i].m = map[uintptr]*mutex{}
-	}
-}
-
-func mutexShardOf(pMutex uintptr) *mutexShard {
-	return &mutexShards[uint64(pMutex)*0x9e3779b97f4a7c15>>58] // Fibonacci hash, top 6 bits
-}
-
-func lookupMutex(pMutex uintptr) *mutex {
-	s := mutexShardOf(pMutex)
-	s.Lock()
-	mu := s.m[pMutex]
-	s.Unlock()
-	return mu
-}
-
-// setMutex registers mu for pMutex, or removes the entry when mu is nil.
-func setMutex(pMutex uintptr, mu *mutex) {
-	s := mutexShardOf(pMutex)
-	s.Lock()
-	if mu == nil {
-		delete(s.m, pMutex)
-	} else {
-		s.m[pMutex] = mu
-	}
-	s.Unlock()
 }
 
 // Go side data of pthread_mutex_t
@@ -545,11 +504,6 @@ func (m *mutex) tryLock(id int32) int32 {
 	default:
 		fallthrough
 	case pthread.PTHREAD_MUTEX_NORMAL:
-		if m.TryLock() {
-			m.id = id
-			return 0
-		}
-
 		return errno.EBUSY
 	case pthread.PTHREAD_MUTEX_RECURSIVE:
 		m.Lock()
@@ -607,7 +561,11 @@ func Xpthread_mutex_destroy(t *TLS, pMutex uintptr) int32 {
 	if __ccgo_strace {
 		trc("t=%v pMutex=%v, (%v:)", t, pMutex, origin(2))
 	}
-	setMutex(pMutex, nil)
+	mutexesMu.Lock()
+
+	defer mutexesMu.Unlock()
+
+	delete(mutexes, pMutex)
 	return 0
 }
 
@@ -616,14 +574,13 @@ func Xpthread_mutex_lock(t *TLS, pMutex uintptr) int32 {
 	if __ccgo_strace {
 		trc("t=%v pMutex=%v, (%v:)", t, pMutex, origin(2))
 	}
-	s := mutexShardOf(pMutex)
-	s.Lock()
-	mu := s.m[pMutex]
+	mutexesMu.Lock()
+	mu := mutexes[pMutex]
 	if mu == nil { // static initialized mutexes are valid
 		mu = newMutex(int(X__ccgo_getMutexType(t, pMutex)))
-		s.m[pMutex] = mu
+		mutexes[pMutex] = mu
 	}
-	s.Unlock()
+	mutexesMu.Unlock()
 	return mu.lock(t.ID)
 }
 
@@ -632,14 +589,13 @@ func Xpthread_mutex_trylock(t *TLS, pMutex uintptr) int32 {
 	if __ccgo_strace {
 		trc("t=%v pMutex=%v, (%v:)", t, pMutex, origin(2))
 	}
-	s := mutexShardOf(pMutex)
-	s.Lock()
-	mu := s.m[pMutex]
+	mutexesMu.Lock()
+	mu := mutexes[pMutex]
 	if mu == nil { // static initialized mutexes are valid
 		mu = newMutex(int(X__ccgo_getMutexType(t, pMutex)))
-		s.m[pMutex] = mu
+		mutexes[pMutex] = mu
 	}
-	s.Unlock()
+	mutexesMu.Unlock()
 	return mu.tryLock(t.ID)
 }
 
@@ -648,7 +604,11 @@ func Xpthread_mutex_unlock(t *TLS, pMutex uintptr) int32 {
 	if __ccgo_strace {
 		trc("t=%v pMutex=%v, (%v:)", t, pMutex, origin(2))
 	}
-	return lookupMutex(pMutex).unlock()
+	mutexesMu.Lock()
+
+	defer mutexesMu.Unlock()
+
+	return mutexes[pMutex].unlock()
 }
 
 // int pthread_key_create(pthread_key_t *key, void (*destructor)(void*));
