@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/exoscale/stelling/fxhttp"
+	"github.com/exoscale/stelling/fxhttp/apierror"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers/legacy"
@@ -56,7 +57,7 @@ func NewHandler(surfaces []*Surface, opts ...Option) (http.Handler, error) {
 		}
 
 		h = middleware.OapiRequestValidatorWithOptions(s.Spec.Document(), &middleware.Options{
-			Options:               openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc},
+			Options:               openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc, MultiError: true},
 			ErrorHandlerWithOpts:  newValidatorErrorHandler(o.requestErrorHandler),
 			SilenceServersWarning: true,
 		})(h)
@@ -137,7 +138,9 @@ func newContractCheck(s *Surface, catalog *errorCatalog, violation func(*http.Re
 		if !ok {
 			return
 		}
-		if status, ok := statuses[e.Type]; !ok || status != e.Status {
+		status, ok := statuses[e.Type]
+		known := !slices.ContainsFunc(e.Errors, func(f apierror.Field) bool { return !f.Code.Known() })
+		if !ok || status != e.Status || !known {
 			violation(r, route.Operation.OperationID, e)
 		}
 	}), nil
@@ -146,7 +149,8 @@ func newContractCheck(s *Surface, catalog *errorCatalog, violation func(*http.Re
 func newValidatorErrorHandler(requestErrorHandler func(http.ResponseWriter, *http.Request, error)) middleware.ErrorHandlerWithOpts {
 	return func(ctx context.Context, err error, w http.ResponseWriter, r *http.Request, opts middleware.ErrorHandlerOpts) {
 		if opts.StatusCode != http.StatusBadRequest {
-			fxhttp.WriteError(w, r, &fxhttp.Error{Status: opts.StatusCode, Detail: err.Error(), Cause: err})
+			// Unknown routes and methods: the shared type of the status says it all
+			fxhttp.WriteError(w, r, &fxhttp.Error{Status: opts.StatusCode, Cause: err})
 			return
 		}
 		requestErrorHandler(w, r.WithContext(ctx), err)

@@ -6,31 +6,32 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/exoscale/stelling/fxhttp/apierror"
 )
 
-// Default error types, used when an Error does not specify one
-const (
-	TypeBadRequest     = "#/http-problem-types/request-invalid-parameters"
-	TypeInternalServer = "#/http-problem-types/internal-server-error"
-	typeNotFound       = "#/http-problem-types/resource-not-found"
-	typeConflict       = "#/http-problem-types/conflict"
-	// typeBlank is the RFC 9457 default for status codes without a more specific error type
-	typeBlank = "about:blank"
-)
+// ContentType is the media type of the error responses
+const ContentType = "application/problem+json"
+
+// typeBlank is the RFC 9457 default for status codes without a shared error type
+const typeBlank = "about:blank"
 
 // Error is the standard shape of an error response, following RFC 9457 Problem Details
 // It can be returned from a handler to control the content of the response written by WriteError
 type Error struct {
 	// Status is the http status code of the response. Defaults to 500
 	Status int
-	// Type is a uri reference identifying the error type. Defaults based on Status
+	// Type is a uri reference identifying the error type. Defaults to the shared type of the status, see apierror
 	Type string
-	// Title is a short human readable summary of the error type. Defaults to the status text
+	// Title is a short human readable summary of the error type. Defaults to the one of the shared type of the status
 	Title string
-	// Detail is a human readable explanation specific to this occurrence of the problem
+	// Detail is a human readable explanation specific to this occurrence of the problem. It is optional
 	Detail string
+	// Instance identifies the occurrence. WriteError sets it to the request id
+	Instance string
+	// Errors are the problems with the fields of the request
+	Errors []apierror.Field
 	// Extensions are additional members serialized next to the standard ones
 	// Extensions can not override the standard members
 	Extensions map[string]any
@@ -53,18 +54,26 @@ func (e *Error) Unwrap() error {
 	return e.Cause
 }
 
-// MarshalJSON serializes the error with its extensions as top level members
+// MarshalJSON serializes the error with its extensions as top level members. Empty members are omitted
 // It has a value receiver, so that both Error values and pointers are serialized in the wire format
 func (e Error) MarshalJSON() ([]byte, error) {
 	d := e.withDefaults()
-	members := make(map[string]any, len(d.Extensions)+4)
+	members := make(map[string]any, len(d.Extensions)+6)
 	for k, v := range d.Extensions {
 		members[k] = v
 	}
 	members["type"] = d.Type
 	members["title"] = d.Title
 	members["status"] = d.Status
-	members["detail"] = d.Detail
+	if d.Detail != "" {
+		members["detail"] = d.Detail
+	}
+	if d.Instance != "" {
+		members["instance"] = d.Instance
+	}
+	if len(d.Errors) > 0 {
+		members["errors"] = d.Errors
+	}
 	return json.Marshal(members)
 }
 
@@ -86,6 +95,16 @@ func (e *Error) UnmarshalJSON(data []byte) error {
 			err = json.Unmarshal(v, &parsed.Status)
 		case "detail":
 			err = json.Unmarshal(v, &parsed.Detail)
+		case "instance":
+			err = json.Unmarshal(v, &parsed.Instance)
+		case "errors":
+			// Services which do not use this format yet send other shapes: keep them as an extension rather than lose them
+			var fields []apierror.Field
+			if json.Unmarshal(v, &fields) == nil && !slices.ContainsFunc(fields, func(f apierror.Field) bool { return f.Code == "" }) {
+				parsed.Errors = fields
+				continue
+			}
+			fallthrough
 		default:
 			if parsed.Extensions == nil {
 				parsed.Extensions = map[string]any{}
@@ -100,14 +119,22 @@ func (e *Error) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// withDefaults returns a copy of e with its missing fields defaulted from its status
+// withDefaults returns a copy of e with its missing fields defaulted from its shared type, or from its status
 func (e *Error) withDefaults() *Error {
 	d := *e
 	if d.Status == 0 {
 		d.Status = http.StatusInternalServerError
 	}
+	for _, t := range apierror.SharedTypes() {
+		if d.Type == t.ID() || (d.Type == "" && t.Status() == d.Status) {
+			d.Type = t.ID()
+			if d.Title == "" {
+				d.Title = t.Title
+			}
+		}
+	}
 	if d.Type == "" {
-		d.Type = defaultType(d.Status)
+		d.Type = typeBlank
 	}
 	if d.Title == "" {
 		d.Title = http.StatusText(d.Status)
@@ -115,67 +142,41 @@ func (e *Error) withDefaults() *Error {
 	return &d
 }
 
-func defaultType(status int) string {
-	switch status {
-	case http.StatusBadRequest:
-		return TypeBadRequest
-	case http.StatusNotFound:
-		return typeNotFound
-	case http.StatusConflict:
-		return typeConflict
-	case http.StatusInternalServerError:
-		return TypeInternalServer
-	default:
-		return typeBlank
+// ErrorFromAPIError converts p into its error response, with the status of its type
+func ErrorFromAPIError(p *apierror.Error) *Error {
+	t := p.Type
+	if t == nil {
+		t = apierror.Internal
 	}
-}
-
-// DefaultStatus returns the http status of the API errors of category c
-func DefaultStatus(c apierror.Category) int {
-	switch c {
-	case apierror.InvalidArgument:
-		return http.StatusBadRequest
-	case apierror.NotFound:
-		return http.StatusNotFound
-	case apierror.Conflict:
-		return http.StatusConflict
-	default:
-		return http.StatusInternalServerError
-	}
-}
-
-// ErrorFromAPIError converts p into the error response written with the given status
-func ErrorFromAPIError(p *apierror.Error, status int) *Error {
-	e := &Error{Status: status, Title: p.Title, Detail: p.Detail, Extensions: p.Extensions, Cause: p}
-	if p.Type != nil {
-		e.Type = p.Type.ID
-	}
-	return e.withDefaults()
+	return &Error{Status: t.Status(), Type: t.ID(), Title: t.Title, Detail: p.Detail, Errors: p.Fields, Extensions: p.Extensions, Cause: p}
 }
 
 // errorFrom converts any error into an *Error
 // If err wraps an *Error, it is returned with its defaults applied
-// If err wraps an *apierror.Error, it is converted with the DefaultStatus of its category
+// If err wraps an *apierror.Error, it is converted with the status of its type
 // Any other error results in a 500 without detail: its message can reveal internals, so it is only kept as the Cause
 func errorFrom(err error) *Error {
 	if e, ok := errors.AsType[*Error](err); ok {
 		return e.withDefaults()
 	}
 	if p := apierror.From(err); p != nil {
-		return ErrorFromAPIError(p, DefaultStatus(apierror.CategoryOf(p)))
+		return ErrorFromAPIError(p)
 	}
 	return (&Error{Status: http.StatusInternalServerError, Cause: err}).withDefaults()
 }
 
-// WriteError writes err to w as a json error response
-// If err wraps an *Error, it is written as is. If it wraps an *apierror.Error, it is written with the DefaultStatus
-// of its category. Any other error is written as a 500 without detail
+// WriteError writes err to w as an RFC 9457 error response, with the request id as its instance
+// If err wraps an *Error, it is written as is. If it wraps an *apierror.Error, it is written with the status of
+// its type. Any other error is written as a 500 without detail
 // Its signature matches the error handler hooks of common http routers and code generators,
 // so it can be passed to them as is
 // The written error is recorded on the request, see ContextWithErrorRecorder
 func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 	e := errorFrom(err)
 	if r != nil {
+		if e.Instance == "" {
+			e.Instance = RequestIDFromContext(r.Context())
+		}
 		recordError(r.Context(), e)
 	}
 
@@ -186,7 +187,8 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 		body, _ = json.Marshal(e)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", ContentType)
+	w.Header().Set("Content-Language", "en")
 	w.WriteHeader(e.Status)
 	_, _ = w.Write(body)
 }

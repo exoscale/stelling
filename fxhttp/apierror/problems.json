@@ -1,0 +1,56 @@
+{
+  "codes": {
+    "already-exists": "{name} already exists",
+    "invalid-data": "{name} is not valid",
+    "invalid-format": "{name} has the wrong format",
+    "not-allowed": "{name} is not allowed here",
+    "required": "{name} is required",
+    "too-large": "{name} is too large",
+    "too-long": "{name} is too long",
+    "too-small": "{name} is too small",
+    "unknown-field": "{name} is not a known field",
+    "unknown-value": "{name} holds an unsupported value"
+  },
+  "types": {
+    "authentication": {
+      "status": 401,
+      "title": "Authentication is required."
+    },
+    "conflict": {
+      "status": 409,
+      "title": "The request conflicts with the current state."
+    },
+    "forbidden": {
+      "status": 403,
+      "title": "Access is denied."
+    },
+    "internal": {
+      "status": 500,
+      "title": "Internal Server Error"
+    },
+    "invalid-request": {
+      "status": 400,
+      "title": "The request is not valid."
+    },
+    "method-not-allowed": {
+      "status": 405,
+      "title": "The method is not allowed for this resource."
+    },
+    "not-found": {
+      "status": 404,
+      "title": "The resource is not found."
+    },
+    "rate-limited": {
+      "status": 429,
+      "title": "Too many requests."
+    },
+    "timeout": {
+      "status": 504,
+      "title": "The request timed out."
+    },
+    "unavailable": {
+      "status": 503,
+      "title": "The service is temporarily unavailable."
+    }
+  }
+}

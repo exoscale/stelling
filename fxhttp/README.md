@@ -52,17 +52,25 @@ The package defines a standard shape for error responses: `fxhttp.Error`, which 
 [RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457):
 
 ```json
-{"type": "#/http-problem-types/request-invalid-parameters", "title": "Bad Request", "status": 400, "detail": "invalid id"}
+{
+  "type": "#/problems/invalid-request",
+  "title": "The request is not valid.",
+  "status": 400,
+  "instance": "01J9XYZ3Q7K",
+  "errors": [{"name": "rules[0].action", "code": "not-allowed", "reason": "rules[0].action is not allowed here"}]
+}
 ```
 
-Service specific members can be added through `Extensions`. They are serialized as top level
-members and can not override the standard ones. The `Cause` is never serialized.
+`type`, `title` and `status` are always present. `instance` is the request id, `errors` lists the problems with
+the fields of the request, and `detail` explains a specific occurrence when the service sets one. Empty members are
+omitted. Service specific members can be added through `Extensions`: they are serialized as top level members and
+can not override the standard ones. The `Cause` is never serialized.
 
-`WriteError(w, r, err)` writes any error in this shape, with `Content-Type: application/json`:
+`WriteError(w, r, err)` writes any error in this shape, with `Content-Type: application/problem+json` and
+`Content-Language: en`, and sets the request id as its `instance`:
 
-* If `err` wraps an `*fxhttp.Error`, it is written as is. Missing fields are defaulted from the status.
-* If `err` wraps a `*apierror.Error`, see the [apierror](apierror) package, it is written with the `DefaultStatus`
-  of its category.
+* If `err` wraps an `*fxhttp.Error`, it is written as is. Missing fields are defaulted from the shared type of the status.
+* If `err` wraps a `*apierror.Error`, see the [apierror](apierror) package, it is written with the status of its type.
 * Any other error is written as a 500 without `detail`: its message can reveal internals, so it is only kept as
   the `Cause`, for logs.
 

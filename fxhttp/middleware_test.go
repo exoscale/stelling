@@ -106,7 +106,7 @@ func TestErrorRecorder(t *testing.T) {
 		r = r.WithContext(ContextWithErrorRecorder(r.Context()))
 		WriteError(httptest.NewRecorder(), r, &Error{Status: http.StatusNotFound, Detail: "no thing"})
 
-		require.Equal(t, &Error{Status: http.StatusNotFound, Type: typeNotFound, Title: "Not Found", Detail: "no thing"}, RecordedError(r.Context()))
+		require.Equal(t, &Error{Status: http.StatusNotFound, Type: "#/problems/not-found", Title: "The resource is not found.", Detail: "no thing"}, RecordedError(r.Context()))
 	})
 
 	t.Run("Should keep an existing recorder", func(t *testing.T) {

@@ -14,7 +14,9 @@ described by a single specification and mounted under a base path.
 For each surface the module:
 
 * Validates the requests against the specification before they reach the handlers.
-  Invalid requests are written as a 400 `fxhttp.Error`
+  Invalid requests are written as a 400 `invalid-request` error, with a field error per problem, eg
+  `{"name": "rules[0].action", "code": "unknown-value"}`. All problems are reported at once, and the values the
+  client sent are never quoted
 * Writes the errors returned by the handlers with `fxhttp.WriteError`
 * Serves the specification at `<BasePath>/openapi.yaml`, at the `SpecAliases`, and on the base path itself
   to make the API discoverable, when `ServeSpec` is set. Only set it for surfaces whose specification may be
@@ -79,10 +81,7 @@ The surfaces are collected from the `openapi_surfaces` value group, see `Surface
   Replaces the handler writing the response of requests that fail validation, decoding or binding
 * WithErrorMapper
   Converts the errors returned by handlers into their `fxhttp.Error`, eg to log them. It is optional for API errors,
-  see the [apierror](../apierror) package, which are converted with the status of their category
-* WithStatusMapping
-  Sets the http status of the API errors of each category, both in the responses and in the rendered specification.
-  Defaults to `fxhttp.DefaultStatus`
+  see the [apierror](../apierror) package, which are converted with the status of their type
 * WithErrorTypes and WithErrorExtension
   Document the error types and the service specific members of the error responses, see below
 * WithContractViolationHandler
@@ -96,34 +95,34 @@ The error types are declared once, with the [apierror](../apierror) package, typ
 of the service. Register them, so they can be listed by the operations:
 
 ```go
-var ErrThingNotFound = apierror.New(apierror.Type{ID: "#/thing/not-found", Category: apierror.NotFound,
-	Title: "Thing not found", Description: "The thing does not exist."}, "no details.")
+var ErrThingNotFound = apierror.New(apierror.Type{Slug: "things/not-found", Parent: apierror.NotFound,
+	Title: "The thing is not found.", Description: "The thing does not exist."}, "")
 
 openapi.WithErrorTypes(ErrThingNotFound.Type)
 ```
 
-Each operation lists the ids of its error types, without the leading `#/`, in `x-errors`. An entry can override
+Each operation lists the slugs of its error types in `x-errors`. An entry can override
 the description for the operation:
 
 ```yaml
     get:
       operationId: get-thing
       x-errors:
-        - thing/not-found
-        - type: thing/locked
+        - things/not-found
+        - type: things/locked
           description: The thing is locked by a running migration.
 ```
 
-Request validation failures (`#/http-problem-types/request-invalid-parameters`) are declared automatically for
-every operation taking input. Register an error type with the same ID to customize their documentation.
+Request validation failures (`#/problems/invalid-request`) are declared automatically for every operation taking
+input. An operation can also list shared types, eg `not-found`.
 
-Handlers return their API errors as is, which are written with the status of their category.
+Handlers return their API errors as is, which are written with the status of their type.
 
 Operations without `x-errors` are left untouched: they can still declare their error responses themselves.
 
 ### Contract
 Unknown error types fail at startup. With `WithContractViolationHandler`, every error response with an error
-type the operation does not declare, or with another status, is reported: fail your tests with it, and log it in
+type the operation does not declare, with another status, or with an unknown field error code, is reported: fail your tests with it, and log it in
 production. Request validation failures and server errors (5xx) are always allowed.
 
 ## Rendered specification
@@ -131,8 +130,11 @@ production. Request validation failures and server errors (5xx) are always allow
 
 * External references are inlined, under the name the components have in their own file
 * The error responses of the operations using `x-errors` are declared, grouped by status. Their description lists
-  the error types, with an example for each of them. Their schema is `error-response`, generated from `fxhttp.Error`
-  and the extensions registered with `WithErrorExtension`. It replaces any `error-response` schema of the specification
+  the error types, with an example for each of them. Their schema is `Problem`, generated from `fxhttp.Error`
+  and the extensions registered with `WithErrorExtension`, whose names must be in kebab-case. It replaces any
+  `Problem` schema of the specification, and its field errors are described by `ProblemFieldError`
+* `x-problems` lists every error type the service can return, shared and its own with their parent, and the codes of
+  the field errors. public-api checks it against its table
 * `x-errors` is removed
 
 The result is validated, examples included. It is the specification served at `<BasePath>/openapi.yaml`.
@@ -155,13 +157,13 @@ in `Surface.SpecOptions` for the served specification and `RenderTarget.Options`
 ## Specification conventions
 * Every operation has an `operationId`
 * Every operation taking parameters or a request body lists its error types in `x-errors`, or declares a 400
-  response with an `error-response` schema describing `fxhttp.Error`
+  response with a `Problem` schema describing `fxhttp.Error`
 * 5xx responses are not part of the contract, but are written in the same shape
 * `servers` declares the base path of the surface, eg `- url: /internal`. A surface whose `BasePath` is not
   declared fails at startup
 
 `openapitest.AssertErrorResponses` asserts a rendered specification follows these conventions, and that
-`fxhttp.Error` validates against its `error-response` schema:
+`fxhttp.Error` validates against its `Problem` schema:
 
 ```go
 func TestSpec(t *testing.T) {

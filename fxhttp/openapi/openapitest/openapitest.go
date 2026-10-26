@@ -7,13 +7,14 @@ import (
 	"testing"
 
 	"github.com/exoscale/stelling/fxhttp"
+	"github.com/exoscale/stelling/fxhttp/apierror"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/require"
 )
 
-// errorResponseSchemaName is the name of the error response schema of the rendered specifications
+// problemSchemaName is the name of the error response schema of the rendered specifications
 // It duplicates the one of the openapi package, which can not be imported: the tests of openapi use this package
-const errorResponseSchemaName = "error-response"
+const problemSchemaName = "Problem"
 
 // ErrorResponseSchema returns the error response schema declared by the 400 response of op, or nil
 func ErrorResponseSchema(op *openapi3.Operation) *openapi3.SchemaRef {
@@ -24,8 +25,8 @@ func ErrorResponseSchema(op *openapi3.Operation) *openapi3.SchemaRef {
 	if resp == nil || resp.Value == nil {
 		return nil
 	}
-	media := resp.Value.Content.Get("application/json")
-	if media == nil || media.Schema == nil || !strings.HasSuffix(media.Schema.Ref, "#/components/schemas/"+errorResponseSchemaName) {
+	media := resp.Value.Content.Get(fxhttp.ContentType)
+	if media == nil || media.Schema == nil || !strings.HasSuffix(media.Schema.Ref, "#/components/schemas/"+problemSchemaName) {
 		return nil
 	}
 	return media.Schema
@@ -41,7 +42,7 @@ func AssertErrorResponses(tb testing.TB, doc *openapi3.T, samples ...*fxhttp.Err
 	tb.Helper()
 
 	if len(samples) == 0 {
-		samples = []*fxhttp.Error{{Status: http.StatusBadRequest, Detail: "invalid request"}}
+		samples = []*fxhttp.Error{{Status: http.StatusBadRequest, Instance: "req-1", Errors: []apierror.Field{apierror.F("name", apierror.CodeRequired)}}}
 	}
 
 	bodies := make([]any, 0, len(samples))
@@ -58,12 +59,12 @@ func AssertErrorResponses(tb testing.TB, doc *openapi3.T, samples ...*fxhttp.Err
 			schema := ErrorResponseSchema(op)
 			if schema == nil {
 				if len(item.Parameters) > 0 || len(op.Parameters) > 0 || op.RequestBody != nil {
-					require.Failf(tb, "missing error response", "%s %s (%s) must declare a 400 response with the %s schema", method, path, op.OperationID, errorResponseSchemaName)
+					require.Failf(tb, "missing error response", "%s %s (%s) must declare a 400 response with the %s schema", method, path, op.OperationID, problemSchemaName)
 				}
 				continue
 			}
 			for _, body := range bodies {
-				require.NoError(tb, schema.Value.VisitJSON(body), "%s %s (%s): error response does not match the %s schema: %v", method, path, op.OperationID, errorResponseSchemaName, body)
+				require.NoError(tb, schema.Value.VisitJSON(body), "%s %s (%s): error response does not match the %s schema: %v", method, path, op.OperationID, problemSchemaName, body)
 			}
 		}
 	}

@@ -1,6 +1,7 @@
 package fxhttp
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,27 +15,44 @@ import (
 
 func TestErrorMarshalJSON(t *testing.T) {
 	t.Run("Should serialize the standard members", func(t *testing.T) {
-		body, err := json.Marshal(&Error{Status: http.StatusConflict, Type: "#/thing/exists", Title: "Thing exists", Detail: "thing 42"})
+		body, err := json.Marshal(&Error{Status: http.StatusConflict, Type: "#/problems/things/exists", Title: "The thing exists.", Detail: "thing 42", Instance: "req-1"})
 		require.NoError(t, err)
-		require.JSONEq(t, `{"type":"#/thing/exists","title":"Thing exists","status":409,"detail":"thing 42"}`, string(body))
+		require.JSONEq(t, `{"type":"#/problems/things/exists","title":"The thing exists.","status":409,"detail":"thing 42","instance":"req-1"}`, string(body))
 	})
 
-	t.Run("Should apply defaults based on the status", func(t *testing.T) {
+	t.Run("Should default to the shared type of the status, and omit empty members", func(t *testing.T) {
 		body, err := json.Marshal(&Error{Status: http.StatusNotFound})
 		require.NoError(t, err)
-		require.JSONEq(t, `{"type":"#/http-problem-types/resource-not-found","title":"Not Found","status":404,"detail":""}`, string(body))
+		require.JSONEq(t, `{"type":"#/problems/not-found","title":"The resource is not found.","status":404}`, string(body))
 	})
 
 	t.Run("Should default to a 500", func(t *testing.T) {
 		body, err := json.Marshal(&Error{Detail: "boom"})
 		require.NoError(t, err)
-		require.JSONEq(t, `{"type":"#/http-problem-types/internal-server-error","title":"Internal Server Error","status":500,"detail":"boom"}`, string(body))
+		require.JSONEq(t, `{"type":"#/problems/internal","title":"Internal Server Error","status":500,"detail":"boom"}`, string(body))
 	})
 
-	t.Run("Should use about:blank for statuses without a default type", func(t *testing.T) {
+	t.Run("Should give a shared type its title", func(t *testing.T) {
+		body, err := json.Marshal(&Error{Status: http.StatusConflict, Type: apierror.Conflict.ID()})
+		require.NoError(t, err)
+		require.JSONEq(t, `{"type":"#/problems/conflict","title":"The request conflicts with the current state.","status":409}`, string(body))
+	})
+
+	t.Run("Should use about:blank for statuses without a shared type", func(t *testing.T) {
 		body, err := json.Marshal(&Error{Status: http.StatusTeapot})
 		require.NoError(t, err)
-		require.JSONEq(t, `{"type":"about:blank","title":"I'm a teapot","status":418,"detail":""}`, string(body))
+		require.JSONEq(t, `{"type":"about:blank","title":"I'm a teapot","status":418}`, string(body))
+	})
+
+	t.Run("Should serialize field errors", func(t *testing.T) {
+		body, err := json.Marshal(&Error{Status: http.StatusBadRequest, Errors: []apierror.Field{
+			apierror.F("coordinate", apierror.CodeRequired),
+			apierror.FIn("query", "scope", apierror.CodeUnknownValue),
+		}})
+		require.NoError(t, err)
+		require.JSONEq(t, `{"type":"#/problems/invalid-request","title":"The request is not valid.","status":400,"errors":[
+			{"name":"coordinate","code":"required","reason":"coordinate is required"},
+			{"name":"scope","in":"query","code":"unknown-value","reason":"scope holds an unsupported value"}]}`, string(body))
 	})
 
 	t.Run("Should serialize extensions as top level members", func(t *testing.T) {
@@ -43,13 +61,13 @@ func TestErrorMarshalJSON(t *testing.T) {
 			Extensions: map[string]any{"proxy-error": map[string]string{"error-name": "KeyNotFound"}},
 		})
 		require.NoError(t, err)
-		require.JSONEq(t, `{"type":"#/http-problem-types/request-invalid-parameters","title":"Bad Request","status":400,"detail":"","proxy-error":{"error-name":"KeyNotFound"}}`, string(body))
+		require.JSONEq(t, `{"type":"#/problems/invalid-request","title":"The request is not valid.","status":400,"proxy-error":{"error-name":"KeyNotFound"}}`, string(body))
 	})
 
 	t.Run("Should not let extensions override standard members", func(t *testing.T) {
 		body, err := json.Marshal(&Error{Status: http.StatusBadRequest, Detail: "real", Extensions: map[string]any{"status": 200, "detail": "fake"}})
 		require.NoError(t, err)
-		require.JSONEq(t, `{"type":"#/http-problem-types/request-invalid-parameters","title":"Bad Request","status":400,"detail":"real"}`, string(body))
+		require.JSONEq(t, `{"type":"#/problems/invalid-request","title":"The request is not valid.","status":400,"detail":"real"}`, string(body))
 	})
 
 	t.Run("Should never serialize the cause", func(t *testing.T) {
@@ -57,21 +75,37 @@ func TestErrorMarshalJSON(t *testing.T) {
 		require.NoError(t, err)
 		require.NotContains(t, string(body), "secret")
 	})
+
+	t.Run("Should serialize values in the wire format too", func(t *testing.T) {
+		body, err := json.Marshal(Error{Status: http.StatusConflict, Detail: "thing 42"})
+		require.NoError(t, err)
+		require.JSONEq(t, `{"type":"#/problems/conflict","title":"The request conflicts with the current state.","status":409,"detail":"thing 42"}`, string(body))
+	})
 }
 
 func TestErrorUnmarshalJSON(t *testing.T) {
 	t.Run("Should round trip", func(t *testing.T) {
-		in := &Error{Status: http.StatusConflict, Type: "#/thing/exists", Title: "Thing exists", Detail: "thing 42", Extensions: map[string]any{"thing-id": 42}}
+		in := &Error{Status: http.StatusConflict, Type: "#/problems/things/exists", Title: "The thing exists.", Detail: "thing 42", Instance: "req-1",
+			Errors: []apierror.Field{apierror.F("name", apierror.CodeAlreadyExists)}, Extensions: map[string]any{"thing-id": 42}}
 		body, err := json.Marshal(in)
 		require.NoError(t, err)
 
 		out := &Error{}
 		require.NoError(t, json.Unmarshal(body, out))
-		require.Equal(t, in.Status, out.Status)
-		require.Equal(t, in.Type, out.Type)
-		require.Equal(t, in.Title, out.Title)
-		require.Equal(t, in.Detail, out.Detail)
 		require.Equal(t, json.RawMessage(`42`), out.Extensions["thing-id"])
+		out.Extensions = nil
+		in.Extensions = nil
+		require.Equal(t, in, out)
+	})
+
+	t.Run("Should keep errors in other shapes as an extension", func(t *testing.T) {
+		for _, errors := range []string{`[{"detail":"must be read","location":"$.scope"}]`, `["bad"]`} {
+			out := &Error{}
+			require.NoError(t, json.Unmarshal([]byte(`{"type":"#/x","title":"X","status":400,"errors":`+errors+`}`), out))
+			require.Equal(t, "#/x", out.Type)
+			require.Empty(t, out.Errors)
+			require.JSONEq(t, errors, string(out.Extensions["errors"].(json.RawMessage)))
+		}
 	})
 
 	t.Run("Should fail on invalid standard members", func(t *testing.T) {
@@ -92,7 +126,7 @@ func TestErrorWrapping(t *testing.T) {
 func TestErrorFrom(t *testing.T) {
 	t.Run("Should return a wrapped *Error with defaults applied", func(t *testing.T) {
 		e := errorFrom(fmt.Errorf("wrapped: %w", &Error{Status: http.StatusNotFound, Detail: "no thing"}))
-		require.Equal(t, &Error{Status: http.StatusNotFound, Type: typeNotFound, Title: "Not Found", Detail: "no thing"}, e)
+		require.Equal(t, &Error{Status: http.StatusNotFound, Type: apierror.NotFound.ID(), Title: apierror.NotFound.Title, Detail: "no thing"}, e)
 	})
 
 	t.Run("Should not modify the original *Error", func(t *testing.T) {
@@ -104,18 +138,26 @@ func TestErrorFrom(t *testing.T) {
 	t.Run("Should map any other error to a 500 without exposing its message", func(t *testing.T) {
 		cause := errors.New("database unavailable")
 		e := errorFrom(cause)
-		require.Equal(t, &Error{Status: http.StatusInternalServerError, Type: TypeInternalServer, Title: "Internal Server Error", Cause: cause}, e)
+		require.Equal(t, &Error{Status: http.StatusInternalServerError, Type: apierror.Internal.ID(), Title: apierror.Internal.Title, Cause: cause}, e)
 	})
 }
 
 func TestWriteError(t *testing.T) {
-	t.Run("Should write the error as json with its status", func(t *testing.T) {
+	t.Run("Should write the error as problem details with its status", func(t *testing.T) {
 		rec := httptest.NewRecorder()
 		WriteError(rec, nil, &Error{Status: http.StatusBadRequest, Detail: "invalid id"})
 
 		require.Equal(t, http.StatusBadRequest, rec.Code)
-		require.Equal(t, "application/json", rec.Header().Get("Content-Type"))
-		require.JSONEq(t, `{"type":"#/http-problem-types/request-invalid-parameters","title":"Bad Request","status":400,"detail":"invalid id"}`, rec.Body.String())
+		require.Equal(t, "application/problem+json", rec.Header().Get("Content-Type"))
+		require.Equal(t, "en", rec.Header().Get("Content-Language"))
+		require.JSONEq(t, `{"type":"#/problems/invalid-request","title":"The request is not valid.","status":400,"detail":"invalid id"}`, rec.Body.String())
+	})
+
+	t.Run("Should set the request id as the instance", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequestWithContext(context.WithValue(context.Background(), requestIDCtxKey, "req-1"), http.MethodGet, "/", nil)
+		WriteError(rec, req, &Error{Status: http.StatusNotFound})
+		require.JSONEq(t, `{"type":"#/problems/not-found","title":"The resource is not found.","status":404,"instance":"req-1"}`, rec.Body.String())
 	})
 
 	t.Run("Should write a 500 without the message for regular errors", func(t *testing.T) {
@@ -123,7 +165,7 @@ func TestWriteError(t *testing.T) {
 		WriteError(rec, nil, errors.New("boom"))
 
 		require.Equal(t, http.StatusInternalServerError, rec.Code)
-		require.JSONEq(t, `{"type":"#/http-problem-types/internal-server-error","title":"Internal Server Error","status":500,"detail":""}`, rec.Body.String())
+		require.JSONEq(t, `{"type":"#/problems/internal","title":"Internal Server Error","status":500}`, rec.Body.String())
 	})
 
 	t.Run("Should drop extensions that can not be serialized", func(t *testing.T) {
@@ -131,46 +173,29 @@ func TestWriteError(t *testing.T) {
 		WriteError(rec, nil, &Error{Status: http.StatusBadRequest, Extensions: map[string]any{"fn": func() {}}})
 
 		require.Equal(t, http.StatusBadRequest, rec.Code)
-		require.NotContains(t, rec.Body.String(), "fn")
-		require.JSONEq(t, `{"type":"#/http-problem-types/request-invalid-parameters","title":"Bad Request","status":400,"detail":""}`, rec.Body.String())
+		require.JSONEq(t, `{"type":"#/problems/invalid-request","title":"The request is not valid.","status":400}`, rec.Body.String())
 	})
 }
 
 func TestErrorFromAPIError(t *testing.T) {
-	notFound := apierror.New(apierror.Type{ID: "#/thing/not-found", Category: apierror.NotFound, Title: "Thing not found"}, "no details.")
+	notFound := apierror.New(apierror.Type{Slug: "things/not-found", Parent: apierror.NotFound, Title: "The thing is not found."}, "")
 
-	t.Run("Should convert API errors with the default status of their category", func(t *testing.T) {
+	t.Run("Should convert API errors with the status of their type", func(t *testing.T) {
 		err := fmt.Errorf("lookup: %w", notFound.Type.New("thing 42").WithExtension("thing-id", 42))
 		e := errorFrom(err)
 		require.Equal(t, http.StatusNotFound, e.Status)
-		require.Equal(t, "#/thing/not-found", e.Type)
-		require.Equal(t, "Thing not found", e.Title)
+		require.Equal(t, "#/problems/things/not-found", e.Type)
+		require.Equal(t, "The thing is not found.", e.Title)
 		require.Equal(t, "thing 42", e.Detail)
 		require.Equal(t, map[string]any{"thing-id": 42}, e.Extensions)
 		require.ErrorIs(t, e, notFound, "the API error is the cause")
 	})
 
-	t.Run("Should use the given status", func(t *testing.T) {
-		require.Equal(t, http.StatusBadRequest, ErrorFromAPIError(notFound, http.StatusBadRequest).Status)
-	})
-
-	t.Run("Should write API errors", func(t *testing.T) {
+	t.Run("Should write API errors with their fields", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		WriteError(rec, nil, notFound)
-		require.Equal(t, http.StatusNotFound, rec.Code)
-		require.JSONEq(t, `{"type":"#/thing/not-found","title":"Thing not found","status":404,"detail":"no details."}`, rec.Body.String())
+		WriteError(rec, nil, apierror.InvalidRequest.WithFields(apierror.F("coordinate", apierror.CodeRequired)))
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.JSONEq(t, `{"type":"#/problems/invalid-request","title":"The request is not valid.","status":400,
+			"errors":[{"name":"coordinate","code":"required","reason":"coordinate is required"}]}`, rec.Body.String())
 	})
-
-	t.Run("Should map categories to http statuses", func(t *testing.T) {
-		require.Equal(t, http.StatusInternalServerError, DefaultStatus(apierror.Internal))
-		require.Equal(t, http.StatusConflict, DefaultStatus(apierror.Conflict))
-		require.Equal(t, http.StatusNotFound, DefaultStatus(apierror.NotFound))
-		require.Equal(t, http.StatusBadRequest, DefaultStatus(apierror.InvalidArgument))
-	})
-}
-
-func TestErrorMarshalJSONValue(t *testing.T) {
-	body, err := json.Marshal(Error{Status: http.StatusConflict, Detail: "thing 42"})
-	require.NoError(t, err)
-	require.JSONEq(t, `{"type":"#/http-problem-types/conflict","title":"Conflict","status":409,"detail":"thing 42"}`, string(body), "values are serialized in the wire format too")
 }

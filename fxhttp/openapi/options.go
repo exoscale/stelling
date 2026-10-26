@@ -2,7 +2,6 @@ package openapi
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
 	"github.com/exoscale/stelling/fxhttp"
@@ -12,7 +11,6 @@ import (
 type options struct {
 	requestErrorHandler func(http.ResponseWriter, *http.Request, error)
 	errorMapper         func(context.Context, error) *fxhttp.Error
-	status              func(apierror.Category) int
 	errorTypes          []*apierror.Type
 	errorExtensions     []errorExtension
 	contractViolation   func(r *http.Request, operationID string, e *fxhttp.Error)
@@ -21,7 +19,8 @@ type options struct {
 type Option func(*options)
 
 // WithRequestErrorHandler replaces the handler writing the response of requests that fail validation,
-// decoding or binding. By default they are written as a 400 by fxhttp.WriteError
+// decoding or binding. By default they are written as an invalid-request error, with a field error per problem,
+// see RequestFields
 func WithRequestErrorHandler(h func(http.ResponseWriter, *http.Request, error)) Option {
 	return func(o *options) {
 		o.requestErrorHandler = h
@@ -30,23 +29,16 @@ func WithRequestErrorHandler(h func(http.ResponseWriter, *http.Request, error)) 
 
 // WithErrorMapper converts the errors returned by handlers into the error response written for them, eg for errors
 // which are not API errors (see the apierror package), or to observe them
-// When it returns nil, the error is written as is: API errors with the status of their category, see
-// WithStatusMapping, and any other error as a 500
+// When it returns nil, the error is written as is: API errors with the status of their type, and any other error as
+// a 500
 func WithErrorMapper(m func(context.Context, error) *fxhttp.Error) Option {
 	return func(o *options) {
 		o.errorMapper = m
 	}
 }
 
-// WithStatusMapping sets the http status of the API errors of each category, both in the error responses and in
-// the rendered specification. It defaults to fxhttp.DefaultStatus
-func WithStatusMapping(status func(apierror.Category) int) Option {
-	return func(o *options) {
-		o.status = status
-	}
-}
-
-// WithErrorTypes registers the error types operations can list in x-errors, see ErrorsExtension
+// WithErrorTypes registers the error types of the service, which operations can list in x-errors, see
+// ErrorsExtension. They must follow the rules of apierror.Validate, or NewHandler and Render fail
 // The rendered specification documents them in the error responses of each operation
 func WithErrorTypes(types ...*apierror.Type) Option {
 	return func(o *options) {
@@ -63,7 +55,8 @@ func WithErrorExtension(name, schemaComponent string) Option {
 }
 
 // WithContractViolationHandler is called when an operation listing its error types in x-errors writes an
-// error response with an error type it does not declare, or with another status than the one of the error type
+// error response with an error type it does not declare, with another status than the one of the error type, or with
+// a field error whose code is not one of apierror.Codes
 // Request validation failures and server errors (5xx) are always allowed
 // Use it to fail tests, or to log violations in production
 func WithContractViolationHandler(h func(r *http.Request, operationID string, e *fxhttp.Error)) Option {
@@ -73,7 +66,7 @@ func WithContractViolationHandler(h func(r *http.Request, operationID string, e 
 }
 
 func (o *options) catalog() (*errorCatalog, error) {
-	return newErrorCatalog(o.errorTypes, o.status)
+	return newErrorCatalog(o.errorTypes)
 }
 
 // writeResponseError writes the error returned by a handler, through the error mapper
@@ -83,26 +76,19 @@ func (o *options) writeResponseError(w http.ResponseWriter, r *http.Request, err
 			err = e
 		}
 	}
-	if _, ok := errors.AsType[*fxhttp.Error](err); !ok {
-		if p := apierror.From(err); p != nil {
-			err = fxhttp.ErrorFromAPIError(p, o.status(apierror.CategoryOf(p)))
-		}
-	}
 	fxhttp.WriteError(w, r, err)
 }
 
 func newOptions(opts []Option) *options {
-	o := &options{
-		requestErrorHandler: writeBadRequest,
-		status:              fxhttp.DefaultStatus,
-	}
+	o := &options{requestErrorHandler: writeBadRequest}
 	for _, opt := range opts {
 		opt(o)
 	}
 	return o
 }
 
-// writeBadRequest writes err as a 400 error response
+// writeBadRequest writes err as an invalid-request error, with a field error per problem. The message of err is only
+// kept as the cause: it can quote the values the client sent
 func writeBadRequest(w http.ResponseWriter, r *http.Request, err error) {
-	fxhttp.WriteError(w, r, &fxhttp.Error{Status: http.StatusBadRequest, Detail: err.Error(), Cause: err})
+	fxhttp.WriteError(w, r, &apierror.Error{Type: apierror.InvalidRequest, Fields: RequestFields(err), Cause: err})
 }

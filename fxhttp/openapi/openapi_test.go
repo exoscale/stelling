@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/exoscale/stelling/fxhttp"
+	"github.com/exoscale/stelling/fxhttp/apierror"
 	"github.com/exoscale/stelling/fxhttp/openapi/openapitest"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/require"
@@ -33,13 +34,13 @@ paths:
           description: The thing
           content: {application/json: {schema: {type: object}}}
         '400':
-          description: "Invalid request: #/http-problem-types/request-invalid-parameters"
-          content: {application/json: {schema: {$ref: '#/components/schemas/error-response'}}}
+          description: "Invalid request: #/problems/invalid-request"
+          content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}
 components:
   schemas:
-    error-response:
+    Problem:
       type: object
-      required: [type, title, status, detail]
+      required: [type, title, status]
       properties:
         type: {type: string, format: uri-reference}
         title: {type: string}
@@ -73,7 +74,7 @@ paths:
         '200': {description: Stored}
         '400':
           description: Invalid request
-          content: {application/json: {schema: {$ref: '../public/api.yaml#/components/schemas/error-response'}}}
+          content: {application/problem+json: {schema: {$ref: '../public/api.yaml#/components/schemas/Problem'}}}
 `
 
 func mustLoadSpec(t *testing.T, data string, refs map[string][]byte) *Spec {
@@ -147,7 +148,7 @@ func serve(t *testing.T, h http.Handler, method, target, body string) *httptest.
 func requireError(t *testing.T, rec *httptest.ResponseRecorder, status int) *fxhttp.Error {
 	t.Helper()
 	require.Equal(t, status, rec.Code, rec.Body.String())
-	require.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	require.Equal(t, fxhttp.ContentType, rec.Header().Get("Content-Type"))
 	e := &fxhttp.Error{}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), e))
 	require.Equal(t, status, e.Status)
@@ -169,12 +170,12 @@ func TestSpec(t *testing.T) {
 	t.Run("Should render a self contained spec with the component names of their own document", func(t *testing.T) {
 		data, err := mustLoadSpec(t, internalSpec, publicRefs()).Render()
 		require.NoError(t, err)
-		require.Contains(t, string(data), "$ref: '#/components/schemas/error-response'")
+		require.Contains(t, string(data), "$ref: '#/components/schemas/Problem'")
 		require.NotContains(t, string(data), "public/api.yaml")
 
 		doc, err := openapi3.NewLoader().LoadFromData(data)
 		require.NoError(t, err)
-		require.Contains(t, doc.Components.Schemas, "error-response")
+		require.Contains(t, doc.Components.Schemas, "Problem")
 		require.NoError(t, doc.Validate(context.Background()))
 	})
 
@@ -182,7 +183,7 @@ func TestSpec(t *testing.T) {
 		colliding := internalSpec + `
 components:
   schemas:
-    error-response: {type: string}
+    Problem: {type: string}
 `
 		_, err := mustLoadSpec(t, colliding, publicRefs()).Render()
 		require.ErrorContains(t, err, "collides")
@@ -201,10 +202,12 @@ func TestNewHandler(t *testing.T) {
 
 	t.Run("Should write validation failures as 400 error responses", func(t *testing.T) {
 		e := requireError(t, serve(t, h, http.MethodGet, "/things/not-a-uuid", ""), http.StatusBadRequest)
-		require.Equal(t, fxhttp.TypeBadRequest, e.Type)
-		require.NotEmpty(t, e.Detail)
+		require.Equal(t, apierror.InvalidRequest.ID(), e.Type)
+		require.Equal(t, []apierror.Field{apierror.FIn("path", "id", apierror.CodeTooSmall)}, e.Errors)
+		require.Empty(t, e.Detail, "the validation message can quote the value")
 
-		_ = requireError(t, serve(t, h, http.MethodPut, "/internal/replicas", `{}`), http.StatusBadRequest)
+		e = requireError(t, serve(t, h, http.MethodPut, "/internal/replicas", `{}`), http.StatusBadRequest)
+		require.Equal(t, []apierror.Field{apierror.F("zone", apierror.CodeRequired)}, e.Errors)
 	})
 
 	t.Run("Should write handler errors as error responses", func(t *testing.T) {

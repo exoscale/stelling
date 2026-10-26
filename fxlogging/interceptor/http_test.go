@@ -156,7 +156,7 @@ func TestRequestLoggerRecordedError(t *testing.T) {
 	requestLog := requireLogMessage(t, logs.AllUntimed(), "Handled request")
 	require.Equal(t, zapcore.ErrorLevel, requestLog.Level)
 	fields := requestLog.ContextMap()
-	require.Equal(t, fxhttp.TypeInternalServer, fields["error.type"])
+	require.Equal(t, "#/problems/internal", fields["error.type"])
 	require.Equal(t, "Internal Server Error", fields["error.title"])
 	require.Equal(t, "store unavailable", fields["error.detail"])
 	require.Equal(t, "connection refused", fields["error"])
