@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/exoscale/stelling/fxhttp"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -166,4 +167,23 @@ func requireLogMessage(t *testing.T, entries []observer.LoggedEntry, message str
 	}
 	require.Failf(t, "missing log message", "message %q was not logged", message)
 	return observer.LoggedEntry{}
+}
+
+func TestRequestLoggerRecordedError(t *testing.T) {
+	core, logs := observer.New(zapcore.DebugLevel)
+	logger := zap.New(core)
+
+	cause := errors.New("connection refused")
+	handler := NewRequestLogger(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fxhttp.WriteError(w, r, &fxhttp.Error{Status: http.StatusInternalServerError, Detail: "store unavailable", Cause: cause})
+	}))
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil))
+
+	requestLog := requireLogMessage(t, logs.AllUntimed(), "Handled request")
+	require.Equal(t, zapcore.ErrorLevel, requestLog.Level)
+	fields := requestLog.ContextMap()
+	require.Equal(t, "#/problems/internal", fields["error.type"])
+	require.Equal(t, "Internal Server Error", fields["error.title"])
+	require.Equal(t, "store unavailable", fields["error.detail"])
+	require.Equal(t, "connection refused", fields["error"])
 }
