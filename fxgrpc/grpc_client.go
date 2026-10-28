@@ -3,12 +3,11 @@ package fxgrpc
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"os"
 	"time"
 
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
+	"github.com/exoscale/stelling/fxhttp"
 	zapgrpc "github.com/exoscale/stelling/fxlogging/grpc"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -130,20 +129,11 @@ func MakeClientTLS(c ClientConfig, logger *zap.Logger) (credentials.TransportCre
 			GetClientCertificate: r.GetClientCertificate,
 		}
 
-		if conf.RootCAFile != "" {
-			certPool, err := x509.SystemCertPool()
-			if err != nil {
-				return nil, nil, err
-			}
-			ca, err := os.ReadFile(conf.RootCAFile)
-			if err != nil {
-				return nil, nil, err
-			}
-			if ok := certPool.AppendCertsFromPEM(ca); !ok {
-				return nil, nil, fmt.Errorf("failed to parse RootCAFile: %s", conf.RootCAFile)
-			}
-			tlsConf.RootCAs = certPool
+		certPool, err := fxhttp.SystemPoolWithCA(conf.RootCAFile)
+		if err != nil {
+			return nil, nil, err
 		}
+		tlsConf.RootCAs = certPool
 
 		return credentials.NewTLS(tlsConf), r, nil
 	}
