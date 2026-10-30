@@ -227,6 +227,8 @@ google.golang.org/genproto/googleapis/rpc v0.0.0-20261005182115-fad411399dd8 h1:
 google.golang.org/genproto/googleapis/rpc v0.0.0-20261005182115-fad411399dd8/go.mod h1:OaIUM3+LpYcK2GXM4FTmhWoIq371Owdr+Cc7/BsYHHc=
 google.golang.org/grpc v1.84.0 h1:soMyaPJ8pAak5PIQ0DGBUir0XRo2fRoMqhNWMLlLxO0=
 google.golang.org/grpc v1.84.0/go.mod h1:ljCht0DrxQrXBDRTZp52Qxh3Ffk8CdYm2sj4O2QN2C0=
+google.golang.org/grpc v1.85.0 h1:BPBCfuVRQ1qvBhKDOq9uvQllMvO59rKsYhXpp7Dd8vw=
+google.golang.org/grpc v1.85.0/go.mod h1:0rQrOD58yjal/0EaVbGBANindixsCZNQPDV3VKtaKuQ=
 google.golang.org/grpc/examples v0.0.0-20260911073300-e4711283ae08 h1:9QQ0mnKJZD8PeoLlw99muIbiciNojJMZ78EiNhLkEac=
 google.golang.org/grpc/examples v0.0.0-20260911073300-e4711283ae08/go.mod h1:Fx+G8PVVSuRwp+0EmElV5/CypMRNxXRfp1s0NNzE8+g=
 google.golang.org/protobuf v1.36.12 h1:pJOKDDOyeXErUroCihFAd5LQuwXBSpVnKGrj5o/fwxc=
