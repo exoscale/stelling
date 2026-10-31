@@ -26,7 +26,7 @@ require (
 )
 
 require (
-	cel.dev/cel-go v0.32.0
+	cel.dev/cel-go v0.33.1
 	cel.dev/cel-go/ext/security v0.32.0
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/getsentry/sentry-go v0.50.0
