@@ -1,7 +1,6 @@
 package openapi
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/exoscale/stelling/fxhttp"
@@ -10,7 +9,6 @@ import (
 
 type options struct {
 	requestErrorHandler func(http.ResponseWriter, *http.Request, error)
-	errorMapper         func(context.Context, error) *fxhttp.Error
 	errorTypes          []*apierror.Type
 	errorExtensions     []errorExtension
 	contractViolation   func(r *http.Request, operationID string, e *fxhttp.Error)
@@ -24,16 +22,6 @@ type Option func(*options)
 func WithRequestErrorHandler(h func(http.ResponseWriter, *http.Request, error)) Option {
 	return func(o *options) {
 		o.requestErrorHandler = h
-	}
-}
-
-// WithErrorMapper converts the errors returned by handlers into the error response written for them, eg for errors
-// which are not API errors (see the apierror package), or to observe them
-// When it returns nil, the error is written as is: API errors with the status of their type, and any other error as
-// a 500
-func WithErrorMapper(m func(context.Context, error) *fxhttp.Error) Option {
-	return func(o *options) {
-		o.errorMapper = m
 	}
 }
 
@@ -67,16 +55,6 @@ func WithContractViolationHandler(h func(r *http.Request, operationID string, e 
 
 func (o *options) catalog() (*errorCatalog, error) {
 	return newErrorCatalog(o.errorTypes)
-}
-
-// writeResponseError writes the error returned by a handler, through the error mapper
-func (o *options) writeResponseError(w http.ResponseWriter, r *http.Request, err error) {
-	if o.errorMapper != nil {
-		if e := o.errorMapper(r.Context(), err); e != nil {
-			err = e
-		}
-	}
-	fxhttp.WriteError(w, r, err)
 }
 
 func newOptions(opts []Option) *options {

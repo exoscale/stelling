@@ -203,7 +203,12 @@ func TestNewHandler(t *testing.T) {
 	t.Run("Should write validation failures as 400 error responses", func(t *testing.T) {
 		e := requireError(t, serve(t, h, http.MethodGet, "/things/not-a-uuid", ""), http.StatusBadRequest)
 		require.Equal(t, apierror.InvalidRequest.ID(), e.Type)
-		require.Equal(t, []apierror.Field{apierror.FIn("path", "id", apierror.CodeTooSmall)}, e.Errors)
+		require.ElementsMatch(t, []apierror.Field{apierror.FIn("path", "id", apierror.CodeTooSmall), apierror.FIn("path", "id", apierror.CodeInvalidFormat)}, e.Errors)
+
+		e = requireError(t, serve(t, h, http.MethodGet, "/things/zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz", ""), http.StatusBadRequest)
+		require.Equal(t, []apierror.Field{apierror.FIn("path", "id", apierror.CodeInvalidFormat)}, e.Errors, "a malformed uuid names its parameter")
+
+		require.Equal(t, http.StatusOK, serve(t, h, http.MethodGet, "/things/01890a5d-ac96-774b-bcce-b302099a8057", "").Code, "uuid v7 ids are valid")
 		require.Empty(t, e.Detail, "the validation message can quote the value")
 
 		e = requireError(t, serve(t, h, http.MethodPut, "/internal/replicas", `{}`), http.StatusBadRequest)

@@ -124,9 +124,23 @@ func TestErrorWrapping(t *testing.T) {
 }
 
 func TestErrorFrom(t *testing.T) {
-	t.Run("Should return a wrapped *Error with defaults applied", func(t *testing.T) {
-		e := errorFrom(fmt.Errorf("wrapped: %w", &Error{Status: http.StatusNotFound, Detail: "no thing"}))
+	t.Run("Should return an *Error with defaults applied", func(t *testing.T) {
+		e := errorFrom(&Error{Status: http.StatusNotFound, Detail: "no thing"})
 		require.Equal(t, &Error{Status: http.StatusNotFound, Type: apierror.NotFound.ID(), Title: apierror.NotFound.Title, Detail: "no thing"}, e)
+	})
+
+	t.Run("Should not forward the response of another service", func(t *testing.T) {
+		downstream := &Error{Status: http.StatusNotFound, Type: "#/problems/other/thing-not-found", Detail: "thing 42 not found"}
+
+		wrapped := fmt.Errorf("replicate: %w", downstream)
+		e := errorFrom(wrapped)
+		require.Equal(t, http.StatusInternalServerError, e.Status)
+		require.Empty(t, e.Detail)
+		require.Equal(t, wrapped, e.Cause, "the downstream response is kept as the cause, for logs")
+
+		notFound := apierror.New(apierror.Type{Slug: "things/not-found", Parent: apierror.NotFound, Title: "The thing is not found."}, "")
+		e = errorFrom(notFound.Type.Wrap("", downstream))
+		require.Equal(t, "#/problems/things/not-found", e.Type, "an API error of the service wins over the response it wraps")
 	})
 
 	t.Run("Should not modify the original *Error", func(t *testing.T) {

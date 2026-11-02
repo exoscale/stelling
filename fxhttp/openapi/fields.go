@@ -16,8 +16,10 @@ import (
 func RequestFields(err error) []apierror.Field {
 	var fields []apierror.Field
 	collectFields(err, "", "", &fields)
-	return fields
+	return fields[:min(len(fields), maxFields)]
 }
+
+const maxFields = 10
 
 func collectFields(err error, in, name string, fields *[]apierror.Field) {
 	switch e := err.(type) {
@@ -84,7 +86,7 @@ func schemaCode(keyword string) apierror.Code {
 		return apierror.CodeRequired
 	case "enum", "const":
 		return apierror.CodeUnknownValue
-	case "type", "format", "pattern":
+	case "type", "nullable", "format", "pattern":
 		return apierror.CodeInvalidFormat
 	case "minLength", "minimum", "exclusiveMinimum", "minItems", "minProperties":
 		return apierror.CodeTooSmall

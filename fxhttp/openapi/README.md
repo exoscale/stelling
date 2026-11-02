@@ -79,9 +79,6 @@ The surfaces are collected from the `openapi_surfaces` value group, see `Surface
 ## Options
 * WithRequestErrorHandler
   Replaces the handler writing the response of requests that fail validation, decoding or binding
-* WithErrorMapper
-  Converts the errors returned by handlers into their `fxhttp.Error`, eg to log them. It is optional for API errors,
-  see the [apierror](../apierror) package, which are converted with the status of their type
 * WithErrorTypes and WithErrorExtension
   Document the error types and the service specific members of the error responses, see below
 * WithContractViolationHandler

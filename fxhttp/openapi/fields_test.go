@@ -2,6 +2,7 @@ package openapi
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/exoscale/stelling/fxhttp/apierror"
@@ -62,6 +63,17 @@ func TestRequestFields(t *testing.T) {
 		}, e.Errors)
 		require.NotContains(t, rec.Body.String(), "admin")
 		require.NotContains(t, rec.Body.String(), "512")
+	})
+
+	t.Run("Should report a null for a non-nullable field as a bad format", func(t *testing.T) {
+		e := requireError(t, serve(t, h, http.MethodPut, "/rules?scope=read", `{"coordinate": null, "rules": []}`), http.StatusBadRequest)
+		require.Equal(t, []apierror.Field{apierror.F("coordinate", apierror.CodeInvalidFormat)}, e.Errors)
+	})
+
+	t.Run("Should cap the number of field errors", func(t *testing.T) {
+		body := `{"coordinate": "c", "rules": [` + strings.Repeat(`{"action": "x"},`, maxFields) + `{"action": "x"}]}`
+		e := requireError(t, serve(t, h, http.MethodPut, "/rules?scope=read", body), http.StatusBadRequest)
+		require.Len(t, e.Errors, maxFields)
 	})
 
 	t.Run("Should report a malformed body as a problem with the whole request", func(t *testing.T) {

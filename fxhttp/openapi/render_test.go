@@ -1,7 +1,6 @@
 package openapi
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -178,8 +177,6 @@ func TestRenderFiles(t *testing.T) {
 var (
 	ErrThingNotFound = apierror.New(apierror.Type{Slug: "things/not-found", Parent: apierror.NotFound, Title: "The thing is not found.", Description: "The thing does not exist."}, "")
 	ErrThingLocked   = apierror.New(apierror.Type{Slug: "things/locked", Parent: apierror.Conflict, Title: "The thing is locked.", Description: "The thing can not be modified right now."}, "")
-
-	errThingNotFound = errors.New("thing not found")
 )
 
 // errorsSurface returns error types depending on the requested id
@@ -194,7 +191,7 @@ func errorsSurface(t *testing.T) *Surface {
 			mux.HandleFunc("GET /things/{id}", func(w http.ResponseWriter, r *http.Request) {
 				switch r.PathValue("id") {
 				case "00000000-0000-0000-0000-000000000404":
-					o.ResponseErrorHandler(w, r, errThingNotFound)
+					o.ResponseErrorHandler(w, r, fmt.Errorf("lookup: %w", ErrThingNotFound))
 				case "00000000-0000-0000-0000-000000000418":
 					o.ResponseErrorHandler(w, r, &fxhttp.Error{Status: http.StatusTeapot, Type: "#/problems/things/teapot"})
 				case "00000000-0000-0000-0000-000000000422":
@@ -212,7 +209,7 @@ func errorsSurface(t *testing.T) *Surface {
 	}
 }
 
-func TestErrorMapperAndContractCheck(t *testing.T) {
+func TestHandlerErrorsAndContractCheck(t *testing.T) {
 	type violation struct {
 		operationID string
 		errorType   string
@@ -220,12 +217,6 @@ func TestErrorMapperAndContractCheck(t *testing.T) {
 	var violations []violation
 
 	opts := append(errorsOptions(),
-		WithErrorMapper(func(_ context.Context, err error) *fxhttp.Error {
-			if errors.Is(err, errThingNotFound) {
-				return fxhttp.ErrorFromAPIError(ErrThingNotFound)
-			}
-			return nil
-		}),
 		WithContractViolationHandler(func(_ *http.Request, operationID string, e *fxhttp.Error) {
 			violations = append(violations, violation{operationID, e.Type})
 		}),
@@ -233,7 +224,7 @@ func TestErrorMapperAndContractCheck(t *testing.T) {
 	h, err := NewHandler([]*Surface{errorsSurface(t)}, opts...)
 	require.NoError(t, err)
 
-	t.Run("Should map handler errors to their error type", func(t *testing.T) {
+	t.Run("Should write the API errors handlers return with their error type", func(t *testing.T) {
 		violations = nil
 		e := requireError(t, serve(t, h, http.MethodGet, "/things/00000000-0000-0000-0000-000000000404", ""), http.StatusNotFound)
 		require.Equal(t, "#/problems/things/not-found", e.Type)

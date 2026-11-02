@@ -11,8 +11,19 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers/legacy"
+	"github.com/google/uuid"
 	middleware "github.com/oapi-codegen/nethttp-middleware"
 )
+
+// kin-openapi does not check the uuid format by default, so a malformed id in a path would only be rejected by the
+// generated code, without the name of the parameter. It only applies format validators to parameters through its
+// global registry. uuid.Parse is what the generated code converts ids with
+func init() {
+	openapi3.DefineStringFormatValidator("uuid", openapi3.NewCallbackValidator(func(s string) error {
+		_, err := uuid.Parse(s)
+		return err
+	}))
+}
 
 // NewHandler returns the handler serving the given surfaces
 // For each surface it:
@@ -50,7 +61,7 @@ func NewHandler(surfaces []*Surface, opts ...Option) (http.Handler, error) {
 		h := s.Mount(MountOptions{
 			BaseURL:              s.basePath(),
 			RequestErrorHandler:  o.requestErrorHandler,
-			ResponseErrorHandler: o.writeResponseError,
+			ResponseErrorHandler: fxhttp.WriteError,
 		})
 		for _, m := range slices.Backward(s.Middleware) {
 			h = m(h)

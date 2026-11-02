@@ -17,8 +17,6 @@ func TestTypes(t *testing.T) {
 	require.Equal(t, "#/problems/things/not-found", ErrThingNotFound.Type.ID())
 	require.Equal(t, 404, ErrThingNotFound.Type.Status(), "service types take the status of their parent")
 	require.Equal(t, 400, InvalidRequest.Status())
-	require.True(t, ErrThingLocked.Type.IsClient())
-	require.False(t, Internal.IsClient())
 }
 
 func TestValidate(t *testing.T) {
@@ -47,6 +45,12 @@ func TestSentinels(t *testing.T) {
 		err := fmt.Errorf("lookup: %w", ErrThingNotFound.Type.New("thing 42"))
 		require.ErrorIs(t, err, ErrThingNotFound)
 		require.NotErrorIs(t, err, ErrThingLocked)
+	})
+
+	t.Run("Should format the detail", func(t *testing.T) {
+		err := ErrThingLocked.Type.Newf("locked by migration %d", 42)
+		require.Equal(t, "locked by migration 42", err.Detail)
+		require.ErrorIs(t, err, ErrThingLocked)
 	})
 
 	t.Run("Should keep the cause in the chain", func(t *testing.T) {
