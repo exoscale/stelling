@@ -163,6 +163,7 @@ func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []*UnaryClientInter
 
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
+		grpc.WithDisableServiceConfig(),
 		WithUnaryClientInterceptors(ui),
 		WithStreamClientInterceptors(si),
 	}
@@ -189,6 +190,7 @@ func ProvideGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
 
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
+		grpc.WithDisableServiceConfig(),
 		WithUnaryClientInterceptors(p.UnaryInterceptors),
 		WithStreamClientInterceptors(p.StreamInterceptors),
 	}

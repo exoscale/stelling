@@ -119,7 +119,10 @@ func NewTracerProvider(lc fx.Lifecycle, conf TracingConfig, logger *zap.Logger) 
 		return tp, nil
 	}
 
-	opts := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(tracingConf.Endpoint)}
+	opts := []otlptracegrpc.Option{
+		otlptracegrpc.WithEndpoint(tracingConf.Endpoint),
+		otlptracegrpc.WithDialOption(grpc.WithDisableServiceConfig()),
+	}
 
 	creds, r, err := fxgrpc.MakeClientTLS(
 		tracingConf,
