@@ -9,6 +9,7 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc"
 
 	pBridge "go.opentelemetry.io/contrib/bridges/prometheus"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -99,6 +100,7 @@ func NewOtlpMeterProvider(lc fx.Lifecycle, conf OtlpMetricsConfig, reg *promethe
 	opts := []otlpmetricgrpc.Option{
 		otlpmetricgrpc.WithEndpoint(otlpConf.GrpcClient.Endpoint),
 		otlpmetricgrpc.WithTLSCredentials(creds),
+		otlpmetricgrpc.WithDialOption(grpc.WithDisableServiceConfig()),
 	}
 
 	exporter, err := otlpmetricgrpc.New(context.TODO(), opts...)
