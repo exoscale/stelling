@@ -55,13 +55,18 @@ return ErrKeyDisabled.Type.New(fmt.Sprintf("key %q is disabled", id)) // detail 
 return ErrKeyDisabled.Type.Wrap("", err)                               // err is the cause, never returned to clients
 
 return apierror.InvalidRequest.WithFields(
-	apierror.F("coordinate", apierror.CodeRequired),
-	apierror.FIn("query", "scope", apierror.CodeUnknownValue),
+	apierror.FieldOf(api.Fields.Coordinate, apierror.CodeRequired),
+	apierror.FieldOf(api.Fields.Rules.At(i).Action, apierror.CodeUnknownValue),
 )
 ```
 
 Field errors name the field as the client sent it, eg `rules[0].action`, and never quote its value. Their reason is
 the message of their code. A field error with an empty name is about the whole request.
+
+Take the names from the vocabulary `apigen` generates from the specification (see the openapi package), so that a
+misspelled or missing field can't compile. `F` and `FIn` remain for names which are not in a specification.
+
+An `InvalidRequest` must name at least one field: the contract check of the openapi package reports one which doesn't.
 
 `errors.Is(err, ErrKeyDisabled)` matches any occurrence of the type. `From` and `TypeOf` retrieve the API error of an
 error chain; errors which are not API errors are `Internal`.

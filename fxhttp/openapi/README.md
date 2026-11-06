@@ -194,11 +194,23 @@ import-mapping:
 // gen.go
 package public
 
-//go:generate go tool oapi-codegen -config cfg.yaml api.yaml
+//go:generate go tool apigen -config cfg.yaml api.yaml
 ```
 
-Pin oapi-codegen with `go get -tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen`, commit the
-generated code, and verify it is up to date in CI, eg with Earthly:
+`apigen` runs oapi-codegen, at the version stelling pins, with your configuration. It also writes `fields.gen.go`:
+the vocabulary of the parameters and request body fields of the specification, to name them in field errors
+(see the apierror package):
+
+```go
+apierror.FieldOf(public.Fields.Destination.Id, apierror.CodeInvalidFormat)          // destination.id
+apierror.FieldOf(public.Fields.HistoricalVersions.At(i).Version, apierror.CodeTooLarge) // historical-versions[2].version
+```
+
+A field which appears in several operations is named once. See `apigen/example` for a specification and the code
+generated from it.
+
+Pin apigen with `go get -tool github.com/exoscale/stelling/fxhttp/openapi/apigen`, commit the generated code, and
+verify it is up to date in CI, eg with Earthly:
 
 ```earthfile
 check-openapi-generated:

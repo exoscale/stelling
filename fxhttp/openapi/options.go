@@ -11,7 +11,7 @@ type options struct {
 	requestErrorHandler func(http.ResponseWriter, *http.Request, error)
 	errorTypes          []*apierror.Type
 	errorExtensions     []errorExtension
-	contractViolation   func(r *http.Request, operationID string, e *fxhttp.Error)
+	contractViolation   func(r *http.Request, operationID string, e *fxhttp.Error, reason string)
 }
 
 type Option func(*options)
@@ -43,11 +43,11 @@ func WithErrorExtension(name, schemaComponent string) Option {
 }
 
 // WithContractViolationHandler is called when an operation listing its error types in x-errors writes an
-// error response with an error type it does not declare, with another status than the one of the error type, or with
-// a field error whose code is not one of apierror.Codes
-// Request validation failures and server errors (5xx) are always allowed
-// Use it to fail tests, or to log violations in production
-func WithContractViolationHandler(h func(r *http.Request, operationID string, e *fxhttp.Error)) Option {
+// error response with an error type it does not declare, with another status than the one of the error type, with
+// a field error whose code is not one of apierror.Codes, or an invalid request which names no field
+// reason says which. Request validation failures and server errors (5xx) are always allowed
+// Fail tests with openapitest.FailOnContractViolation, and log violations in production
+func WithContractViolationHandler(h func(r *http.Request, operationID string, e *fxhttp.Error, reason string)) Option {
 	return func(o *options) {
 		o.contractViolation = h
 	}

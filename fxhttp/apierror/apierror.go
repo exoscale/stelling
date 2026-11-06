@@ -138,6 +138,36 @@ func FIn(in, name string, code Code) Field {
 	return f
 }
 
+// FieldName names a field of a request, as listed by the vocabulary apigen generates from a specification
+type FieldName struct {
+	in, name string
+}
+
+// NewFieldName is meant for generated vocabularies: elsewhere, take the name from the vocabulary
+func NewFieldName(in, name string) FieldName {
+	return FieldName{in: in, name: name}
+}
+
+func (n FieldName) fieldName() FieldName { return n }
+
+// Name returns the name as the client sends it, eg rules[0].action
+func (n FieldName) Name() string { return n.name }
+
+// FieldNamer is a FieldName, or a node of a vocabulary which embeds one
+// Its method is unexported, so that only vocabularies can implement it and a misspelled name can't compile
+type FieldNamer interface {
+	fieldName() FieldName
+}
+
+// FieldOf returns a field error of the given code about the named field
+func FieldOf(n FieldNamer, code Code) Field {
+	name := n.fieldName()
+	if name.in == "" {
+		return F(name.name, code)
+	}
+	return FIn(name.in, name.name, code)
+}
+
 // Error is an occurrence of an error type
 type Error struct {
 	Type       *Type
@@ -183,6 +213,13 @@ func (e *Error) WithExtension(name string, value any) *Error {
 		c.Extensions[k] = v
 	}
 	c.Extensions[name] = value
+	return &c
+}
+
+// WithFields returns a copy of e with the given field errors added
+func (e *Error) WithFields(fields ...Field) *Error {
+	c := *e
+	c.Fields = append(slices.Clone(e.Fields), fields...)
 	return &c
 }
 

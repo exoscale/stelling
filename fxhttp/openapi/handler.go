@@ -107,7 +107,7 @@ func NewHandler(surfaces []*Surface, opts ...Option) (http.Handler, error) {
 }
 
 // newContractCheck reports the error responses next writes which are not declared by the x-errors of their operation
-func newContractCheck(s *Surface, catalog *errorCatalog, violation func(*http.Request, string, *fxhttp.Error), next http.Handler) (http.Handler, error) {
+func newContractCheck(s *Surface, catalog *errorCatalog, violation func(*http.Request, string, *fxhttp.Error, string), next http.Handler) (http.Handler, error) {
 	router, err := legacy.NewRouter(s.Spec.Document())
 	if err != nil {
 		return nil, fmt.Errorf("surface %q: build router: %w", s.Name, err)
@@ -149,12 +149,26 @@ func newContractCheck(s *Surface, catalog *errorCatalog, violation func(*http.Re
 		if !ok {
 			return
 		}
-		status, ok := statuses[e.Type]
-		known := !slices.ContainsFunc(e.Errors, func(f apierror.Field) bool { return !f.Code.Known() })
-		if !ok || status != e.Status || !known {
-			violation(r, route.Operation.OperationID, e)
+		if reason := contractViolation(statuses, e); reason != "" {
+			violation(r, route.Operation.OperationID, e, reason)
 		}
 	}), nil
+}
+
+// contractViolation returns how e breaks the contract of an operation which declares the given statuses by error type
+func contractViolation(statuses map[string]int, e *fxhttp.Error) string {
+	status, ok := statuses[e.Type]
+	switch {
+	case !ok:
+		return "its error type is not declared in x-errors"
+	case status != e.Status:
+		return fmt.Sprintf("its error type has status %d", status)
+	case slices.ContainsFunc(e.Errors, func(f apierror.Field) bool { return !f.Code.Known() }):
+		return "a field error has an unknown code"
+	case e.Type == apierror.InvalidRequest.ID() && len(e.Errors) == 0:
+		return "an invalid request must name the field to fix"
+	}
+	return ""
 }
 
 func newValidatorErrorHandler(requestErrorHandler func(http.ResponseWriter, *http.Request, error)) middleware.ErrorHandlerWithOpts {

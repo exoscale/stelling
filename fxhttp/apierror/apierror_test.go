@@ -88,3 +88,10 @@ func TestWithExtension(t *testing.T) {
 	require.Nil(t, ErrThingLocked.Extensions, "the sentinel must not be modified")
 	require.ErrorIs(t, err, ErrThingLocked)
 }
+
+func TestErrorWithFields(t *testing.T) {
+	err := ErrThingLocked.Type.New("the name is taken").WithFields(F("name", CodeAlreadyExists))
+	require.Equal(t, "the name is taken", err.Detail)
+	require.Equal(t, []Field{F("name", CodeAlreadyExists)}, err.Fields)
+	require.Nil(t, ErrThingLocked.Fields, "the sentinel must not be modified")
+}

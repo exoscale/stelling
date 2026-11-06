@@ -198,6 +198,10 @@ func errorsSurface(t *testing.T) *Surface {
 					o.ResponseErrorHandler(w, r, ErrThingLocked.Type.WithFields(apierror.F("name", "made-up")))
 				case "00000000-0000-0000-0000-000000000409":
 					o.ResponseErrorHandler(w, r, fmt.Errorf("update: %w", ErrThingLocked.Type.New("migration running")))
+				case "00000000-0000-0000-0000-000000000400":
+					o.ResponseErrorHandler(w, r, apierror.InvalidRequest.New("the name is taken"))
+				case "00000000-0000-0000-0000-000000000401":
+					o.ResponseErrorHandler(w, r, apierror.InvalidRequest.WithFields(apierror.F("name", apierror.CodeInvalidData)))
 				case "00000000-0000-0000-0000-000000000500":
 					o.ResponseErrorHandler(w, r, errors.New("boom"))
 				default:
@@ -213,12 +217,13 @@ func TestHandlerErrorsAndContractCheck(t *testing.T) {
 	type violation struct {
 		operationID string
 		errorType   string
+		reason      string
 	}
 	var violations []violation
 
 	opts := append(errorsOptions(),
-		WithContractViolationHandler(func(_ *http.Request, operationID string, e *fxhttp.Error) {
-			violations = append(violations, violation{operationID, e.Type})
+		WithContractViolationHandler(func(_ *http.Request, operationID string, e *fxhttp.Error, reason string) {
+			violations = append(violations, violation{operationID, e.Type, reason})
 		}),
 	)
 	h, err := NewHandler([]*Surface{errorsSurface(t)}, opts...)
@@ -249,13 +254,21 @@ func TestHandlerErrorsAndContractCheck(t *testing.T) {
 	t.Run("Should report undeclared error types", func(t *testing.T) {
 		violations = nil
 		_ = requireError(t, serve(t, h, http.MethodGet, "/things/00000000-0000-0000-0000-000000000418", ""), http.StatusTeapot)
-		require.Equal(t, []violation{{"get-thing", "#/problems/things/teapot"}}, violations)
+		require.Equal(t, []violation{{"get-thing", "#/problems/things/teapot", "its error type is not declared in x-errors"}}, violations)
 	})
 
 	t.Run("Should report unknown field error codes", func(t *testing.T) {
 		violations = nil
 		_ = requireError(t, serve(t, h, http.MethodGet, "/things/00000000-0000-0000-0000-000000000422", ""), http.StatusConflict)
-		require.Equal(t, []violation{{"get-thing", "#/problems/things/locked"}}, violations)
+		require.Equal(t, []violation{{"get-thing", "#/problems/things/locked", "a field error has an unknown code"}}, violations)
+	})
+
+	t.Run("Should report invalid requests which name no field", func(t *testing.T) {
+		violations = nil
+		_ = requireError(t, serve(t, h, http.MethodGet, "/things/00000000-0000-0000-0000-000000000401", ""), http.StatusBadRequest)
+		require.Empty(t, violations)
+		_ = requireError(t, serve(t, h, http.MethodGet, "/things/00000000-0000-0000-0000-000000000400", ""), http.StatusBadRequest)
+		require.Equal(t, []violation{{"get-thing", "#/problems/invalid-request", "an invalid request must name the field to fix"}}, violations)
 	})
 
 	t.Run("Should serve the rendered spec", func(t *testing.T) {
