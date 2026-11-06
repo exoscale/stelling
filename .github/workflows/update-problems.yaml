@@ -1,0 +1,47 @@
+name: update-problems
+
+# Keeps the copy of the shared error types of apierror in sync with the table public-api publishes in its spec
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * *" # everyday at 7 AM
+
+jobs:
+  check_changes_and_create_pr:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          problems=$(curl -fsSL https://api-ch-gva-2.exoscale.com/v2/openapi.json | jq -S '."x-problems"')
+          if [ "$problems" = "null" ]; then
+            echo "The public API spec does not publish x-problems yet"
+            exit 0
+          fi
+          echo "$problems" > fxhttp/apierror/problems.json
+          go generate ./fxhttp/apierror/...
+          git diff --quiet || echo "changes_detected=true" >> "$GITHUB_OUTPUT"
+
+      - name: Create PR
+        if: steps.check_changes.outputs.changes_detected
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          title: "apierror: update the shared error types"
+          body: "The shared error types published by public-api changed, and apierror has been regenerated."
+          branch: update-problems
+          delete-branch: true
+          base: master
+          author: "Exoscale <operation+build@exoscale.net>"
+          committer: "Exoscale <operation+build@exoscale.net>"

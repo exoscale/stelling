@@ -94,3 +94,74 @@ func NewHttpMiddleware(reg *prometheus.Registry) (HttpMiddlewareResult, error) {
 		},
 	}, nil
 }
+
+type HttpClientMetrics struct {
+	inFlightGauge    prometheus.Gauge
+	requestCounter   *prometheus.CounterVec
+	requestHistogram *prometheus.HistogramVec
+}
+
+func NewHttpClientMetrics() *HttpClientMetrics {
+	return &HttpClientMetrics{
+		inFlightGauge: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "http_client_inflight_requests",
+			Help: "Number of currently ongoing HTTP client requests",
+		}),
+		requestCounter: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "http_client_requests_total",
+			Help: "Total number of completed HTTP client requests",
+		}, []string{"code", "method"}),
+		requestHistogram: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name:    "http_client_request_seconds",
+			Help:    "Histogram of response latency (seconds) of HTTP client requests",
+			Buckets: metricBuckets,
+		}, []string{"code", "method"}),
+	}
+}
+
+// Describe sends the super-set of all possible descriptors of metrics
+// collected by this Collector to the provided channel and returns once
+// the last descriptor has been sent.
+func (m *HttpClientMetrics) Describe(ch chan<- *prometheus.Desc) {
+	m.inFlightGauge.Describe(ch)
+	m.requestCounter.Describe(ch)
+	m.requestHistogram.Describe(ch)
+}
+
+// Collect is called by the Prometheus registry when collecting
+// metrics. The implementation sends each collected metric via the
+// provided channel and returns once the last metric has been sent.
+func (m *HttpClientMetrics) Collect(ch chan<- prometheus.Metric) {
+	m.inFlightGauge.Collect(ch)
+	m.requestCounter.Collect(ch)
+	m.requestHistogram.Collect(ch)
+}
+
+type HttpClientMiddlewareResult struct {
+	fx.Out
+
+	Middleware *fxhttp.ClientMiddleware `group:"http_client_middleware"`
+}
+
+// NewHttpClientMiddleware counts all requests made by the http clients by method and status
+func NewHttpClientMiddleware(reg *prometheus.Registry) (HttpClientMiddlewareResult, error) {
+	metrics := NewHttpClientMetrics()
+	if err := reg.Register(metrics); err != nil {
+		return HttpClientMiddlewareResult{}, err
+	}
+
+	return HttpClientMiddlewareResult{
+		Middleware: &fxhttp.ClientMiddleware{
+			RoundTripper: func(next http.RoundTripper) http.RoundTripper {
+				return promhttp.InstrumentRoundTripperInFlight(
+					metrics.inFlightGauge,
+					promhttp.InstrumentRoundTripperCounter(
+						metrics.requestCounter,
+						promhttp.InstrumentRoundTripperDuration(metrics.requestHistogram, next),
+					),
+				)
+			},
+			Weight: metricsMiddlewareWeight,
+		},
+	}, nil
+}

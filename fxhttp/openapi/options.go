@@ -1,0 +1,72 @@
+package openapi
+
+import (
+	"net/http"
+
+	"github.com/exoscale/stelling/fxhttp"
+	"github.com/exoscale/stelling/fxhttp/apierror"
+)
+
+type options struct {
+	requestErrorHandler func(http.ResponseWriter, *http.Request, error)
+	errorTypes          []*apierror.Type
+	errorExtensions     []errorExtension
+	contractViolation   func(r *http.Request, operationID string, e *fxhttp.Error, reason string)
+}
+
+type Option func(*options)
+
+// WithRequestErrorHandler replaces the handler writing the response of requests that fail validation,
+// decoding or binding. By default they are written as an invalid-request error, with a field error per problem,
+// see RequestFields
+func WithRequestErrorHandler(h func(http.ResponseWriter, *http.Request, error)) Option {
+	return func(o *options) {
+		o.requestErrorHandler = h
+	}
+}
+
+// WithErrorTypes registers the error types of the service, which operations can list in x-errors, see
+// ErrorsExtension. They must follow the rules of apierror.Validate, or NewHandler and Render fail
+// The rendered specification documents them in the error responses of each operation
+func WithErrorTypes(types ...*apierror.Type) Option {
+	return func(o *options) {
+		o.errorTypes = append(o.errorTypes, types...)
+	}
+}
+
+// WithErrorExtension documents a service specific member of the error responses in the rendered specification
+// schemaComponent is the name of the component schema of the specification describing the member
+func WithErrorExtension(name, schemaComponent string) Option {
+	return func(o *options) {
+		o.errorExtensions = append(o.errorExtensions, errorExtension{name: name, schema: schemaComponent})
+	}
+}
+
+// WithContractViolationHandler is called when an operation listing its error types in x-errors writes an
+// error response with an error type it does not declare, with another status than the one of the error type, with
+// a field error whose code is not one of apierror.Codes, or an invalid request which names no field
+// reason says which. Request validation failures and server errors (5xx) are always allowed
+// Fail tests with openapitest.FailOnContractViolation, and log violations in production
+func WithContractViolationHandler(h func(r *http.Request, operationID string, e *fxhttp.Error, reason string)) Option {
+	return func(o *options) {
+		o.contractViolation = h
+	}
+}
+
+func (o *options) catalog() (*errorCatalog, error) {
+	return newErrorCatalog(o.errorTypes)
+}
+
+func newOptions(opts []Option) *options {
+	o := &options{requestErrorHandler: writeBadRequest}
+	for _, opt := range opts {
+		opt(o)
+	}
+	return o
+}
+
+// writeBadRequest writes err as an invalid-request error, with a field error per problem. The message of err is only
+// kept as the cause: it can quote the values the client sent
+func writeBadRequest(w http.ResponseWriter, r *http.Request, err error) {
+	fxhttp.WriteError(w, r, &apierror.Error{Type: apierror.InvalidRequest, Fields: RequestFields(err), Cause: err})
+}

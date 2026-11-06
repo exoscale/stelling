@@ -1,0 +1,202 @@
+package openapi
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"slices"
+
+	"github.com/exoscale/stelling/fxhttp"
+	"github.com/exoscale/stelling/fxhttp/apierror"
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/getkin/kin-openapi/routers/legacy"
+	"github.com/google/uuid"
+	middleware "github.com/oapi-codegen/nethttp-middleware"
+)
+
+// kin-openapi does not check the uuid format by default, so a malformed id in a path would only be rejected by the
+// generated code, without the name of the parameter. It only applies format validators to parameters through its
+// global registry. uuid.Parse is what the generated code converts ids with
+func init() {
+	openapi3.DefineStringFormatValidator("uuid", openapi3.NewCallbackValidator(func(s string) error {
+		_, err := uuid.Parse(s)
+		return err
+	}))
+}
+
+// NewHandler returns the handler serving the given surfaces
+// For each surface it:
+//   - validates the requests against the specification, before they reach the handler of the surface
+//   - serves the self contained specification at <BasePath>/openapi.yaml, at the SpecAliases and on the base path
+//     itself, when ServeSpec is set
+//   - writes request and handler errors with fxhttp.WriteError, unless overridden by an Option
+func NewHandler(surfaces []*Surface, opts ...Option) (http.Handler, error) {
+	o := newOptions(opts)
+	catalog, err := o.catalog()
+	if err != nil {
+		return nil, err
+	}
+	mux := http.NewServeMux()
+
+	// The surface serving each pattern: the mux panics on duplicate patterns
+	served := map[string]string{}
+	handle := func(s *Surface, pattern string, h http.Handler) error {
+		if other, ok := served[pattern]; ok {
+			return fmt.Errorf("surface %q: path %q is already served by surface %q", s.Name, pattern, other)
+		}
+		served[pattern] = s.Name
+		mux.Handle(pattern, h)
+		return nil
+	}
+
+	for _, s := range surfaces {
+		if err := s.validate(); err != nil {
+			return nil, err
+		}
+		if err := catalog.validate(s.Spec.Document()); err != nil {
+			return nil, fmt.Errorf("surface %q: %w", s.Name, err)
+		}
+
+		h := s.Mount(MountOptions{
+			BaseURL:              s.basePath(),
+			RequestErrorHandler:  o.requestErrorHandler,
+			ResponseErrorHandler: fxhttp.WriteError,
+		})
+		for _, m := range slices.Backward(s.Middleware) {
+			h = m(h)
+		}
+
+		h = middleware.OapiRequestValidatorWithOptions(s.Spec.Document(), &middleware.Options{
+			Options:               openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc, MultiError: true},
+			ErrorHandlerWithOpts:  newValidatorErrorHandler(o.requestErrorHandler),
+			SilenceServersWarning: true,
+		})(h)
+		if o.contractViolation != nil {
+			if h, err = newContractCheck(s, catalog, o.contractViolation, h); err != nil {
+				return nil, err
+			}
+		}
+
+		mountPath := s.basePath() + "/"
+		if !s.ServeSpec {
+			if err := handle(s, mountPath, h); err != nil {
+				return nil, err
+			}
+			continue
+		}
+
+		rendered, err := s.Spec.Render(append(slices.Clone(opts), s.SpecOptions...)...)
+		if err != nil {
+			return nil, fmt.Errorf("surface %q: %w", s.Name, err)
+		}
+		specHandler := newSpecHandler(s.specPath(), rendered)
+
+		// The base path itself serves the spec, to make the API discoverable
+		if err := handle(s, mountPath, newDiscoveryHandler(mountPath, specHandler, h)); err != nil {
+			return nil, err
+		}
+		for _, p := range append([]string{s.specPath()}, s.SpecAliases...) {
+			if err := handle(s, p, specHandler); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return mux, nil
+}
+
+// newContractCheck reports the error responses next writes which are not declared by the x-errors of their operation
+func newContractCheck(s *Surface, catalog *errorCatalog, violation func(*http.Request, string, *fxhttp.Error, string), next http.Handler) (http.Handler, error) {
+	router, err := legacy.NewRouter(s.Spec.Document())
+	if err != nil {
+		return nil, fmt.Errorf("surface %q: build router: %w", s.Name, err)
+	}
+
+	// The statuses of the error types declared by each operation using x-errors
+	declared := map[*openapi3.Operation]map[string]int{}
+	for _, item := range s.Spec.Document().Paths.Map() {
+		for _, op := range item.Operations() {
+			types, ok, err := catalog.declared(item, op)
+			if err != nil {
+				return nil, fmt.Errorf("surface %q: %w", s.Name, err)
+			}
+			if !ok {
+				continue
+			}
+			statuses := make(map[string]int, len(types))
+			for _, p := range types {
+				statuses[p.Type] = p.Status
+			}
+			declared[op] = statuses
+		}
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := fxhttp.ContextWithErrorRecorder(r.Context())
+		r = r.WithContext(ctx)
+		next.ServeHTTP(w, r)
+
+		e := fxhttp.RecordedError(ctx)
+		if e == nil || e.Status >= http.StatusInternalServerError {
+			return
+		}
+		route, _, err := router.FindRoute(r)
+		if err != nil {
+			return
+		}
+		statuses, ok := declared[route.Operation]
+		if !ok {
+			return
+		}
+		if reason := contractViolation(statuses, e); reason != "" {
+			violation(r, route.Operation.OperationID, e, reason)
+		}
+	}), nil
+}
+
+// contractViolation returns how e breaks the contract of an operation which declares the given statuses by error type
+func contractViolation(statuses map[string]int, e *fxhttp.Error) string {
+	status, ok := statuses[e.Type]
+	switch {
+	case !ok:
+		return "its error type is not declared in x-errors"
+	case status != e.Status:
+		return fmt.Sprintf("its error type has status %d", status)
+	case slices.ContainsFunc(e.Errors, func(f apierror.Field) bool { return !f.Code.Known() }):
+		return "a field error has an unknown code"
+	case e.Type == apierror.InvalidRequest.ID() && len(e.Errors) == 0:
+		return "an invalid request must name the field to fix"
+	}
+	return ""
+}
+
+func newValidatorErrorHandler(requestErrorHandler func(http.ResponseWriter, *http.Request, error)) middleware.ErrorHandlerWithOpts {
+	return func(ctx context.Context, err error, w http.ResponseWriter, r *http.Request, opts middleware.ErrorHandlerOpts) {
+		if opts.StatusCode != http.StatusBadRequest {
+			// Unknown routes and methods: the shared type of the status says it all
+			fxhttp.WriteError(w, r, &fxhttp.Error{Status: opts.StatusCode, Cause: err})
+			return
+		}
+		requestErrorHandler(w, r.WithContext(ctx), err)
+	}
+}
+
+func newSpecHandler(specPath string, served []byte) http.Handler {
+	link := "<" + specPath + ">; rel=\"service-desc\"; type=\"application/yaml\""
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Add("Link", link)
+		w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
+		_, _ = w.Write(served)
+	})
+}
+
+func newDiscoveryHandler(discoveryPath string, specHandler http.Handler, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == discoveryPath {
+			specHandler.ServeHTTP(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
