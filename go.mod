@@ -2,6 +2,13 @@ module github.com/exoscale/stelling
 
 go 1.26.10
 
+// Prevents desyncing versions between the two libraries.
+// modernc.org/sqlite requires an exact version of modernc.org/libc.
+// When bumping sqlite, also bump libc here according to libc's go.mod.
+replace modernc.org/sqlite => modernc.org/sqlite v1.60.1
+
+replace modernc.org/libc => modernc.org/libc v1.77.1
+
 require (
 	github.com/TheZeroSlave/zapsentry v1.24.0
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
