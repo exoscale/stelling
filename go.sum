@@ -31,6 +31,8 @@ github.com/dustin/go-humanize v1.1.0 h1:dbKTrvD0klcbBV/h4AWJdMuZogJACoMlvWIWZ5b2
 github.com/dustin/go-humanize v1.1.0/go.mod h1:hc1CvRkJMsgxqjmjMQF3QNRAZBwY8AXBAzKYoSX9sFI=
 github.com/exoscale/multiconfig v0.0.0-20260807091208-77086dc28262 h1:nrn5zpJLh5I3GjrwcPRpgTqLubAPP1jHk53a9LjI52w=
 github.com/exoscale/multiconfig v0.0.0-20260807091208-77086dc28262/go.mod h1:F3Gc4sRwlxm70PuPhhr6wlbIMXpsAvAVv6SFMDwKkeE=
+github.com/exoscale/multiconfig v0.0.0-20261105100411-7a3c1e250964 h1:/2RUNZ+olU64/xuSd4WbhHsasqdv/fhx3cRUPq+Rv94=
+github.com/exoscale/multiconfig v0.0.0-20261105100411-7a3c1e250964/go.mod h1:F3Gc4sRwlxm70PuPhhr6wlbIMXpsAvAVv6SFMDwKkeE=
 github.com/fatih/camelcase v1.0.0 h1:hxNvNX/xYBp0ovncs8WyWZrOrpBNub/JfaMvbURyft8=
 github.com/fatih/camelcase v1.0.0/go.mod h1:yN2Sb0lFhZJUdVvtELVWefmrXpuZESvPmqwoZc+/fpc=
 github.com/fatih/structs v1.1.0 h1:Q7juDM0QtcnhCpeyLGQKyg4TOIghuNXrkL32pHAUMxo=
