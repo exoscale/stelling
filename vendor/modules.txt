@@ -57,7 +57,7 @@ github.com/coreos/go-systemd/activation
 # github.com/dustin/go-humanize v1.1.0
 ## explicit; go 1.21
 github.com/dustin/go-humanize
-# github.com/exoscale/multiconfig v0.0.0-20260807091208-77086dc28262
+# github.com/exoscale/multiconfig v0.0.0-20261105100411-7a3c1e250964
 ## explicit; go 1.24
 github.com/exoscale/multiconfig
 # github.com/fatih/camelcase v1.0.0

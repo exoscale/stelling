@@ -5,7 +5,7 @@ go 1.26.10
 require (
 	github.com/TheZeroSlave/zapsentry v1.24.0
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
-	github.com/exoscale/multiconfig v0.0.0-20260807091208-77086dc28262
+	github.com/exoscale/multiconfig v0.0.0-20261105100411-7a3c1e250964
 	github.com/go-logr/zapr v1.3.0
 	github.com/go-playground/validator/v10 v10.30.6
 	github.com/oklog/ulid/v2 v2.1.2
