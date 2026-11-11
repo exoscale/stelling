@@ -26,13 +26,13 @@ func TestValidate(t *testing.T) {
 		types []*Type
 		err   string
 	}{
-		"slug without namespace": {[]*Type{{Slug: "locked", Parent: Conflict, Title: "Locked"}}, "<service>/<name>"},
-		"slug not in kebab-case": {[]*Type{{Slug: "things/Locked", Parent: Conflict, Title: "Locked"}}, "<service>/<name>"},
-		"several namespaces":     {[]*Type{ErrThingLocked.Type, {Slug: "other/locked", Parent: Conflict, Title: "Locked"}}, `under the namespace "things"`},
-		"declared twice":         {[]*Type{ErrThingLocked.Type, ErrThingLocked.Type}, "declared twice"},
-		"no parent":              {[]*Type{{Slug: "things/locked", Title: "Locked"}}, "parent must be a shared type"},
-		"service type as parent": {[]*Type{{Slug: "things/stuck", Parent: ErrThingLocked.Type, Title: "Stuck"}}, "parent must be a shared type"},
-		"no title":               {[]*Type{{Slug: "things/locked", Parent: Conflict}}, "requires a title"},
+		"slug without namespace":    {[]*Type{{Slug: "locked", Parent: Conflict, Title: "Locked"}}, "<service>/<name>"},
+		"slug not in kebab-case":    {[]*Type{{Slug: "things/Locked", Parent: Conflict, Title: "Locked"}}, "<service>/<name>"},
+		"several namespaces":        {[]*Type{ErrThingLocked.Type, {Slug: "other/locked", Parent: Conflict, Title: "Locked"}}, `under the namespace "things"`},
+		"declared twice":            {[]*Type{ErrThingLocked.Type, ErrThingLocked.Type}, "declared twice"},
+		"no parent":                 {[]*Type{{Slug: "things/locked", Title: "Locked"}}, "parent must be a shared type"},
+		"parent not from the table": {[]*Type{{Slug: "things/stuck", Parent: &SharedType{}, Title: "Stuck"}}, "parent must be a shared type"},
+		"no title":                  {[]*Type{{Slug: "things/locked", Parent: Conflict}}, "requires a title"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			require.ErrorContains(t, Validate(tc.types...), tc.err)
@@ -79,7 +79,7 @@ func TestAccessors(t *testing.T) {
 	require.Equal(t, ErrThingLocked.Type, TypeOf(err))
 
 	require.Nil(t, From(errors.New("plain")))
-	require.Equal(t, Internal, TypeOf(errors.New("plain")), "errors which are not API errors are internal")
+	require.Equal(t, Internal, TypeOf(errors.New("plain")).Shared(), "errors which are not API errors are internal")
 }
 
 func TestWithExtension(t *testing.T) {
@@ -94,4 +94,12 @@ func TestErrorWithFields(t *testing.T) {
 	require.Equal(t, "the name is taken", err.Detail)
 	require.Equal(t, []Field{F("name", CodeAlreadyExists)}, err.Fields)
 	require.Nil(t, ErrThingLocked.Fields, "the sentinel must not be modified")
+}
+
+func TestInternalError(t *testing.T) {
+	cause := ErrThingLocked.Type.New("the cause is an API error")
+	err := InternalError(cause)
+	require.Equal(t, Internal, TypeOf(err).Shared(), "the internal error is found before its cause")
+	require.Empty(t, err.Detail)
+	require.ErrorIs(t, err, ErrThingLocked)
 }

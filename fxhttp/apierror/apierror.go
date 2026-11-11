@@ -22,9 +22,10 @@ type Type struct {
 	// Slug identifies the type: clients receive it as the type "#/problems/<slug>", so it must be stable
 	Slug string
 	// Parent is the shared type a service type refines
-	Parent *Type
+	Parent *SharedType
 
 	status int
+	shared *SharedType // set on the types of SharedType
 
 	Title string
 
@@ -37,9 +38,17 @@ func (t *Type) ID() string {
 
 func (t *Type) Status() int {
 	if t.Parent != nil {
-		return t.Parent.status
+		return t.Parent.t.status
 	}
 	return t.status
+}
+
+// Shared returns the shared type t is or refines, nil for a type which is neither
+func (t *Type) Shared() *SharedType {
+	if t.Parent != nil {
+		return t.Parent
+	}
+	return t.shared
 }
 
 func (t *Type) New(detail string) *Error {
@@ -61,6 +70,29 @@ func (t *Type) WithFields(fields ...Field) *Error {
 
 func New(t Type, detail string) *Error {
 	return t.New(detail)
+}
+
+type SharedType struct {
+	t Type
+}
+
+func newShared(slug string, status int, title string) *SharedType {
+	s := &SharedType{t: Type{Slug: slug, status: status, Title: title}}
+	s.t.shared = s
+	return s
+}
+
+func (s *SharedType) Slug() string  { return s.t.Slug }
+func (s *SharedType) ID() string    { return s.t.ID() }
+func (s *SharedType) Status() int   { return s.t.status }
+func (s *SharedType) Title() string { return s.t.Title }
+
+func (s *SharedType) WithFields(first Field, more ...Field) *Error {
+	return &Error{Type: &s.t, Fields: append([]Field{first}, more...)}
+}
+
+func InternalError(cause error) *Error {
+	return &Error{Type: &Internal.t, Cause: cause}
 }
 
 func SharedTypes() []*Type {
@@ -93,7 +125,7 @@ func Validate(types ...*Type) error {
 			return fmt.Errorf("error type %q is declared twice", t.Slug)
 		}
 		seen[t.Slug] = true
-		if !slices.Contains(sharedTypes, t.Parent) {
+		if t.Parent == nil || t.Parent.t.shared != t.Parent {
 			return fmt.Errorf("error type %q: its parent must be a shared type, eg apierror.Conflict", t.Slug)
 		}
 		if t.Title == "" {
@@ -216,6 +248,18 @@ func (e *Error) WithExtension(name string, value any) *Error {
 	return &c
 }
 
+func (e *Error) WithDetail(detail string) *Error {
+	c := *e
+	c.Detail = detail
+	return &c
+}
+
+func (e *Error) WithCause(cause error) *Error {
+	c := *e
+	c.Cause = cause
+	return &c
+}
+
 // WithFields returns a copy of e with the given field errors added
 func (e *Error) WithFields(fields ...Field) *Error {
 	c := *e
@@ -232,5 +276,5 @@ func TypeOf(err error) *Type {
 	if e := From(err); e != nil && e.Type != nil {
 		return e.Type
 	}
-	return Internal
+	return &Internal.t
 }

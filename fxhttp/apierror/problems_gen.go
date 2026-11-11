@@ -4,19 +4,19 @@ package apierror
 
 // The types shared by every service
 var (
-	Authentication   = &Type{Slug: "authentication", status: 401, Title: "Authentication is required."}
-	Conflict         = &Type{Slug: "conflict", status: 409, Title: "The request conflicts with the current state."}
-	Forbidden        = &Type{Slug: "forbidden", status: 403, Title: "Access is denied."}
-	Internal         = &Type{Slug: "internal", status: 500, Title: "Internal Server Error"}
-	InvalidRequest   = &Type{Slug: "invalid-request", status: 400, Title: "The request is not valid."}
-	MethodNotAllowed = &Type{Slug: "method-not-allowed", status: 405, Title: "The method is not allowed for this resource."}
-	NotFound         = &Type{Slug: "not-found", status: 404, Title: "The resource is not found."}
-	RateLimited      = &Type{Slug: "rate-limited", status: 429, Title: "Too many requests."}
-	Timeout          = &Type{Slug: "timeout", status: 504, Title: "The request timed out."}
-	Unavailable      = &Type{Slug: "unavailable", status: 503, Title: "The service is temporarily unavailable."}
+	Authentication   = newShared("authentication", 401, "Authentication is required.")
+	Conflict         = newShared("conflict", 409, "The request conflicts with the current state.")
+	Forbidden        = newShared("forbidden", 403, "Access is denied.")
+	Internal         = newShared("internal", 500, "Internal Server Error")
+	InvalidRequest   = newShared("invalid-request", 400, "The request is not valid.")
+	MethodNotAllowed = newShared("method-not-allowed", 405, "The method is not allowed for this resource.")
+	NotFound         = newShared("not-found", 404, "The resource is not found.")
+	RateLimited      = newShared("rate-limited", 429, "Too many requests.")
+	Timeout          = newShared("timeout", 504, "The request timed out.")
+	Unavailable      = newShared("unavailable", 503, "The service is temporarily unavailable.")
 )
 
-var sharedTypes = []*Type{Authentication, Conflict, Forbidden, Internal, InvalidRequest, MethodNotAllowed, NotFound, RateLimited, Timeout, Unavailable}
+var sharedTypes = []*Type{&Authentication.t, &Conflict.t, &Forbidden.t, &Internal.t, &InvalidRequest.t, &MethodNotAllowed.t, &NotFound.t, &RateLimited.t, &Timeout.t, &Unavailable.t}
 
 // The codes of the field errors
 const (

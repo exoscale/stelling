@@ -70,9 +70,10 @@ func AssertErrorResponses(tb testing.TB, doc *openapi3.T, samples ...*fxhttp.Err
 	}
 }
 
-// FailOnContractViolation fails t on every contract violation, to pass to openapi.WithContractViolationHandler
-func FailOnContractViolation(t testing.TB) func(*http.Request, string, *fxhttp.Error, string) {
+// FailOnContractViolation fails tb on every contract violation, to pass to openapi.WithContractViolationHandler
+func FailOnContractViolation(tb testing.TB) func(*http.Request, string, *fxhttp.Error, string) {
+	tb.Helper()
 	return func(r *http.Request, operationID string, e *fxhttp.Error, reason string) {
-		t.Errorf("%s %s (%s) wrote a %d %s: %s", r.Method, r.URL.Path, operationID, e.Status, e.Type, reason)
+		tb.Errorf("%s %s (%s) wrote a %d %s: %s", r.Method, r.URL.Path, operationID, e.Status, e.Type, reason)
 	}
 }

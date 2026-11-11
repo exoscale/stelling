@@ -126,7 +126,7 @@ func TestErrorWrapping(t *testing.T) {
 func TestErrorFrom(t *testing.T) {
 	t.Run("Should return an *Error with defaults applied", func(t *testing.T) {
 		e := errorFrom(&Error{Status: http.StatusNotFound, Detail: "no thing"})
-		require.Equal(t, &Error{Status: http.StatusNotFound, Type: apierror.NotFound.ID(), Title: apierror.NotFound.Title, Detail: "no thing"}, e)
+		require.Equal(t, &Error{Status: http.StatusNotFound, Type: apierror.NotFound.ID(), Title: apierror.NotFound.Title(), Detail: "no thing"}, e)
 	})
 
 	t.Run("Should not forward the response of another service", func(t *testing.T) {
@@ -152,7 +152,7 @@ func TestErrorFrom(t *testing.T) {
 	t.Run("Should map any other error to a 500 without exposing its message", func(t *testing.T) {
 		cause := errors.New("database unavailable")
 		e := errorFrom(cause)
-		require.Equal(t, &Error{Status: http.StatusInternalServerError, Type: apierror.Internal.ID(), Title: apierror.Internal.Title, Cause: cause}, e)
+		require.Equal(t, &Error{Status: http.StatusInternalServerError, Type: apierror.Internal.ID(), Title: apierror.Internal.Title(), Cause: cause}, e)
 	})
 }
 

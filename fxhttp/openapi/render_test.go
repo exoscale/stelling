@@ -199,7 +199,8 @@ func errorsSurface(t *testing.T) *Surface {
 				case "00000000-0000-0000-0000-000000000409":
 					o.ResponseErrorHandler(w, r, fmt.Errorf("update: %w", ErrThingLocked.Type.New("migration running")))
 				case "00000000-0000-0000-0000-000000000400":
-					o.ResponseErrorHandler(w, r, apierror.InvalidRequest.New("the name is taken"))
+					// apierror can't build an invalid request without fields, a handler can still write one by hand
+					o.ResponseErrorHandler(w, r, &fxhttp.Error{Status: http.StatusBadRequest, Type: apierror.InvalidRequest.ID()})
 				case "00000000-0000-0000-0000-000000000401":
 					o.ResponseErrorHandler(w, r, apierror.InvalidRequest.WithFields(apierror.F("name", apierror.CodeInvalidData)))
 				case "00000000-0000-0000-0000-000000000500":

@@ -12,10 +12,13 @@ import (
 
 // RequestFields returns a field error for each problem of err, a request validation, decoding or binding error
 // The field errors name the fields as the client sent them, eg "rules[0].action", and never quote their values
-// An error which does not point to a field gives a single field error about the whole request
+// An error which does not point to a field gives a single field error about the whole request, so there is always one
 func RequestFields(err error) []apierror.Field {
 	var fields []apierror.Field
 	collectFields(err, "", "", &fields)
+	if len(fields) == 0 {
+		return []apierror.Field{apierror.F("", apierror.CodeInvalidData)}
+	}
 	return fields[:min(len(fields), maxFields)]
 }
 

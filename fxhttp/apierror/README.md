@@ -66,7 +66,22 @@ the message of their code. A field error with an empty name is about the whole r
 Take the names from the vocabulary `apigen` generates from the specification (see the openapi package), so that a
 misspelled or missing field can't compile. `F` and `FIn` remain for names which are not in a specification.
 
-An `InvalidRequest` must name at least one field: the contract check of the openapi package reports one which doesn't.
+Shared types have no occurrence of their own: a service refines them with its types, or returns `InvalidRequest`
+with the fields to fix. `WithFields` requires at least one, so an invalid request which names no field can't compile.
+Add a detail for the client and a cause for the logs with `WithDetail` and `WithCause`:
+
+```go
+return apierror.InvalidRequest.WithFields(
+	apierror.FieldOf(api.Fields.Usage, apierror.CodeNotAllowed),
+	apierror.FieldOf(api.Fields.KeySpec, apierror.CodeNotAllowed),
+).WithDetail("sign-verify usage is not supported with AES_256 key-spec").WithCause(err)
+```
+
+When an error is about a combination of fields, name each field of the request which takes part in it.
+
+Errors which are not API errors are written as a 500 without detail. `InternalError(cause)` does the same while
+keeping a recognizable API error at the top of the chain: clients never receive its cause, even when the cause is
+itself an API error.
 
 `errors.Is(err, ErrKeyDisabled)` matches any occurrence of the type. `From` and `TypeOf` retrieve the API error of an
 error chain; errors which are not API errors are `Internal`.

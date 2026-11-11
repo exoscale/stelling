@@ -65,7 +65,7 @@ func newErrorCatalog(types []*apierror.Type) (*errorCatalog, error) {
 	for _, t := range append(apierror.SharedTypes(), types...) {
 		p := documentedErrorType{Slug: t.Slug, Type: t.ID(), Status: t.Status(), Title: t.Title, Description: t.Description}
 		if t.Parent != nil {
-			p.Parent = t.Parent.Slug
+			p.Parent = t.Parent.Slug()
 		}
 		c.types[t.Slug] = p
 	}
@@ -107,7 +107,7 @@ func (c *errorCatalog) declared(item *openapi3.PathItem, op *openapi3.Operation)
 
 	// Requests which do not match the specification are rejected before reaching the handler
 	if takesInput(item, op) {
-		if err := add(apierror.InvalidRequest.Slug, "The request does not match the specification of the operation, see the errors member."); err != nil {
+		if err := add(apierror.InvalidRequest.Slug(), "The request does not match the specification of the operation, see the errors member."); err != nil {
 			return nil, true, err
 		}
 	}

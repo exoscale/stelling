@@ -32,11 +32,11 @@ package apierror
 // The types shared by every service
 var (
 {{- range $slug := .TypeSlugs}}{{with index $.Types $slug}}
-	{{ident $slug}} = &Type{Slug: {{printf "%q" $slug}}, status: {{.Status}}, Title: {{printf "%q" .Title}}}
+	{{ident $slug}} = newShared({{printf "%q" $slug}}, {{.Status}}, {{printf "%q" .Title}})
 {{- end}}{{end}}
 )
 
-var sharedTypes = []*Type{ {{- range .TypeSlugs}}{{ident .}}, {{end}} }
+var sharedTypes = []*Type{ {{- range .TypeSlugs}}&{{ident .}}.t, {{end}} }
 
 // The codes of the field errors
 const (

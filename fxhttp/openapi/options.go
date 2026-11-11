@@ -68,5 +68,6 @@ func newOptions(opts []Option) *options {
 // writeBadRequest writes err as an invalid-request error, with a field error per problem. The message of err is only
 // kept as the cause: it can quote the values the client sent
 func writeBadRequest(w http.ResponseWriter, r *http.Request, err error) {
-	fxhttp.WriteError(w, r, &apierror.Error{Type: apierror.InvalidRequest, Fields: RequestFields(err), Cause: err})
+	fields := RequestFields(err)
+	fxhttp.WriteError(w, r, apierror.InvalidRequest.WithFields(fields[0], fields[1:]...).WithCause(err))
 }

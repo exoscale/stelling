@@ -129,7 +129,7 @@ func (e *Error) withDefaults() *Error {
 func ErrorFromAPIError(p *apierror.Error) *Error {
 	t := p.Type
 	if t == nil {
-		t = apierror.Internal
+		t = apierror.TypeOf(nil)
 	}
 	return &Error{Status: t.Status(), Type: t.ID(), Title: t.Title, Detail: p.Detail, Errors: p.Fields, Extensions: p.Extensions, Cause: p}
 }
