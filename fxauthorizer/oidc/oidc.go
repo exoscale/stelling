@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 )
@@ -34,6 +35,8 @@ func WithAuthHeader(header string) TokenExtractorOption {
 	}
 }
 
+const defaultIdPTimeout = 10 * time.Second
+
 // WithHTTPClient sets the HTTP client used to reach the IdP, for discovery and for fetching its signing keys.
 func WithHTTPClient(client *http.Client) TokenExtractorOption {
 	return func(te *TokenExtractor) {
@@ -44,8 +47,9 @@ func WithHTTPClient(client *http.Client) TokenExtractorOption {
 // NewTokenExtractor produces a TokenExtractor that can extract, verify and parse oidc IDTokens from request headers
 func NewTokenExtractor(jwtIssuerURL string, clientID string, opts ...TokenExtractorOption) (*TokenExtractor, error) {
 	te := &TokenExtractor{
-		header:   http.CanonicalHeaderKey("Authorization"),
-		clientID: clientID,
+		header:     http.CanonicalHeaderKey("Authorization"),
+		clientID:   clientID,
+		httpClient: &http.Client{Timeout: defaultIdPTimeout},
 	}
 
 	for _, opt := range opts {

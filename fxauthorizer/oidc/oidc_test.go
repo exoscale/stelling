@@ -80,6 +80,7 @@ func TestNewTokenExtractor(t *testing.T) {
 		require.Equal(t, "client_id", te.clientID)
 		require.NotNil(t, te.verifier)
 		require.False(t, te.skipClientIDCheck)
+		require.Equal(t, defaultIdPTimeout, te.httpClient.Timeout)
 	})
 
 	t.Run("Should apply WithAuthHeader option", func(t *testing.T) {
@@ -284,7 +285,8 @@ func TestTokenExtractorHTTPClientBoundsKeyFetch(t *testing.T) {
 	defer cancel()
 
 	_, err = te.Extract(ctx, md)
-	require.Error(t, err)
+	// go-oidc formats the fetch error as text, so only its message tells the client timeout apart.
+	require.ErrorContains(t, err, "Client.Timeout exceeded")
 	require.NoError(t, ctx.Err(), "the key fetch should fail on the client timeout, not the caller's")
 
 	// Once the IdP answers again, the next verification fetches the keys anew.
