@@ -13,6 +13,7 @@ type TokenExtractor struct {
 	verifier          *oidc.IDTokenVerifier
 	clientID          string
 	skipClientIDCheck bool
+	httpClient        *http.Client
 }
 
 type TokenExtractorOption func(*TokenExtractor)
@@ -33,6 +34,13 @@ func WithAuthHeader(header string) TokenExtractorOption {
 	}
 }
 
+// WithHTTPClient sets the HTTP client used to reach the IdP, for discovery and for fetching its signing keys.
+func WithHTTPClient(client *http.Client) TokenExtractorOption {
+	return func(te *TokenExtractor) {
+		te.httpClient = client
+	}
+}
+
 // NewTokenExtractor produces a TokenExtractor that can extract, verify and parse oidc IDTokens from request headers
 func NewTokenExtractor(jwtIssuerURL string, clientID string, opts ...TokenExtractorOption) (*TokenExtractor, error) {
 	te := &TokenExtractor{
@@ -44,7 +52,7 @@ func NewTokenExtractor(jwtIssuerURL string, clientID string, opts ...TokenExtrac
 		opt(te)
 	}
 
-	verifier, err := newOIDCVerifier(jwtIssuerURL, te.clientID, te.skipClientIDCheck)
+	verifier, err := newOIDCVerifier(jwtIssuerURL, te.clientID, te.skipClientIDCheck, te.httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -53,14 +61,18 @@ func NewTokenExtractor(jwtIssuerURL string, clientID string, opts ...TokenExtrac
 	return te, nil
 }
 
-func newOIDCVerifier(jwtIssuerURL string, jwtClientID string, skipClientIDCheck bool) (*oidc.IDTokenVerifier, error) {
+func newOIDCVerifier(jwtIssuerURL string, jwtClientID string, skipClientIDCheck bool, client *http.Client) (*oidc.IDTokenVerifier, error) {
 	if jwtIssuerURL == "" {
 		return nil, fmt.Errorf("jwtIssuerURL must not be empty")
 	}
 	// Using context.Background because the resulting Verifier is tied to the lifetime of the context
 	// Since you'll call this at init time, you'd typically have an fx Start context at hand, which
 	// does not live long enough.
-	oidcProvider, err := oidc.NewProvider(context.Background(), jwtIssuerURL)
+	ctx := context.Background()
+	if client != nil {
+		ctx = oidc.ClientContext(ctx, client)
+	}
+	oidcProvider, err := oidc.NewProvider(ctx, jwtIssuerURL)
 	if err != nil {
 		return nil, err
 	}

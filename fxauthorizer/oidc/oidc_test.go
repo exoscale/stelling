@@ -2,7 +2,12 @@ package oidc
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -43,7 +48,7 @@ func TestNewOIDCVerifier(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			output, err := newOIDCVerifier(tc.url, tc.clientID, false)
+			output, err := newOIDCVerifier(tc.url, tc.clientID, false, nil)
 			if tc.isError {
 				if tc.errMsg != "" {
 					require.Contains(t, err.Error(), tc.errMsg)
@@ -236,4 +241,54 @@ func TestTokenExtractorExtract(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, parsedToken)
 	})
+}
+
+func TestTokenExtractorHTTPClientBoundsKeyFetch(t *testing.T) {
+	key, err := newRSAKey()
+	require.NoError(t, err)
+	var hangKeys atomic.Bool
+	hangKeys.Store(true)
+	release := make(chan struct{})
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			fmt.Fprintf(w, `{"issuer":%q,"jwks_uri":%q}`, server.URL, server.URL+"/jwks")
+		case "/jwks":
+			if hangKeys.Load() {
+				select {
+				case <-r.Context().Done():
+				case <-release:
+				}
+				return
+			}
+			pub, err := key.publicJWK()
+			require.NoError(t, err)
+			fmt.Fprint(w, `{"keys":[`+pub+`]}`)
+		}
+	}))
+	t.Cleanup(server.Close)
+	// Unblock a key fetch nothing cancels, so a failing test ends instead of hanging in server.Close.
+	t.Cleanup(func() { close(release) })
+
+	token, err := key.createIDToken(server.URL, "J. Doe", "jdoe@example.com", []string{"ops"})
+	require.NoError(t, err)
+	md := map[string][]string{"Authorization": {"Bearer " + token}}
+
+	te, err := NewTokenExtractor(server.URL, "idtest", WithHTTPClient(&http.Client{Timeout: 100 * time.Millisecond}))
+	require.NoError(t, err)
+
+	// The callers' context outlives the client timeout: only the client can end the hung key fetch.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err = te.Extract(ctx, md)
+	require.Error(t, err)
+	require.NoError(t, ctx.Err(), "the key fetch should fail on the client timeout, not the caller's")
+
+	// Once the IdP answers again, the next verification fetches the keys anew.
+	hangKeys.Store(false)
+	_, err = te.Extract(ctx, md)
+	require.NoError(t, err)
 }
