@@ -7,7 +7,16 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var revision, revisionTimestamp = stelling.Revision, stelling.RevisionTimestamp
+var revision, revisionTimestamp string
+
+func init() {
+	if revision == "" {
+		revision = stelling.Revision
+	}
+	if revisionTimestamp == "" {
+		revisionTimestamp = stelling.RevisionTimestamp
+	}
+}
 
 // NewVersionCollector returns a collector collecting a single metric "go_version_info" with the
 // constant value of 1 and 2 labels "revision" and "revision_timestamp".
