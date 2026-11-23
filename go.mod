@@ -20,7 +20,7 @@ require (
 	go.uber.org/fx v1.24.0
 	go.uber.org/zap v1.28.0
 	google.golang.org/grpc v1.85.0
-	google.golang.org/grpc/examples v0.0.0-20261104142343-cbf30c413099
+	google.golang.org/grpc/examples v0.0.0-20261113084307-f8bb66bd7775
 	google.golang.org/protobuf v1.36.12
 	zombiezen.com/go/sqlite v1.4.2
 )
