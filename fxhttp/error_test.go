@@ -55,21 +55,6 @@ func TestErrorMarshalJSON(t *testing.T) {
 			{"name":"scope","in":"query","code":"unknown-value","reason":"scope holds an unsupported value"}]}`, string(body))
 	})
 
-	t.Run("Should serialize extensions as top level members", func(t *testing.T) {
-		body, err := json.Marshal(&Error{
-			Status:     http.StatusBadRequest,
-			Extensions: map[string]any{"proxy-error": map[string]string{"error-name": "KeyNotFound"}},
-		})
-		require.NoError(t, err)
-		require.JSONEq(t, `{"type":"#/problems/invalid-request","title":"The request is not valid.","status":400,"proxy-error":{"error-name":"KeyNotFound"}}`, string(body))
-	})
-
-	t.Run("Should not let extensions override standard members", func(t *testing.T) {
-		body, err := json.Marshal(&Error{Status: http.StatusBadRequest, Detail: "real", Extensions: map[string]any{"status": 200, "detail": "fake"}})
-		require.NoError(t, err)
-		require.JSONEq(t, `{"type":"#/problems/invalid-request","title":"The request is not valid.","status":400,"detail":"real"}`, string(body))
-	})
-
 	t.Run("Should never serialize the cause", func(t *testing.T) {
 		body, err := json.Marshal(&Error{Status: http.StatusBadRequest, Cause: errors.New("secret")})
 		require.NoError(t, err)
@@ -86,25 +71,20 @@ func TestErrorMarshalJSON(t *testing.T) {
 func TestErrorUnmarshalJSON(t *testing.T) {
 	t.Run("Should round trip", func(t *testing.T) {
 		in := &Error{Status: http.StatusConflict, Type: "#/problems/things/exists", Title: "The thing exists.", Detail: "thing 42", Instance: "req-1",
-			Errors: []apierror.Field{apierror.F("name", apierror.CodeAlreadyExists)}, Extensions: map[string]any{"thing-id": 42}}
+			Errors: []apierror.Field{apierror.F("name", apierror.CodeAlreadyExists)}}
 		body, err := json.Marshal(in)
 		require.NoError(t, err)
 
 		out := &Error{}
 		require.NoError(t, json.Unmarshal(body, out))
-		require.Equal(t, json.RawMessage(`42`), out.Extensions["thing-id"])
-		out.Extensions = nil
-		in.Extensions = nil
 		require.Equal(t, in, out)
 	})
 
-	t.Run("Should keep errors in other shapes as an extension", func(t *testing.T) {
+	t.Run("Should leave out errors in other shapes, and other members", func(t *testing.T) {
 		for _, errors := range []string{`[{"detail":"must be read","location":"$.scope"}]`, `["bad"]`} {
 			out := &Error{}
-			require.NoError(t, json.Unmarshal([]byte(`{"type":"#/x","title":"X","status":400,"errors":`+errors+`}`), out))
-			require.Equal(t, "#/x", out.Type)
-			require.Empty(t, out.Errors)
-			require.JSONEq(t, errors, string(out.Extensions["errors"].(json.RawMessage)))
+			require.NoError(t, json.Unmarshal([]byte(`{"type":"#/x","title":"X","status":400,"thing-id":42,"errors":`+errors+`}`), out))
+			require.Equal(t, &Error{Type: "#/x", Title: "X", Status: 400}, out)
 		}
 	})
 
@@ -181,27 +161,18 @@ func TestWriteError(t *testing.T) {
 		require.Equal(t, http.StatusInternalServerError, rec.Code)
 		require.JSONEq(t, `{"type":"#/problems/internal","title":"Internal Server Error","status":500}`, rec.Body.String())
 	})
-
-	t.Run("Should drop extensions that can not be serialized", func(t *testing.T) {
-		rec := httptest.NewRecorder()
-		WriteError(rec, nil, &Error{Status: http.StatusBadRequest, Extensions: map[string]any{"fn": func() {}}})
-
-		require.Equal(t, http.StatusBadRequest, rec.Code)
-		require.JSONEq(t, `{"type":"#/problems/invalid-request","title":"The request is not valid.","status":400}`, rec.Body.String())
-	})
 }
 
 func TestErrorFromAPIError(t *testing.T) {
 	notFound := apierror.New(apierror.Type{Slug: "things/not-found", Parent: apierror.NotFound, Title: "The thing is not found."}, "")
 
 	t.Run("Should convert API errors with the status of their type", func(t *testing.T) {
-		err := fmt.Errorf("lookup: %w", notFound.Type.New("thing 42").WithExtension("thing-id", 42))
+		err := fmt.Errorf("lookup: %w", notFound.Type.New("thing 42"))
 		e := errorFrom(err)
 		require.Equal(t, http.StatusNotFound, e.Status)
 		require.Equal(t, "#/problems/things/not-found", e.Type)
 		require.Equal(t, "The thing is not found.", e.Title)
 		require.Equal(t, "thing 42", e.Detail)
-		require.Equal(t, map[string]any{"thing-id": 42}, e.Extensions)
 		require.ErrorIs(t, e, notFound, "the API error is the cause")
 	})
 

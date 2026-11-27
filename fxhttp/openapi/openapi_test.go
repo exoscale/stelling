@@ -378,5 +378,5 @@ func TestModule(t *testing.T) {
 
 func TestAssertErrorResponses(t *testing.T) {
 	openapitest.AssertErrorResponses(t, mustLoadSpec(t, publicSpec, nil).Document())
-	openapitest.AssertErrorResponses(t, mustLoadSpec(t, internalSpec, publicRefs()).Document(), &fxhttp.Error{Status: http.StatusBadRequest, Extensions: map[string]any{"zone": "ch-gva-2"}})
+	openapitest.AssertErrorResponses(t, mustLoadSpec(t, internalSpec, publicRefs()).Document(), &fxhttp.Error{Status: http.StatusBadRequest})
 }

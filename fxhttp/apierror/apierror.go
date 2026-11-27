@@ -202,11 +202,10 @@ func FieldOf(n FieldNamer, code Code) Field {
 
 // Error is an occurrence of an error type
 type Error struct {
-	Type       *Type
-	Detail     string
-	Fields     []Field
-	Extensions map[string]any
-	Cause      error
+	Type   *Type
+	Detail string
+	Fields []Field
+	Cause  error
 }
 
 func (e *Error) Error() string {
@@ -236,16 +235,6 @@ func (e *Error) Is(target error) bool {
 		return false
 	}
 	return e.Type.Slug == t.Type.Slug
-}
-
-func (e *Error) WithExtension(name string, value any) *Error {
-	c := *e
-	c.Extensions = make(map[string]any, len(e.Extensions)+1)
-	for k, v := range e.Extensions {
-		c.Extensions[k] = v
-	}
-	c.Extensions[name] = value
-	return &c
 }
 
 func (e *Error) WithDetail(detail string) *Error {

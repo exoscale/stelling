@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"slices"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"gopkg.in/yaml.v3"
@@ -32,7 +31,7 @@ func (s *Spec) Render(opts ...Option) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := renderErrorResponses(doc, catalog, o.errorExtensions); err != nil {
+	if err := renderErrorResponses(doc, catalog); err != nil {
 		return nil, err
 	}
 
@@ -64,8 +63,6 @@ type RenderTarget struct {
 	// Path of the file, relative to the working directory
 	Path string
 	Spec *Spec
-	// Options are applied after the shared options, see Surface.SpecOptions
-	Options []Option
 }
 
 // RenderFiles renders every target, with the same options as the served specifications
@@ -73,7 +70,7 @@ type RenderTarget struct {
 func RenderFiles(targets []RenderTarget, check bool, opts ...Option) error {
 	var errs []error
 	for _, t := range targets {
-		data, err := t.Spec.Render(append(slices.Clone(opts), t.Options...)...)
+		data, err := t.Spec.Render(opts...)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("render %s: %w", t.Path, err))
 			continue

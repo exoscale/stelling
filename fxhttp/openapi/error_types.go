@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"fmt"
 	"maps"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -162,20 +161,12 @@ func (c *errorCatalog) problems() map[string]any {
 	return map[string]any{"types": types, "codes": codes}
 }
 
-// errorExtension is a service specific member of the error responses
-type errorExtension struct {
-	name   string
-	schema string
-}
-
-var kebabCase = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
-
-// problemSchemas describe fxhttp.Error, its field errors and the extensions of the service
-func problemSchemas(doc *openapi3.T, extensions []errorExtension) (problem, fieldError *openapi3.Schema, err error) {
+// problemSchemas describe fxhttp.Error and its field errors, the same for every service
+func problemSchemas() (problem, fieldError *openapi3.Schema) {
 	fieldError = openapi3.NewObjectSchema()
 	fieldError.Description = "A problem with one field of the request."
 	fieldError.Required = []string{"code"}
-	fieldError.AdditionalProperties = openapi3.AdditionalProperties{Has: new(true)}
+	// Other members are allowed without additionalProperties, which client generators such as egoscale's turn into maps
 	fieldError.Properties = openapi3.Schemas{
 		"name":   openapi3.NewSchemaRef("", describe(openapi3.NewStringSchema(), "The path of the field, eg rules[0].action. Absent for a problem with the whole request.")),
 		"in":     openapi3.NewSchemaRef("", describe(openapi3.NewStringSchema().WithEnum("body", "query", "path", "header", "cookie").WithDefault("body"), "Where the field is.")),
@@ -189,7 +180,6 @@ func problemSchemas(doc *openapi3.T, extensions []errorExtension) (problem, fiel
 	problem = openapi3.NewObjectSchema()
 	problem.Description = "RFC 9457 problem details."
 	problem.Required = []string{"type", "title", "status"}
-	problem.AdditionalProperties = openapi3.AdditionalProperties{Has: new(true)}
 	problem.Properties = openapi3.Schemas{
 		"type":     openapi3.NewSchemaRef("", describe(openapi3.NewStringSchema().WithFormat("uri-reference"), "The problem type, see the description of the response for the possible values.")),
 		"title":    openapi3.NewSchemaRef("", describe(openapi3.NewStringSchema(), "The summary of the problem type, the same for every occurrence.")),
@@ -198,21 +188,7 @@ func problemSchemas(doc *openapi3.T, extensions []errorExtension) (problem, fiel
 		"instance": openapi3.NewSchemaRef("", describe(openapi3.NewStringSchema().WithFormat("uri-reference"), "The request id.")),
 		"errors":   openapi3.NewSchemaRef("", describe(fieldErrors, "The problems with the fields of the request.")),
 	}
-
-	for _, ext := range extensions {
-		if _, ok := problem.Properties[ext.name]; ok || !kebabCase.MatchString(ext.name) {
-			return nil, nil, fmt.Errorf("error extension %q: its name must be in kebab-case, and not one of the standard members", ext.name)
-		}
-		var component *openapi3.SchemaRef
-		if doc.Components != nil {
-			component = doc.Components.Schemas[ext.schema]
-		}
-		if component == nil {
-			return nil, nil, fmt.Errorf("error extension %q: schema %q is not a component of the spec", ext.name, ext.schema)
-		}
-		problem.Properties[ext.name] = &openapi3.SchemaRef{Ref: "#/components/schemas/" + ext.schema, Value: component.Value}
-	}
-	return problem, fieldError, nil
+	return problem, fieldError
 }
 
 func describe(s *openapi3.Schema, description string) *openapi3.Schema {
@@ -222,7 +198,7 @@ func describe(s *openapi3.Schema, description string) *openapi3.Schema {
 
 // renderErrorResponses replaces x-errors by the error responses of each operation, described by the Problem schema
 // generated from fxhttp.Error, and lists the error types of the service in x-problems
-func renderErrorResponses(doc *openapi3.T, catalog *errorCatalog, extensions []errorExtension) error {
+func renderErrorResponses(doc *openapi3.T, catalog *errorCatalog) error {
 	usesErrors := false
 	for _, item := range doc.Paths.Map() {
 		for _, op := range item.Operations() {
@@ -240,10 +216,7 @@ func renderErrorResponses(doc *openapi3.T, catalog *errorCatalog, extensions []e
 	}
 
 	// The schemas are always the ones of fxhttp.Error, even when the spec describes them itself
-	problem, fieldError, err := problemSchemas(doc, extensions)
-	if err != nil {
-		return err
-	}
+	problem, fieldError := problemSchemas()
 	if doc.Components.Schemas == nil {
 		doc.Components.Schemas = openapi3.Schemas{}
 	}

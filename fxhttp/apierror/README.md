@@ -86,4 +86,5 @@ itself an API error.
 `errors.Is(err, ErrKeyDisabled)` matches any occurrence of the type. `From` and `TypeOf` retrieve the API error of an
 error chain; errors which are not API errors are `Internal`.
 
-Service specific members can be added to the response with `WithExtension`. Their names are in kebab-case.
+Responses have no service specific members, so that every service shares one Problem schema: put what the client
+needs to know in the detail.

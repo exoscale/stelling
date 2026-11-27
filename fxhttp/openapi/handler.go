@@ -86,7 +86,7 @@ func NewHandler(surfaces []*Surface, opts ...Option) (http.Handler, error) {
 			continue
 		}
 
-		rendered, err := s.Spec.Render(append(slices.Clone(opts), s.SpecOptions...)...)
+		rendered, err := s.Spec.Render(opts...)
 		if err != nil {
 			return nil, fmt.Errorf("surface %q: %w", s.Name, err)
 		}

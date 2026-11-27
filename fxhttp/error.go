@@ -15,14 +15,13 @@ const ContentType = "application/problem+json"
 const typeBlank = "about:blank"
 
 type Error struct {
-	Status     int
-	Type       string
-	Title      string
-	Detail     string
-	Instance   string
-	Errors     []apierror.Field
-	Extensions map[string]any
-	Cause      error
+	Status   int
+	Type     string
+	Title    string
+	Detail   string
+	Instance string
+	Errors   []apierror.Field
+	Cause    error
 }
 
 func (e *Error) Error() string {
@@ -42,13 +41,7 @@ func (e *Error) Unwrap() error {
 
 func (e Error) MarshalJSON() ([]byte, error) {
 	d := e.withDefaults()
-	members := make(map[string]any, len(d.Extensions)+6)
-	for k, v := range d.Extensions {
-		members[k] = v
-	}
-	members["type"] = d.Type
-	members["title"] = d.Title
-	members["status"] = d.Status
+	members := map[string]any{"type": d.Type, "title": d.Title, "status": d.Status}
 	if d.Detail != "" {
 		members["detail"] = d.Detail
 	}
@@ -81,18 +74,11 @@ func (e *Error) UnmarshalJSON(data []byte) error {
 		case "instance":
 			err = json.Unmarshal(v, &parsed.Instance)
 		case "errors":
-			// Services which do not use this format yet send other shapes: keep them as an extension rather than lose them
+			// Services which do not use this format yet send other shapes, which are left out
 			var fields []apierror.Field
 			if json.Unmarshal(v, &fields) == nil && !slices.ContainsFunc(fields, func(f apierror.Field) bool { return f.Code == "" }) {
 				parsed.Errors = fields
-				continue
 			}
-			fallthrough
-		default:
-			if parsed.Extensions == nil {
-				parsed.Extensions = map[string]any{}
-			}
-			parsed.Extensions[k] = v
 		}
 		if err != nil {
 			return fmt.Errorf("invalid error member %q: %w", k, err)
@@ -131,7 +117,7 @@ func ErrorFromAPIError(p *apierror.Error) *Error {
 	if t == nil {
 		t = apierror.TypeOf(nil)
 	}
-	return &Error{Status: t.Status(), Type: t.ID(), Title: t.Title, Detail: p.Detail, Errors: p.Fields, Extensions: p.Extensions, Cause: p}
+	return &Error{Status: t.Status(), Type: t.ID(), Title: t.Title, Detail: p.Detail, Errors: p.Fields, Cause: p}
 }
 
 // errorFrom converts any error into an *Error
@@ -164,11 +150,7 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 		recordError(r.Context(), e)
 	}
 
-	body, mErr := json.Marshal(e)
-	if mErr != nil {
-		e.Extensions = nil
-		body, _ = json.Marshal(e)
-	}
+	body, _ := json.Marshal(e) // its members are strings, numbers and field errors, which always marshal
 
 	w.Header().Set("Content-Type", ContentType)
 	w.Header().Set("Content-Language", "en")

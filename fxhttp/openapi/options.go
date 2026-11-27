@@ -10,7 +10,6 @@ import (
 type options struct {
 	requestErrorHandler func(http.ResponseWriter, *http.Request, error)
 	errorTypes          []*apierror.Type
-	errorExtensions     []errorExtension
 	contractViolation   func(r *http.Request, operationID string, e *fxhttp.Error, reason string)
 }
 
@@ -31,14 +30,6 @@ func WithRequestErrorHandler(h func(http.ResponseWriter, *http.Request, error)) 
 func WithErrorTypes(types ...*apierror.Type) Option {
 	return func(o *options) {
 		o.errorTypes = append(o.errorTypes, types...)
-	}
-}
-
-// WithErrorExtension documents a service specific member of the error responses in the rendered specification
-// schemaComponent is the name of the component schema of the specification describing the member
-func WithErrorExtension(name, schemaComponent string) Option {
-	return func(o *options) {
-		o.errorExtensions = append(o.errorExtensions, errorExtension{name: name, schema: schemaComponent})
 	}
 }
 

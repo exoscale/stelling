@@ -119,7 +119,6 @@ func TestErrorFromResponse(t *testing.T) {
 		require.Equal(t, "#/thing/exists", e.Type)
 		require.Equal(t, "Thing exists", e.Title)
 		require.Equal(t, "thing 42", e.Detail)
-		require.Contains(t, e.Extensions, "thing-id")
 	})
 
 	t.Run("Should use the body as detail when it is not an error response", func(t *testing.T) {

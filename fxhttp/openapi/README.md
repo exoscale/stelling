@@ -79,8 +79,8 @@ The surfaces are collected from the `openapi_surfaces` value group, see `Surface
 ## Options
 * WithRequestErrorHandler
   Replaces the handler writing the response of requests that fail validation, decoding or binding
-* WithErrorTypes and WithErrorExtension
-  Document the error types and the service specific members of the error responses, see below
+* WithErrorTypes
+  Documents the error types of the service, see below
 * WithContractViolationHandler
   Called when an operation writes an error response it does not declare, see below
 
@@ -127,9 +127,9 @@ production. Request validation failures and server errors (5xx) are always allow
 
 * External references are inlined, under the name the components have in their own file
 * The error responses of the operations using `x-errors` are declared, grouped by status. Their description lists
-  the error types, with an example for each of them. Their schema is `Problem`, generated from `fxhttp.Error`
-  and the extensions registered with `WithErrorExtension`, whose names must be in kebab-case. It replaces any
-  `Problem` schema of the specification, and its field errors are described by `ProblemFieldError`
+  the error types, with an example for each of them. Their schema is `Problem`, generated from `fxhttp.Error`, the
+  same for every service. It replaces any `Problem` schema of the specification, and its field errors are described
+  by `ProblemFieldError`
 * `x-problems` lists every error type the service can return, shared and its own with their parent, and the codes of
   the field errors. public-api checks it against its table
 * `x-errors` is removed
@@ -147,9 +147,6 @@ func main() {
 ```
 
 `RenderMain` takes a `-check` flag to verify the files are up to date instead of writing them.
-
-Options which only apply to one specification, such as an error extension only some surfaces return, are set
-in `Surface.SpecOptions` for the served specification and `RenderTarget.Options` for the rendered file.
 
 ## Specification conventions
 * Every operation has an `operationId`

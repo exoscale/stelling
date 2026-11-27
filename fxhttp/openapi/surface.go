@@ -22,9 +22,6 @@ type Surface struct {
 	// SpecAliases are additional paths serving the specification, next to <BasePath>/openapi.yaml
 	// They require ServeSpec
 	SpecAliases []string
-	// SpecOptions are applied, after the options of the handler, to render the served specification
-	// Use them for options specific to the specification of this surface, such as WithErrorExtension
-	SpecOptions []Option
 	// Mount returns the handler of the surface, typically built from code generated from the specification
 	// The handler must use the error handlers of the MountOptions, and be mounted under its BaseURL
 	Mount func(MountOptions) http.Handler

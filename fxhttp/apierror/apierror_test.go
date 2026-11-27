@@ -82,13 +82,6 @@ func TestAccessors(t *testing.T) {
 	require.Equal(t, Internal, TypeOf(errors.New("plain")).Shared(), "errors which are not API errors are internal")
 }
 
-func TestWithExtension(t *testing.T) {
-	err := ErrThingLocked.WithExtension("owner", "migration")
-	require.Equal(t, map[string]any{"owner": "migration"}, err.Extensions)
-	require.Nil(t, ErrThingLocked.Extensions, "the sentinel must not be modified")
-	require.ErrorIs(t, err, ErrThingLocked)
-}
-
 func TestErrorWithFields(t *testing.T) {
 	err := ErrThingLocked.Type.New("the name is taken").WithFields(F("name", CodeAlreadyExists))
 	require.Equal(t, "the name is taken", err.Detail)

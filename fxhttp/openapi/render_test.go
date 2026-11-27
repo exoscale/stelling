@@ -60,10 +60,7 @@ components:
 `
 
 func errorsOptions() []Option {
-	return []Option{
-		WithErrorTypes(ErrThingNotFound.Type, ErrThingLocked.Type),
-		WithErrorExtension("owner", "owner"),
-	}
+	return []Option{WithErrorTypes(ErrThingNotFound.Type, ErrThingLocked.Type)}
 }
 
 func mustRender(t *testing.T, spec string, opts ...Option) *openapi3.T {
@@ -90,16 +87,16 @@ func TestRender(t *testing.T) {
 		require.Contains(t, *op.Responses.Value("409").Value.Description, "The thing is locked by a running migration.", "the operation description overrides the catalog one")
 	})
 
-	t.Run("Should describe the responses with the Problem schema and an example per error type", func(t *testing.T) {
+	t.Run("Should describe the responses with the shared Problem schema and an example per error type", func(t *testing.T) {
 		media := op.Responses.Value("404").Value.Content.Get(fxhttp.ContentType)
 		require.Equal(t, "#/components/schemas/"+problemSchemaName, media.Schema.Ref)
 		require.Contains(t, media.Examples, "things/not-found")
 
 		schema := doc.Components.Schemas[problemSchemaName].Value
 		require.ElementsMatch(t, []string{"type", "title", "status"}, schema.Required)
-		require.Equal(t, "#/components/schemas/owner", schema.Properties["owner"].Ref)
+		require.ElementsMatch(t, []string{"type", "title", "status", "detail", "instance", "errors"}, keys(schema.Properties))
 		require.Equal(t, "#/components/schemas/"+fieldErrorSchemaName, schema.Properties["errors"].Value.Items.Ref)
-		openapitest.AssertErrorResponses(t, doc, &fxhttp.Error{Status: http.StatusNotFound, Extensions: map[string]any{"owner": map[string]any{"email": "a@b.c"}}})
+		openapitest.AssertErrorResponses(t, doc, &fxhttp.Error{Status: http.StatusNotFound})
 	})
 
 	t.Run("Should list the shared and the service error types, and the codes", func(t *testing.T) {
@@ -135,20 +132,10 @@ func TestRenderFailures(t *testing.T) {
 			opts: []Option{WithErrorTypes(ErrThingNotFound.Type)},
 			err:  `unknown error type "things/locked"`,
 		},
-		"unknown error extension schema": {
-			spec: errorsSpec,
-			opts: append(errorsOptions(), WithErrorExtension("tenant", "tenant")),
-			err:  `schema "tenant" is not a component`,
-		},
 		"invalid error type": {
 			spec: errorsSpec,
 			opts: []Option{WithErrorTypes(&apierror.Type{Slug: "locked", Parent: apierror.Conflict, Title: "Locked"})},
 			err:  "the slug must be <service>/<name>",
-		},
-		"error extension not in kebab-case": {
-			spec: errorsSpec,
-			opts: append(errorsOptions(), WithErrorExtension("ownerEmail", "owner")),
-			err:  `error extension "ownerEmail": its name must be in kebab-case`,
 		},
 		"error response declared twice": {
 			spec: strings.Replace(errorsSpec, "      responses:\n        '200':\n          description: The thing\n", "      responses:\n        '404': {description: Not found}\n        '200':\n          description: The thing\n", 1),
@@ -286,25 +273,4 @@ func TestHandlerErrorsAndContractCheck(t *testing.T) {
 		_, err := NewHandler([]*Surface{s})
 		require.ErrorContains(t, err, "unknown error type")
 	})
-}
-
-func TestSurfaceSpecOptions(t *testing.T) {
-	errorTypes := errorsOptions()[0]
-	s := errorsSurface(t)
-	s.SpecOptions = []Option{WithErrorExtension("owner", "owner")}
-
-	h, err := NewHandler([]*Surface{s}, errorTypes)
-	require.NoError(t, err)
-	rec := serve(t, h, http.MethodGet, "/openapi.yaml", "")
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	doc, err := openapi3.NewLoader().LoadFromData(rec.Body.Bytes())
-	require.NoError(t, err)
-	require.Contains(t, doc.Components.Schemas[problemSchemaName].Value.Properties, "owner", "the options of the surface apply to its served spec")
-
-	target := RenderTarget{Path: filepath.Join(t.TempDir(), "api.rendered.yaml"), Spec: s.Spec, Options: s.SpecOptions}
-	require.NoError(t, RenderFiles([]RenderTarget{target}, false, errorTypes))
-	rendered, err := os.ReadFile(target.Path)
-	require.NoError(t, err)
-	require.Equal(t, rec.Body.String(), string(rendered), "the rendered file is the served spec")
 }
