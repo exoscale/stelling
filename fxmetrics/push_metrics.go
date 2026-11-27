@@ -28,6 +28,7 @@ func NewPushModule(conf PushMetricsConfig) fx.Option {
 			NewGrpcServerInterceptors,
 			NewGrpcClientInterceptors,
 			NewHttpMiddleware,
+			NewHttpClientMiddleware,
 		),
 		fx.Provide(
 			func(m PushMetricsConfig) MetricsConfig { return m },

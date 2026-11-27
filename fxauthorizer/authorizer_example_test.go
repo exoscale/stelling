@@ -113,7 +113,7 @@ func Example_grpc() {
 	// Grpc metadata keys are always lowercased, so we point the extractor at "authorization" rather than the HTTP-style "Authorization"
 	conf := &GrpcConfig{}
 	rule := "request.service == 'grpc.health.v1.Health' && 'trusted-group' in jwt.parse(request.jwt).claim('groups').orValue([])"
-	args := []string{"authorizer-test", "--authorizer.idp-endpoint", idp.server.URL, "--authorizer.rule", rule, "--server.address", "localhost:8080", "--client.endpoint", "localhost:8080", "--client.insecure-connection"}
+	args := []string{"authorizer-test", "--authorizer.idp-endpoint", idp.server.URL, "--authorizer.rule", rule, "--server.address", "localhost:8082", "--client.endpoint", "localhost:8082", "--client.insecure-connection"}
 	if err := sconfig.Load(conf, args); err != nil {
 		panic(err)
 	}

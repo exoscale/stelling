@@ -31,6 +31,7 @@ func NewModule(conf MetricsConfig) fx.Option {
 			NewGrpcServerInterceptors,
 			NewGrpcClientInterceptors,
 			NewHttpMiddleware,
+			NewHttpClientMiddleware,
 		),
 		fx.Decorate(func(logger *zap.Logger) *zap.Logger {
 			return logger.Named("metrics")

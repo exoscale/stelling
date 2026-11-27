@@ -1,0 +1,71 @@
+openapi: 3.0.3
+info:
+  title: Example
+  version: 1.0.0
+paths:
+  /keys/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: update-key
+      parameters:
+        - name: dry-run
+          in: query
+          schema:
+            type: boolean
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/key'
+      responses:
+        '204':
+          description: Updated
+components:
+  schemas:
+    key:
+      type: object
+      properties:
+        name:
+          type: string
+        destination:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            zone:
+              type: string
+        historical-versions:
+          type: array
+          items:
+            type: object
+            properties:
+              version:
+                type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        source:
+          oneOf:
+            - type: object
+              properties:
+                uri:
+                  type: string
+            - type: object
+              properties:
+                key-id:
+                  type: string
+        parent:
+          $ref: '#/components/schemas/key'
