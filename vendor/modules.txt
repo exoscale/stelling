@@ -1,4 +1,4 @@
-# cel.dev/cel-go v0.32.0
+# cel.dev/cel-go v0.33.4
 ## explicit; go 1.23.0
 cel.dev/cel-go/cel
 cel.dev/cel-go/cel/async
@@ -23,7 +23,7 @@ cel.dev/cel-go/common/types/traits
 cel.dev/cel-go/interpreter
 cel.dev/cel-go/parser
 cel.dev/cel-go/parser/gen
-# cel.dev/cel-go/ext/security v0.32.0
+# cel.dev/cel-go/ext/security v0.33.3
 ## explicit; go 1.23.0
 cel.dev/cel-go/ext/security/jwt
 # cel.dev/expr v0.25.3
@@ -63,7 +63,7 @@ github.com/dprotaso/go-yit
 # github.com/dustin/go-humanize v1.1.0
 ## explicit; go 1.21
 github.com/dustin/go-humanize
-# github.com/exoscale/multiconfig v0.0.0-20260807091208-77086dc28262
+# github.com/exoscale/multiconfig v0.0.0-20261105100411-7a3c1e250964
 ## explicit; go 1.24
 github.com/exoscale/multiconfig
 # github.com/fatih/camelcase v1.0.0
@@ -75,8 +75,8 @@ github.com/fatih/structs
 # github.com/felixge/httpsnoop v1.1.0
 ## explicit; go 1.25
 github.com/felixge/httpsnoop
-# github.com/gabriel-vasile/mimetype v1.4.15
-## explicit; go 1.21
+# github.com/gabriel-vasile/mimetype v1.4.16
+## explicit; go 1.24
 github.com/gabriel-vasile/mimetype
 github.com/gabriel-vasile/mimetype/internal/cdf
 github.com/gabriel-vasile/mimetype/internal/charset
@@ -109,7 +109,7 @@ github.com/getsentry/sentry-go/internal/ratelimit
 github.com/getsentry/sentry-go/internal/telemetry
 github.com/getsentry/sentry-go/internal/util
 github.com/getsentry/sentry-go/report
-# github.com/go-jose/go-jose/v4 v4.1.5
+# github.com/go-jose/go-jose/v4 v4.1.9
 ## explicit; go 1.24.0
 github.com/go-jose/go-jose/v4
 github.com/go-jose/go-jose/v4/cipher
@@ -136,7 +136,7 @@ github.com/go-playground/locales/currency
 # github.com/go-playground/universal-translator v0.18.2
 ## explicit; go 1.26
 github.com/go-playground/universal-translator
-# github.com/go-playground/validator/v10 v10.30.5
+# github.com/go-playground/validator/v10 v10.30.6
 ## explicit; go 1.26.0
 github.com/go-playground/validator/v10
 # github.com/google/uuid v1.6.0
@@ -169,7 +169,7 @@ github.com/leodido/go-urn/scim/schema
 # github.com/mattn/go-isatty v0.0.24
 ## explicit; go 1.20
 github.com/mattn/go-isatty
-# github.com/mattn/go-sqlite3 v1.14.52
+# github.com/mattn/go-sqlite3 v1.14.53
 ## explicit; go 1.21
 github.com/mattn/go-sqlite3
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
@@ -477,8 +477,8 @@ google.golang.org/genproto/googleapis/api/httpbody
 ## explicit; go 1.26.0
 google.golang.org/genproto/googleapis/rpc/errdetails
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.84.0
-## explicit; go 1.25.0
+# google.golang.org/grpc v1.85.0
+## explicit; go 1.26.0
 google.golang.org/grpc
 google.golang.org/grpc/attributes
 google.golang.org/grpc/backoff
@@ -551,8 +551,8 @@ google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
 google.golang.org/grpc/test/bufconn
-# google.golang.org/grpc/examples v0.0.0-20260911073300-e4711283ae08
-## explicit; go 1.25.0
+# google.golang.org/grpc/examples v0.0.0-20261104142343-cbf30c413099
+## explicit; go 1.26.0
 google.golang.org/grpc/examples/route_guide/routeguide
 # google.golang.org/protobuf v1.36.12
 ## explicit; go 1.23
@@ -616,7 +616,7 @@ gorm.io/gorm/logger
 gorm.io/gorm/migrator
 gorm.io/gorm/schema
 gorm.io/gorm/utils
-# modernc.org/libc v1.78.0
+# modernc.org/libc v1.80.1
 ## explicit; go 1.26.0
 modernc.org/libc
 modernc.org/libc/errno
@@ -650,7 +650,7 @@ modernc.org/mathutil
 # modernc.org/memory v1.12.1
 ## explicit; go 1.23.0
 modernc.org/memory
-# modernc.org/sqlite v1.60.1
+# modernc.org/sqlite v1.62.0
 ## explicit; go 1.26.0
 modernc.org/sqlite
 modernc.org/sqlite/lib

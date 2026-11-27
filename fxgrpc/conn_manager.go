@@ -37,6 +37,10 @@ func NewConnManagerModule(conf ConnManagerConfig) fx.Option {
 				fx.ResultTags(`group:"grpc_client_options"`),
 			),
 			fx.Annotate(
+				grpc.WithDisableServiceConfig,
+				fx.ResultTags(`group:"grpc_client_options"`),
+			),
+			fx.Annotate(
 				WithStreamClientInterceptors,
 				fx.ParamTags(`group:"stream_client_interceptors"`),
 				fx.ResultTags(`group:"grpc_client_options"`),

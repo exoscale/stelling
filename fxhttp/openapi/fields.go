@@ -42,7 +42,6 @@ func collectFields(err error, in, name string, fields *[]apierror.Field) {
 	case *openapi3.SchemaError:
 		path := e.JSONPointer()
 		if e.SchemaField == "properties" {
-			// shortcut: kin-openapi only names an unknown property in its reason, parse it until it marks its path
 			var property string
 			if _, err := fmt.Sscanf(e.Reason, "property %q is unsupported", &property); err == nil {
 				path = append(path, property)

@@ -19,7 +19,10 @@ type WrapResponseWriter struct {
 var _ http.ResponseWriter = (*WrapResponseWriter)(nil)
 
 func NewWrapResponseWriter(w http.ResponseWriter) *WrapResponseWriter {
-	return &WrapResponseWriter{ResponseWriter: w}
+	return &WrapResponseWriter{
+		ResponseWriter: w,
+		StatusCode:     http.StatusOK,
+	}
 }
 
 func (w *WrapResponseWriter) Unwrap() http.ResponseWriter {

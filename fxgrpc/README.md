@@ -51,6 +51,7 @@ The module adds the following features to the client:
 * All the interceptors from the `unary_client_interceptor` and `stream_client_interceptor` [value groups](https://uber-go.github.io/fx/value-groups/) will be installed on the client.
   Multiple stelling modules will lazily provide interceptors already.
   See the [interceptors](./interceptors) section for more details
+* Any [service config](https://grpc.io/docs/guides/service-config/) provided by the name resolver is ignored (`grpc.WithDisableServiceConfig`), otherwise gRPC's `dns` resolver looks up a `_grpc_config.<host>` DNS TXT record on every resolution: service config set with `grpc.WithDefaultServiceConfig` still applies.
 
 ### Configuration
 The module provides the following configuration options:

@@ -3,12 +3,11 @@ package fxgrpc
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"os"
 	"time"
 
 	reloader "github.com/exoscale/stelling/fxcert-reloader"
+	"github.com/exoscale/stelling/fxhttp"
 	zapgrpc "github.com/exoscale/stelling/fxlogging/grpc"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -93,7 +92,6 @@ type GrpcClientParams struct {
 	Lc                 fx.Lifecycle
 	Conf               ClientConfig
 	Logger             *zap.Logger
-	StatsHandlers      []stats.Handler            `group:"client_stats_handler"`
 	UnaryInterceptors  []*UnaryClientInterceptor  `group:"unary_client_interceptor"`
 	StreamInterceptors []*StreamClientInterceptor `group:"stream_client_interceptor"`
 	ClientOpts         []grpc.DialOption          `group:"grpc_client_options"`
@@ -131,20 +129,11 @@ func MakeClientTLS(c ClientConfig, logger *zap.Logger) (credentials.TransportCre
 			GetClientCertificate: r.GetClientCertificate,
 		}
 
-		if conf.RootCAFile != "" {
-			certPool, err := x509.SystemCertPool()
-			if err != nil {
-				return nil, nil, err
-			}
-			ca, err := os.ReadFile(conf.RootCAFile)
-			if err != nil {
-				return nil, nil, err
-			}
-			if ok := certPool.AppendCertsFromPEM(ca); !ok {
-				return nil, nil, fmt.Errorf("failed to parse RootCAFile: %s", conf.RootCAFile)
-			}
-			tlsConf.RootCAs = certPool
+		certPool, err := fxhttp.SystemPoolWithCA(conf.RootCAFile)
+		if err != nil {
+			return nil, nil, err
 		}
+		tlsConf.RootCAs = certPool
 
 		return credentials.NewTLS(tlsConf), r, nil
 	}
@@ -164,6 +153,7 @@ func NewGrpcClient(conf ClientConfig, logger *zap.Logger, ui []*UnaryClientInter
 
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
+		grpc.WithDisableServiceConfig(),
 		WithUnaryClientInterceptors(ui),
 		WithStreamClientInterceptors(si),
 	}
@@ -190,13 +180,9 @@ func ProvideGrpcClient(p GrpcClientParams) (grpc.ClientConnInterface, error) {
 
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
+		grpc.WithDisableServiceConfig(),
 		WithUnaryClientInterceptors(p.UnaryInterceptors),
 		WithStreamClientInterceptors(p.StreamInterceptors),
-	}
-
-	// Stats handlers
-	for _, handler := range p.StatsHandlers {
-		opts = append(opts, grpc.WithStatsHandler(handler))
 	}
 
 	// Add the externally supplied options last: this allows the user to override any options we may have set already

@@ -69,7 +69,6 @@ func collectFields(spec *openapi3.T) *node {
 func walk(n *node, s *openapi3.SchemaRef, in string, visiting []*openapi3.Schema) {
 	n.ins[in] = true
 	if s == nil || s.Value == nil || slices.Contains(visiting, s.Value) {
-		// shortcut: a recursive schema is only named one level deep, name deeper levels if an API needs them
 		return
 	}
 	v := s.Value
