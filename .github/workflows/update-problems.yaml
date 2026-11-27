@@ -25,7 +25,8 @@ jobs:
       - name: Check for changes
         id: check_changes
         run: |
-          problems=$(curl -fsSL https://api-ch-gva-2.exoscale.com/v2/openapi.json | jq -S '."x-problems"')
+          # x-problems also lists the types of each service, which refine a shared type: keep the shared ones only
+          problems=$(curl -fsSL https://api-ch-gva-2.exoscale.com/v2/openapi.json | jq -S '."x-problems" | if . == null then . else .types |= with_entries(select(.value.parent == null)) end')
           if [ "$problems" = "null" ]; then
             echo "The public API spec does not publish x-problems yet"
             exit 0
